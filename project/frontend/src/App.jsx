@@ -1,21 +1,25 @@
-import { useEffect, useState } from "react";
+import { Routes, Route, Link } from "react-router-dom";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Signup from "./pages/SignUp";
+import Profile from "./pages/Profile";   // ✅ 변경
 
-function App() {
-  const [message, setMessage] = useState("불러오는 중...");
-
-  useEffect(() => {
-    fetch("/api/hello")
-      .then((res) => res.json())
-      .then((data) => setMessage(data.message))
-      .catch((err) => setMessage("에러 발생: " + err.message));
-  }, []);
-
+export default function App() {
   return (
     <div>
-      <h1>React + Flask 연결 테스트</h1>
-      <p>{message}</p>
+      <nav>
+        <Link to="/">Home</Link> |{" "}
+        <Link to="/login">Login</Link> |{" "}
+        <Link to="/signup">Signup</Link> |{" "}
+        <Link to="/profile">Profile</Link>   {/* ✅ 변경 */}
+      </nav>
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/profile" element={<Profile />} /> {/* ✅ 변경 */}
+      </Routes>
     </div>
   );
 }
-
-export default App;
