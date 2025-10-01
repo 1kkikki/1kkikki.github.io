@@ -1,42 +1,35 @@
-from flask import Flask, jsonify
-from flask_cors import CORS
-from flask_jwt_extended import JWTManager
-from extensions import db   # extensions에서 불러오기
-from models import User, Schedule
-
-app = Flask(__name__)
-CORS(app)
-
-# SQLite DB 연결
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = "super-secret-key"  # JWT용 키
-
-# DB 초기화
-db.init_app(app)
-jwt = JWTManager(app)
-
-# 블루프린트 등록
+from flask import Flask
+from extensions import db, jwt
 from routes.auth import auth_bp
 from routes.profile import profile_bp
 from routes.schedule import schedule_bp
+from flask_cors import CORS
 
-app.register_blueprint(auth_bp, url_prefix="/auth")
-app.register_blueprint(profile_bp, url_prefix="/profile")
-app.register_blueprint(schedule_bp, url_prefix="/schedule")
+def create_app():
+    app = Flask(__name__)
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["JWT_SECRET_KEY"] = "super-secret-key"  # 환경변수로 빼면 더 안전
 
+    # 확장 초기화
+    db.init_app(app)
+    jwt.init_app(app)
+    CORS(app)
 
-@app.route("/")
-def home():
-    return "Flask + SQLite 서버 동작 중!"
+    # 블루프린트 등록
+    app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(profile_bp, url_prefix="/profile")
+    app.register_blueprint(schedule_bp, url_prefix="/schedule")
 
+    @app.route("/")
+    def home():
+        return "✅ Flask API 서버 실행 중!"
 
-@app.route("/users")
-def users():
-    return jsonify([{"id": u.id, "name": u.name} for u in User.query.all()])
+    return app
 
 
 if __name__ == "__main__":
+    app = create_app()
     with app.app_context():
         db.create_all()
     app.run(debug=True)

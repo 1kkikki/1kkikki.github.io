@@ -1,14 +1,11 @@
-# backend/models.py
-from datetime import datetime
-from extensions import db   # app이 아니라 extensions에서 불러오기
+from extensions import db
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(50), nullable=False)
-    password = db.Column(db.String(200), nullable=False)
+    password = db.Column(db.LargeBinary, nullable=False)  # bcrypt → binary 저장
     role = db.Column(db.String(20), default="student")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Schedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -16,6 +13,7 @@ class Schedule(db.Model):
     date = db.Column(db.String(20), nullable=False)
     start_time = db.Column(db.String(10), nullable=False)
     end_time = db.Column(db.String(10), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
-    team_id = db.Column(db.String(20))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    team_id = db.Column(db.Integer, nullable=False)
+
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user = db.relationship("User", backref=db.backref("schedules", lazy=True))

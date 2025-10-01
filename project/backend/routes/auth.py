@@ -1,6 +1,5 @@
-# backend/routes/auth.py
 from flask import Blueprint, request, jsonify
-from extensions import db   # ⬅ app이 아니라 extensions에서 db 불러오기
+from extensions import db
 from models import User
 import bcrypt
 from flask_jwt_extended import create_access_token
