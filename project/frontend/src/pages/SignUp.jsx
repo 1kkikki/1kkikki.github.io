@@ -1,31 +1,47 @@
-import "./Signup.css";
+import { useState } from "react";
+import { register } from "../api/auth";
 
 export default function Signup() {
+  const [form, setForm] = useState({ student_id: "", name: "", password: "" });
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async () => {
+    const res = await register({ ...form, role: "student" });
+    alert(res.msg || res.error);
+  };
+
   return (
-    <div className="auth">
-      <div className="content">
-        <div className="copy">
-          <h1>계정 생성</h1>
-          <p>앱에 가입하려면 이메일을 입력하세요</p>
-        </div>
+    <div>
+      <h1>계정 생성</h1>
 
-        <input type="email" placeholder="이메일 입력" className="field" />
-        <button className="button">이메일로 가입하기</button>
+      <input
+        type="text"
+        name="student_id"
+        placeholder="학번 입력"
+        onChange={handleChange}
+      />
+      <br />
 
-        <div className="divider">
-          <span className="divider-line"></span>
-          <span>또는 아래 Google 계정으로 가입</span>
-          <span className="divider-line"></span>
-        </div>
+      <input
+        type="text"
+        name="name"
+        placeholder="이름 입력"
+        onChange={handleChange}
+      />
+      <br />
 
-        <div className="google-btn">
-          <span>Google로 가입</span>
-        </div>
+      <input
+        type="password"
+        name="password"
+        placeholder="비밀번호 입력"
+        onChange={handleChange}
+      />
+      <br />
 
-        <p style={{ fontSize: "12px", color: "#828282", textAlign: "center" }}>
-          ‘가입하기’를 클릭함으로써, 이용약관 및 개인정보 처리방침에 동의하는 것으로 간주됩니다
-        </p>
-      </div>
+      <button onClick={handleSubmit}>회원가입</button>
     </div>
   );
 }
