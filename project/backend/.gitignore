@@ -1,0 +1,7 @@
+# 가상환경
+.venv/
+__pycache__/
+*.pyc
+
+# SQLite DB 파일
+db.sqlite3
