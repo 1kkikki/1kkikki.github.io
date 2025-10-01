@@ -24,3 +24,28 @@ export async function login(credentials) {
   return data;
 }
 
+// 프로필 조회
+export async function getProfile() {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_URL}/profile/`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  });
+  return await res.json();
+}
+
+// 프로필 수정
+export async function updateProfile(data) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_URL}/profile/`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return await res.json();
+}

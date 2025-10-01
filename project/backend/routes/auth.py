@@ -33,5 +33,5 @@ def login():
     if not user or not bcrypt.checkpw(password.encode("utf-8"), user.password):
         return jsonify({"msg": "아이디 또는 비밀번호가 틀렸습니다."}), 401
 
-    token = create_access_token(identity=user.id)
+    token = create_access_token(identity=str(user.id))
     return jsonify({"access_token": token})
