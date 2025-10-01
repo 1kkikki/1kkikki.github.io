@@ -1,0 +1,75 @@
+# ============================
+# Backend (Python / Flask)
+# ============================
+
+# Python 가상환경
+.venv/
+venv/
+project/backend/venv/
+project/venv/
+
+# Python 캐시 파일
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python 빌드 결과물
+*.egg-info/
+dist/
+build/
+
+# SQLite DB 파일
+db.sqlite3
+
+# Logs (백엔드 로그)
+logs/
+*.log
+
+
+# ============================
+# Frontend (React / Node.js)
+# ============================
+
+# Node.js 의존성 & 빌드 산출물
+project/frontend/node_modules/
+project/frontend/dist/
+dist-ssr/
+*.local
+
+# Logs (프론트엔드 빌드/런타임 로그)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+
+# ============================
+# 공통 (개발 환경 / OS)
+# ============================
+
+# 환경 변수 파일
+.env
+*.env
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+
+# JetBrains IDE (WebStorm, PyCharm 등)
+.idea
+
+# Visual Studio 관련
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# 기타 에디터
+*.sw?
+
+# OS 자동 생성 파일
+.DS_Store
+Thumbs.db
+
