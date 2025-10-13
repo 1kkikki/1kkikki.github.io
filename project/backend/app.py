@@ -14,7 +14,7 @@ def create_app():
     # 확장 초기화
     db.init_app(app)
     jwt.init_app(app)
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
 
     # 블루프린트 등록
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -26,7 +26,6 @@ def create_app():
         return "✅ Flask API 서버 실행 중!"
 
     return app
-
 
 if __name__ == "__main__":
     app = create_app()
