@@ -1,19 +1,20 @@
 from extensions import db
+from datetime import datetime
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.String(20), unique=True, nullable=False)
+    student_id = db.Column(db.String(20), nullable=False)
     name = db.Column(db.String(50), nullable=False)
-    password = db.Column(db.LargeBinary, nullable=False)  # bcrypt → binary 저장
-    role = db.Column(db.String(20), default="student")
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class Schedule(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    date = db.Column(db.String(20), nullable=False)
-    start_time = db.Column(db.String(10), nullable=False)
-    end_time = db.Column(db.String(10), nullable=False)
-    team_id = db.Column(db.Integer, nullable=False)
-
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    user = db.relationship("User", backref=db.backref("schedules", lazy=True))
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "student_id": self.student_id,
+            "name": self.name,
+            "email": self.email,
+            "username": self.username,
+        }
