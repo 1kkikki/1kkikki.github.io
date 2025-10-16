@@ -73,5 +73,6 @@ lerna-debug.log*
 .DS_Store
 Thumbs.db
 
+# SQLite DB
 instance/
 *.db

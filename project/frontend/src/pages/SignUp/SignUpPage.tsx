@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { register } from "../../api/auth.js";
 import "./signup-page.css";
 
 interface SignUpPageProps {
@@ -22,12 +23,35 @@ export default function SignUpPage({ onNavigate }: SignUpPageProps) {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       alert("비밀번호가 일치하지 않습니다.");
       return;
     }
+    try {
+    // Flask 서버로 POST 요청 보내기
+    const res = await register({
+      studentId: formData.studentId,
+      name: formData.name,
+      email: formData.email,
+      username: formData.username,
+      password: formData.password
+    });
+
+    // 응답 처리
+    if (res.message === "회원가입 성공") {
+      alert("✅ 회원가입이 완료되었습니다!");
+      console.log("회원 정보:", res.user);
+      onNavigate("login"); // 회원가입 후 로그인 화면으로 이동
+    } else {
+      alert(`⚠️ ${res.message || "회원가입 실패"}`);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("서버 오류가 발생했습니다.");
+  }
+
     // 회원가입 로직 추가 예정
     console.log("Sign up attempt:", formData);
   };
