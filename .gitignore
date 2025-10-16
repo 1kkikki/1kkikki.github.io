@@ -1,64 +1,82 @@
 # ============================
-# Backend (Python / Flask)
+# 🧩 Backend (Python / Flask)
 # ============================
 
 # Python 가상환경
 .venv/
 venv/
+project/backend/.venv/
 project/backend/venv/
 project/venv/
 
-# Python 캐시 파일
+# Python 캐시 및 빌드 파일
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Python 빌드 결과물
 *.egg-info/
 dist/
 build/
 
-# SQLite DB 파일
+# SQLite 데이터베이스
+*.db
+project/backend/instance/
+project/backend/project.db
+project/backend/instance/project.db
 db.sqlite3
 
 # Logs (백엔드 로그)
 logs/
 *.log
 
+# Flask 환경 변수
+.env
+.env.*
+*.env
+
 
 # ============================
-# Frontend (React / Node.js)
+# ⚛️ Frontend (React / Node.js)
 # ============================
 
-# Node.js 의존성 & 빌드 산출물
+# Node 의존성
 project/frontend/node_modules/
-project/frontend/dist/
-dist-ssr/
-*.local
+frontend/node_modules/
+node_modules/
 
-# Logs (프론트엔드 빌드/런타임 로그)
+# 빌드 결과물
+project/frontend/dist/
+frontend/dist/
+dist/
+dist-ssr/
+
+# Vite 캐시 / 환경
+.vite/
+project/frontend/.vite/
+
+# 로그 파일
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# 환경 변수
+project/frontend/.env
+frontend/.env
+*.local
+
 
 # ============================
-# 공통 (개발 환경 / OS)
+# ⚙️ IDE / 개발환경 설정
 # ============================
-
-# 환경 변수 파일
-.env
-*.env
 
 # VS Code
-.vscode/*
+.vscode/
 !.vscode/extensions.json
 
-# JetBrains IDE (WebStorm, PyCharm 등)
-.idea
+# JetBrains (PyCharm, WebStorm 등)
+.idea/
 
 # Visual Studio 관련
 *.suo
@@ -66,13 +84,39 @@ lerna-debug.log*
 *.njsproj
 *.sln
 
-# 기타 에디터
+# 기타 에디터 임시파일
 *.sw?
+*.bak
+*.tmp
 
-# OS 자동 생성 파일
+
+# ============================
+# 💻 운영체제 / 기타
+# ============================
+
+# macOS
 .DS_Store
-Thumbs.db
+.AppleDouble
+.LSOverride
 
-# SQLite DB
-instance/
-*.db
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ============================
+# 🚫 기타 공통
+# ============================
+
+# 백업 / 임시 파일
+__MACOSX/
+*.old
+*.orig
+
+# 패키지 락 파일 (선택적으로 제외 가능)
+# => 충돌 방지용으로 제외 권장 (팀 합의 시만)
+# package-lock.json
+# yarn.lock
