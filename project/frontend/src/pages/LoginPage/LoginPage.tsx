@@ -15,8 +15,18 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 로그인 로직 추가 예정
-    console.log("Login attempt:", { email, password, rememberMe });
+
+    const credentials = { email, password };
+    const data = await login(credentials);
+
+    if (data.access_token) {
+      console.log("✅ 로그인 성공:", data);
+      alert(`환영합니다, ${data.user.name}님!`);
+      onNavigate("dashboard");
+    } else {
+      console.error("❌ 로그인 실패:", data.message);
+      setError(data.message || "로그인 실패. 다시 시도해주세요.");
+    }
   };
 
   return (

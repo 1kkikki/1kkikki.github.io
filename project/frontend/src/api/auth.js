@@ -3,7 +3,6 @@ const API_URL = "/auth";
 // ✅ 회원가입
 export async function register(userData) {
   try {
-    // ✅ 여기 수정: `/auth/register` → `/register`
     const res = await fetch(`${API_URL}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
