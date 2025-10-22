@@ -4,7 +4,10 @@ export async function getProfile() {
   const token = localStorage.getItem("token");
   const res = await fetch(`${API_URL}/profile/`, {
     method: "GET",
-    headers: { Authorization: `Bearer ${token}` }
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    }
   });
   return await res.json();
 }

@@ -65,7 +65,7 @@ def login():
         return jsonify({"message": "잘못된 이메일/아이디 또는 비밀번호입니다."}), 401
 
     # 🔸 JWT 토큰 발급 (1시간 유효)
-    access_token = create_access_token(identity=user.id, expires_delta=timedelta(hours=1))
+    access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=1))
 
     return jsonify({
         "message": "로그인 성공",

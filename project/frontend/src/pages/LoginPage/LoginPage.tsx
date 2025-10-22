@@ -22,7 +22,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
     if (data.access_token) {
       console.log("✅ 로그인 성공:", data);
       alert(`환영합니다, ${data.user.name}님!`);
-      onNavigate("home"); // 로그인 성공 후 이동 (원하는 페이지 이름)
+      onNavigate("dashboard");
     } else {
       console.error("❌ 로그인 실패:", data.message);
       setError(data.message || "로그인 실패. 다시 시도해주세요.");
