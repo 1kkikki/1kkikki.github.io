@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from "react";
 import { register } from "../../api/auth";  // ✅ Flask와 통신하는 함수
 import "./signup-page.css";

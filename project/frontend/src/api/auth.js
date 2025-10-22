@@ -1,9 +1,10 @@
-const API_URL = "http://127.0.0.1:5000";
+const API_URL = "/auth";
 
 // ✅ 회원가입
 export async function register(userData) {
   try {
-    const res = await fetch(`${API_URL}/auth/register`, {
+    // ✅ 여기 수정: `/auth/register` → `/register`
+    const res = await fetch(`${API_URL}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(userData),
@@ -11,8 +12,8 @@ export async function register(userData) {
 
     const data = await res.json();
     return {
-      status: res.status, // 🔹 HTTP 상태코드 함께 반환
-      ...data,            // 🔹 서버에서 보낸 JSON 병합
+      status: res.status,
+      ...data,
     };
   } catch (error) {
     console.error("회원가입 API 오류:", error);
@@ -23,7 +24,8 @@ export async function register(userData) {
 // ✅ 로그인
 export async function login(credentials) {
   try {
-    const res = await fetch(`${API_URL}/auth/login`, {
+    // ✅ 여기도 `/auth/login` → `/login`
+    const res = await fetch(`${API_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
@@ -33,6 +35,7 @@ export async function login(credentials) {
 
     if (data.access_token) {
       localStorage.setItem("token", data.access_token);
+      localStorage.setItem("user", JSON.stringify(data.user));
     }
 
     return {
