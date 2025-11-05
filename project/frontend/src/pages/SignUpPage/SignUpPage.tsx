@@ -1,6 +1,6 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState } from "react";
 import "./signup-page.css";
+import { register } from "../../api/auth";
 
 interface SignUpPageProps {
   onNavigate: (page: string) => void;
@@ -30,8 +30,25 @@ export default function SignUpPage({ onNavigate }: SignUpPageProps) {
       alert("비밀번호가 일치하지 않습니다.");
       return;
     }
-    // 회원가입 로직 추가 예정
-    console.log("Sign up attempt:", formData);
+    try {
+    const response = await register({
+      studentId: formData.studentId,
+      name: formData.name,
+      email: formData.email,
+      username: formData.username,
+      password: formData.password,
+    });
+
+    if (response.status === 201) {
+      alert("회원가입이 완료되었습니다!");
+      onNavigate("login");
+    } else {
+      alert(`회원가입 실패: ${response.message || "다시 시도해주세요."}`);
+    }
+  } catch (error) {
+    console.error("회원가입 중 오류:", error);
+    alert("서버 오류가 발생했습니다.");
+  }
   };
 
   return (
