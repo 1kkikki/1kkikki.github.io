@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Settings, Lock, Palette, Shield, FileText, Eye, EyeOff } from "lucide-react";
 import "./my-page.css";
-import { getProfile, updateProfile } from "../../api/profile";
+import { getProfile, updateProfile, changePassword } from "../../api/profile";
 
 interface MyPageProps {
   onNavigate: (page: string) => void;
@@ -41,6 +41,10 @@ export default function MyPage({ onNavigate }: MyPageProps) {
       setName(data.profile.name);
       setEmail(data.profile.email);
       setStudentId(data.profile.student_id);
+      
+      if (data.profile.profile_image) {
+        setProfileImage(data.profile.profile_image);
+      }
     } else if (data.error) {
       alert("로그인이 필요합니다.");
       onNavigate("login");
@@ -96,7 +100,7 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     });
   };
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
       alert("새 비밀번호가 일치하지 않습니다.");
       return;
@@ -105,11 +109,20 @@ export default function MyPage({ onNavigate }: MyPageProps) {
       alert("비밀번호는 8자 이상이어야 합니다.");
       return;
     }
-    console.log("비밀번호 변경:", { currentPassword, newPassword });
-    alert("비밀번호가 변경되었습니다.");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+    try {
+    const res = await changePassword(currentPassword, newPassword);
+    if (res.message) {
+      alert(res.message);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } else {
+      alert(res.error || "비밀번호 변경 실패");
+    }
+  } catch (error) {
+    alert("서버 오류가 발생했습니다.");
+    console.error(error);
+  }
   };
 
   const handleSave = async () => {

@@ -3,7 +3,7 @@ const API_URL = "http://127.0.0.1:5000";
 
 // 프로필 불러오기
 export async function getProfile() {
-  const token = localStorage.getItem("access_token");
+  const token = localStorage.getItem("token");
   try {
     const res = await fetch(`${API_URL}/profile/`, {
       method: "GET",
@@ -23,8 +23,8 @@ export async function getProfile() {
 }
 
 // 프로필 업데이트
-export async function updateProfile(updateData: { name: string; email: string }) {
-  const token = localStorage.getItem("access_token");
+export async function updateProfile(updateData: { name: string; email: string; profileImage?: string | null;}) {
+  const token = localStorage.getItem("token");
   try {
     const res = await fetch(`${API_URL}/profile/`, {
       method: "PUT",
@@ -40,6 +40,27 @@ export async function updateProfile(updateData: { name: string; email: string })
     return data; // {"message": "...", "profile": {...}}
   } catch (error) {
     console.error("프로필 업데이트 오류:", error);
+    return { error };
+  }
+}
+
+// 비밀번호 변경
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const token = localStorage.getItem("token");
+  try {
+    const res = await fetch("http://127.0.0.1:5000/profile/password", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("비밀번호 변경 오류:", error);
     return { error };
   }
 }
