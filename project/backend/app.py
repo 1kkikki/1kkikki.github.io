@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_cors import CORS
 from extensions import db, bcrypt, jwt
@@ -7,8 +8,11 @@ from routes.profile import profile_bp
 def create_app():
     app = Flask(__name__)
 
+    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+    DB_PATH = os.path.join(BASE_DIR, "instance", "project.db")
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+
     # 기본 설정
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JWT_SECRET_KEY"] = "super-secret-key"  # 실제 배포 시엔 환경변수로
 
@@ -35,9 +39,9 @@ def create_app():
 
     return app
 
-
 if __name__ == "__main__":
     app = create_app()
     with app.app_context():
+        from models import User 
         db.create_all()
     app.run(host="127.0.0.1", port=5000, debug=True)
