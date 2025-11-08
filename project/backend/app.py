@@ -33,6 +33,11 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(profile_bp, url_prefix="/profile")
 
+    with app.app_context():
+        from models import User
+        db.create_all()
+        print("✅ Database initialized successfully!")
+
     @app.route("/")
     def index():
         return {"message": "✅ Flask backend running!"}
@@ -41,7 +46,4 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    with app.app_context():
-        from models import User 
-        db.create_all()
     app.run(host="127.0.0.1", port=5000, debug=True)

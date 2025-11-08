@@ -6,13 +6,13 @@ from datetime import timedelta
 
 auth_bp = Blueprint("auth", __name__)
 
-# -------------------------------
-# ✅ 회원가입
-# -------------------------------
+# =====================================================
+# ✅ 회원가입 (교수 / 학생 구분)
+# =====================================================
 @auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
-    required_fields = ["studentId", "name", "email", "username", "password"]
+    required_fields = ["studentId", "name", "email", "username", "password", "userType"]
 
     # 🔸 필수값 확인
     if not all(field in data for field in required_fields):
@@ -27,13 +27,14 @@ def register():
     # 🔸 비밀번호 해싱
     hashed_pw = bcrypt.generate_password_hash(data["password"]).decode("utf-8")
 
-    # 🔸 새 사용자 등록
+    # 🔸 새 사용자 등록 (교수 / 학생 구분 저장)
     new_user = User(
         student_id=data["studentId"],
         name=data["name"],
         email=data["email"],
         username=data["username"],
-        password_hash=hashed_pw
+        password_hash=hashed_pw,
+        user_type=data["userType"]  # ✅ "student" or "professor"
     )
 
     db.session.add(new_user)
@@ -46,16 +47,16 @@ def register():
     }), 201
 
 
-# -------------------------------
+# =====================================================
 # ✅ 로그인
-# -------------------------------
+# =====================================================
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    username_or_email = data.get("email")  # 프론트에서 email로 보내는 중
+    username_or_email = data.get("email")  # 프론트에서 email 필드로 보냄
     password = data.get("password")
 
-    # 🔸 사용자 찾기 (아이디 또는 이메일)
+    # 🔸 사용자 찾기 (이메일 또는 아이디로)
     user = User.query.filter(
         (User.email == username_or_email) | (User.username == username_or_email)
     ).first()
@@ -67,8 +68,10 @@ def login():
     # 🔸 JWT 토큰 발급 (1시간 유효)
     access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=1))
 
+    # 🔸 성공 응답 (userType 포함)
     return jsonify({
         "message": "로그인 성공",
         "access_token": access_token,
-        "user": user.to_dict()
+        "user": user.to_dict(),      # 사용자 정보
+        "userType": user.user_type   # ✅ 교수/학생 구분 포함
     }), 200

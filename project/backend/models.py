@@ -10,6 +10,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     profile_image = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_type = db.Column(db.String(20), nullable=False, default="student")  # ✅ 추가됨
 
     def to_dict(self):
         return {
@@ -19,4 +20,5 @@ class User(db.Model):
             "email": self.email,
             "username": self.username,
             "profile_image": self.profile_image,
+            "userType": self.user_type  # ✅ 추가됨
         }
