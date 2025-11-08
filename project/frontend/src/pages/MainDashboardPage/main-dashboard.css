@@ -50,7 +50,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 20px;
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+  background: #a855f7;
   color: white;
   border: none;
   border-radius: 8px;
@@ -62,6 +62,7 @@
 }
 
 .dashboard__mypage-button:hover {
+  background: #9333ea;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
@@ -258,7 +259,7 @@
 }
 
 .dashboard__notifications-icon {
-  color: #3b82f6;
+  color: #a855f7;
   flex-shrink: 0;
 }
 
@@ -275,8 +276,8 @@
 }
 
 .dashboard__notifications-count {
-  background: #dbeafe;
-  color: #1e40af;
+  background: #f3e8ff;
+  color: #7e22ce;
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
@@ -326,7 +327,7 @@
 }
 
 .dashboard__notification-card--info {
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid #a855f7;
 }
 
 .dashboard__notification-icon-wrapper {
@@ -345,7 +346,7 @@
 }
 
 .dashboard__notification-card--info .dashboard__notification-icon-wrapper {
-  color: #3b82f6;
+  color: #a855f7;
 }
 
 .dashboard__notification-content {
@@ -364,7 +365,7 @@
 .dashboard__notification-course {
   font-size: 11px;
   font-weight: 500;
-  color: #3b82f6;
+  color: #a855f7;
 }
 
 .dashboard__notification-time {
@@ -610,9 +611,9 @@
 }
 
 .dashboard__calendar-cell--today {
-  background: #dbeafe;
-  border: 2px solid #60a5fa;
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.2);
+  background: #f3e8ff;
+  border: 2px solid #a855f7;
+  box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.2);
 }
 
 .dashboard__calendar-date {
@@ -628,7 +629,7 @@
 }
 
 .dashboard__calendar-cell--today .dashboard__calendar-date {
-  color: #2563eb;
+  color: #9333ea;
 }
 
 .dashboard__calendar-events {
@@ -704,14 +705,14 @@
 }
 
 .dashboard__action-button--primary {
-  background: #3b82f6;
+  background: #a855f7;
   color: white;
   border-color: transparent;
 }
 
 .dashboard__action-button--primary:hover {
-  background: #2563eb;
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+  background: #9333ea;
+  box-shadow: 0 6px 16px rgba(168, 85, 247, 0.3);
 }
 
 /* ===================================
@@ -761,7 +762,7 @@
 }
 
 .dashboard__available-times-icon {
-  color: #3b82f6;
+  color: #a855f7;
 }
 
 .dashboard__available-times-title {
@@ -777,8 +778,8 @@
 }
 
 .dashboard__available-times-count {
-  background: #dbeafe;
-  color: #1e40af;
+  background: #f3e8ff;
+  color: #7e22ce;
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 12px;
@@ -786,7 +787,7 @@
 }
 
 .dashboard__available-times-add {
-  background: #3b82f6;
+  background: #a855f7;
   color: white;
   border: none;
   border-radius: 12px;
@@ -797,13 +798,13 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
 
 .dashboard__available-times-add:hover {
   transform: translateY(-3px) scale(1.05);
-  background: #2563eb;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+  background: #9333ea;
+  box-shadow: 0 8px 20px rgba(147, 51, 234, 0.4);
 }
 
 .dashboard__available-times-add:active {
@@ -1232,15 +1233,15 @@
 }
 
 .time-form-day-button--active {
-  background: #3b82f6;
+  background: #a855f7;
   color: white;
-  border-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  border-color: #a855f7;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
 
 .time-form-day-button--active:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #9333ea;
+  border-color: #9333ea;
 }
 
 .time-form-time-row {
@@ -1305,8 +1306,8 @@
 
 .time-form-select-small:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  border-color: #a855f7;
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.15);
 }
 
 .time-form-separator {
@@ -1335,7 +1336,7 @@
 }
 
 .time-form-add-button {
-  background: #3b82f6;
+  background: #a855f7;
   color: white;
   border: none;
   border-radius: 14px;
@@ -1348,13 +1349,13 @@
   justify-content: center;
   gap: 8px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.3);
 }
 
 .time-form-add-button:hover {
   transform: translateY(-3px);
-  background: #2563eb;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+  background: #9333ea;
+  box-shadow: 0 8px 24px rgba(147, 51, 234, 0.4);
 }
 
 .time-list {
@@ -1492,15 +1493,15 @@
 }
 
 .modal-button--primary {
-  background: #3b82f6;
+  background: #a855f7;
   color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
 }
 
 .modal-button--primary:hover {
   transform: translateY(-2px);
-  background: #2563eb;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  background: #9333ea;
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
 }
 
 .modal-button--danger {
@@ -1574,8 +1575,8 @@
 .event-form-input:focus,
 .event-form-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
 }
 
 .event-form-row {
@@ -1587,9 +1588,9 @@
 .event-form-hint {
   margin: -8px 0 0 0;
   padding: 12px;
-  background: #f0f9ff;
+  background: #faf5ff;
   border-radius: 8px;
-  color: #1e40af;
+  color: #7e22ce;
   font-size: 12px;
   line-height: 1.5;
 }

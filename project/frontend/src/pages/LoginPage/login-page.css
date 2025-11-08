@@ -42,7 +42,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: #ffffff;
   z-index: 0;
 }
 
@@ -111,9 +111,9 @@
 
 .login-page__input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #a855f7;
   background: white;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
 }
 
 .login-page__input-icon {
@@ -146,8 +146,8 @@
 }
 
 .login-page__checkbox:checked {
-  background-color: #6366f1;
-  border-color: #6366f1;
+  background-color: #a855f7;
+  border-color: #a855f7;
 }
 
 .login-page__checkbox-label {
@@ -162,7 +162,7 @@
 .login-page__submit-button {
   width: 100%;
   margin-top: 0.75rem;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: #a855f7;
   color: white;
   border: none;
   border-radius: 12px;
@@ -179,8 +179,9 @@
 }
 
 .login-page__submit-button:hover {
+  background: #9333ea;
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 8px 20px rgba(168, 85, 247, 0.3);
 }
 
 .login-page__links {
@@ -201,7 +202,7 @@
 }
 
 .login-page__link:hover {
-  color: #6366f1;
+  color: #a855f7;
 }
 
 .login-page__link-divider {
@@ -226,7 +227,7 @@
 
 .login-page__footer-link {
   font-size: 0.95rem;
-  color: #6366f1;
+  color: #a855f7;
   font-weight: 600;
   background: none;
   border: none;
@@ -236,7 +237,7 @@
 }
 
 .login-page__footer-link:hover {
-  color: #8b5cf6;
+  color: #9333ea;
   text-decoration: underline;
 }
 

@@ -249,13 +249,13 @@
 }
 
 .mypage__menu-item--active {
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+  background: #a855f7;
   color: white;
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
 
 .mypage__menu-item--active:hover {
-  background: linear-gradient(135deg, #9333ea 0%, #a855f7 100%);
+  background: #9333ea;
   color: white;
 }
 
@@ -639,7 +639,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+  background: #a855f7;
   color: white;
   border: none;
   border-radius: 10px;
@@ -651,6 +651,7 @@
 }
 
 .mypage__password-change-button:hover {
+  background: #9333ea;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
@@ -746,7 +747,7 @@
 }
 
 .mypage__switch input:checked + .mypage__switch-slider {
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+  background: #a855f7;
 }
 
 .mypage__switch input:checked + .mypage__switch-slider:before {
@@ -776,7 +777,7 @@
 }
 
 .mypage__theme-button--active {
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+  background: #a855f7;
   border-color: #a855f7;
   color: white;
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
@@ -795,7 +796,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 2rem;
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+  background: #a855f7;
   color: white;
   border: none;
   border-radius: 12px;
@@ -806,6 +807,7 @@
 }
 
 .mypage__save-button:hover:not(:disabled) {
+  background: #9333ea;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
 }

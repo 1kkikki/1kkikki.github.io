@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User } from "lucide-react";
+import { Dialog } from "../../../components/ui/dialog";
+import CourseBoardPage from "../CourseBoardPage/CourseBoardPage";
 import "./main-dashboard.css";
 
 interface MainDashboardPageProps {
@@ -23,12 +25,20 @@ interface AvailableTime {
   endTime: string;
 }
 
+// 강의 타입
+interface Course {
+  id: number;
+  title: string;
+  code: string;
+}
+
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
   const [currentMonth, setCurrentMonth] = useState("2025년 1월");
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
   const [newTime, setNewTime] = useState({ 
     day: "월요일", 
@@ -55,6 +65,17 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     { id: 3, title: "인공지능기초", code: "CSE402" },
     { id: 4, title: "컴퓨터보안", code: "CSE302" }
   ];
+
+  // 게시판 페이지가 선택되었을 때
+  if (selectedCourse) {
+    return (
+      <CourseBoardPage 
+        course={selectedCourse} 
+        onBack={() => setSelectedCourse(null)}
+        onNavigate={onNavigate}
+      />
+    );
+  }
 
 
 
@@ -251,6 +272,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             <button
               key={course.id}
               className="dashboard__course-button"
+              onClick={() => setSelectedCourse(course)}
             >
               <span className="dashboard__course-code">
                 {course.code}
