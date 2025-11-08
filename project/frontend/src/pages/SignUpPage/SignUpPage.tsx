@@ -4,9 +4,10 @@ import { register } from "../../api/auth";
 
 interface SignUpPageProps {
   onNavigate: (page: string) => void;
+  returnToCourseJoin?: boolean;
 }
 
-export default function SignUpPage({ onNavigate }: SignUpPageProps) {
+export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: SignUpPageProps) {
   const [formData, setFormData] = useState({
     userType: "student", // 기본값: 학생
     studentId: "",
@@ -43,7 +44,12 @@ export default function SignUpPage({ onNavigate }: SignUpPageProps) {
 
     if (response.status === 201) {
       alert("회원가입이 완료되었습니다!");
-      onNavigate("login");
+      // 강의 참여 중이었다면 강의 참여 로그인 페이지로, 아니면 일반 로그인으로
+      if (returnToCourseJoin) {
+        onNavigate("course-join-login");
+      } else {
+        onNavigate("login");
+      }
     } else {
       alert(`회원가입 실패: ${response.message || "다시 시도해주세요."}`);
     }
@@ -165,7 +171,7 @@ export default function SignUpPage({ onNavigate }: SignUpPageProps) {
             </span>
             <button
               type="button"
-              onClick={() => onNavigate("login")}
+              onClick={() => onNavigate(returnToCourseJoin ? "course-join-login" : "login")}
               className="signup-page__footer-link"
             >
               로그인

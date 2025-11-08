@@ -1,0 +1,336 @@
+/* ===================================
+   COURSE JOIN LOGIN PAGE STYLES
+   =================================== */
+
+.course-join-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  font-family: 'Noto Sans KR', 'Poppins', sans-serif;
+  overflow: hidden;
+}
+
+.course-join-login-page__background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom right, #f8f9fa 0%, #e9ecef 100%);
+  z-index: 0;
+}
+
+.course-join-login-page__background::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: float 20s ease-in-out infinite;
+}
+
+.course-join-login-page__background::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -5%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: float 25s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-30px) translateX(20px);
+  }
+}
+
+.course-join-login-page__container {
+  width: 100%;
+  max-width: 480px;
+  background: white;
+  border-radius: 24px;
+  padding: 44px;
+  box-shadow: 
+    0 4px 6px rgba(0, 0, 0, 0.02),
+    0 10px 15px rgba(0, 0, 0, 0.03),
+    0 20px 25px rgba(0, 0, 0, 0.03);
+  position: relative;
+  z-index: 1;
+  animation: slideIn 0.5s ease-out;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.course-join-login-page__course-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: #fafbfc;
+  border-radius: 16px;
+  border: 1px solid #e9ecef;
+  margin-bottom: 32px;
+}
+
+.course-join-login-page__course-icon {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);
+}
+
+.course-join-login-page__course-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.course-join-login-page__course-info h2 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-join-login-page__course-code {
+  display: inline-block;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #6b7280;
+  background: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.course-join-login-page__header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.course-join-login-page__title {
+  margin: 0 0 12px 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.course-join-login-page__subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.course-join-login-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.course-join-login-page__input-group {
+  position: relative;
+}
+
+.course-join-login-page__input {
+  width: 100%;
+  padding: 14px 50px 14px 18px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.2s;
+  background: #fafbfc;
+  color: #1f2937;
+}
+
+.course-join-login-page__input:hover {
+  border-color: #d1d5db;
+  background: white;
+}
+
+.course-join-login-page__input:focus {
+  outline: none;
+  border-color: #a855f7;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+}
+
+.course-join-login-page__input::placeholder {
+  color: #9ca3af;
+}
+
+.course-join-login-page__input-icon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.course-join-login-page__input:focus + .course-join-login-page__input-icon {
+  color: #a855f7;
+}
+
+.course-join-login-page__error {
+  color: #dc2626;
+  font-size: 14px;
+  margin: -10px 0 0 0;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border-radius: 10px;
+  border: 1px solid #fee2e2;
+  font-weight: 500;
+}
+
+.course-join-login-page__submit-button {
+  width: 100%;
+  padding: 14px 24px;
+  background: #a855f7;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.course-join-login-page__submit-button:hover {
+  background: #9333ea;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.25);
+}
+
+.course-join-login-page__submit-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.course-join-login-page__footer {
+  text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid #f1f3f5;
+}
+
+.course-join-login-page__footer-text {
+  color: #6b7280;
+  font-size: 14px;
+  margin-right: 6px;
+}
+
+.course-join-login-page__footer-link {
+  background: none;
+  border: none;
+  color: #a855f7;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.course-join-login-page__footer-link:hover {
+  color: #9333ea;
+}
+
+/* ===================================
+   RESPONSIVE
+   =================================== */
+
+@media (max-width: 768px) {
+  .course-join-login-page__container {
+    padding: 32px 24px;
+  }
+
+  .course-join-login-page__course-banner {
+    padding: 16px;
+  }
+
+  .course-join-login-page__course-icon {
+    width: 50px;
+    height: 50px;
+  }
+
+  .course-join-login-page__course-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .course-join-login-page__course-info h2 {
+    font-size: 18px;
+  }
+
+  .course-join-login-page__title {
+    font-size: 24px;
+  }
+
+  .course-join-login-page__subtitle {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .course-join-login-page {
+    padding: 10px;
+  }
+
+  .course-join-login-page__container {
+    padding: 28px 20px;
+  }
+
+  .course-join-login-page__course-banner {
+    flex-direction: column;
+    text-align: center;
+    padding: 16px;
+  }
+
+  .course-join-login-page__course-info h2 {
+    font-size: 16px;
+    white-space: normal;
+  }
+
+  .course-join-login-page__title {
+    font-size: 22px;
+  }
+
+  .course-join-login-page__back-button {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}
+

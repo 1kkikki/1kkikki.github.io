@@ -1,8 +1,9 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
-import CourseBoardPage from "../CourseBoardPage/CourseBoardPage";
-import "./main-dashboard.css";
+import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
+import "./professor-dashboard.css";
+
 
 interface MainDashboardPageProps {
   onNavigate: (page: string) => void;
@@ -17,14 +18,6 @@ interface CalendarEvent {
   category?: string;
 }
 
-// 가능한 시간 타입
-interface AvailableTime {
-  id: string;
-  day: string;
-  startTime: string;
-  endTime: string;
-}
-
 // 강의 타입
 interface Course {
   id: number;
@@ -34,20 +27,11 @@ interface Course {
 
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
   const [currentMonth, setCurrentMonth] = useState("2025년 1월");
-  const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
-  const [newTime, setNewTime] = useState({ 
-    day: "월요일", 
-    startHour: "09", 
-    startMinute: "00", 
-    endHour: "10", 
-    endMinute: "00" 
-  });
-  const [timeOverlapWarning, setTimeOverlapWarning] = useState("");
   const [events, setEvents] = useState<CalendarEvent[]>([
     { id: "1", title: "운영체제 과제", date: 15, color: "#a8d5e2", category: "과제" },
     { id: "2", title: "웹프로그래밍 과제", date: 15, color: "#d4c5f9", category: "과제" },
@@ -58,26 +42,25 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   ]);
   const [newEvent, setNewEvent] = useState({ title: "", month: 1, date: 1, color: "#a8d5e2", category: "" });
   
-  // 왼쪽 사이드바 강의 목록
-  const courses = [
+  // 강의 목록 state로 변경
+  const [courses, setCourses] = useState<Course[]>([
     { id: 1, title: "운영체제", code: "CSE301" },
     { id: 2, title: "웹프로그래밍", code: "CSE303" },
     { id: 3, title: "인공지능기초", code: "CSE402" },
     { id: 4, title: "컴퓨터보안", code: "CSE302" }
-  ];
+  ]);
+  const [newCourse, setNewCourse] = useState({ title: "", code: "" });
 
   // 게시판 페이지가 선택되었을 때
   if (selectedCourse) {
     return (
-      <CourseBoardPage 
+      <ProfessorCourseBoardPage 
         course={selectedCourse} 
         onBack={() => setSelectedCourse(null)}
         onNavigate={onNavigate}
       />
     );
   }
-
-
 
   // 캘린더 날짜 생성 (2025년 1월 - 수요일 시작)
   const daysInMonth = 31;
@@ -126,55 +109,6 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       icon: Bell
     }
   ];
-
-  const checkTimeOverlap = (day: string, startTime: string, endTime: string): boolean => {
-    const start = new Date(`2000-01-01 ${startTime}`);
-    const end = new Date(`2000-01-01 ${endTime}`);
-    
-    return availableTimes.some(time => {
-      if (time.day !== day) return false;
-      
-      const existingStart = new Date(`2000-01-01 ${time.startTime}`);
-      const existingEnd = new Date(`2000-01-01 ${time.endTime}`);
-      
-      return (start < existingEnd && end > existingStart);
-    });
-  };
-
-  const handleAddTime = () => {
-    setTimeOverlapWarning("");
-    
-    const startTime = `${newTime.startHour}:${newTime.startMinute}`;
-    const endTime = `${newTime.endHour}:${newTime.endMinute}`;
-    
-    const start = new Date(`2000-01-01 ${startTime}`);
-    const end = new Date(`2000-01-01 ${endTime}`);
-    
-    if (start >= end) {
-      setTimeOverlapWarning("종료 시간은 시작 시간보다 늦어야 합니다.");
-      return;
-    }
-
-    // 겹치는 시간이 있는지 확인
-    if (checkTimeOverlap(newTime.day, startTime, endTime)) {
-      setTimeOverlapWarning("⚠️ 이미 해당 요일에 겹치는 시간이 있습니다.");
-      return;
-    }
-
-    const time: AvailableTime = {
-      id: Date.now().toString(),
-      day: newTime.day,
-      startTime: startTime,
-      endTime: endTime
-    };
-    
-    setAvailableTimes([...availableTimes, time]);
-    setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
-  };
-
-  const handleRemoveTime = (id: string) => {
-    setAvailableTimes(availableTimes.filter(t => t.id !== id));
-  };
 
   const handleAddEvent = () => {
     if (!newEvent.title.trim()) {
@@ -232,7 +166,22 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
+  const handleAddCourse = () => {
+    if (!newCourse.title.trim() || !newCourse.code.trim()) {
+      alert("강의명과 강의 코드를 모두 입력해주세요.");
+      return;
+    }
 
+    const course: Course = {
+      id: Date.now(),
+      title: newCourse.title,
+      code: newCourse.code
+    };
+
+    setCourses([...courses, course]);
+    setNewCourse({ title: "", code: "" });
+    setIsCourseModalOpen(false);
+  };
 
   const predefinedColors = [
     "#ffb3b3", "#a8d5e2", "#d4c5f9", "#aedcc0", 
@@ -264,8 +213,17 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         {/* 왼쪽 사이드바 */}
         <aside className="dashboard__sidebar">
         <div className="dashboard__sidebar-header">
-          <Calendar size={20} className="dashboard__sidebar-icon" />
-          <h2>강의 목록</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Calendar size={20} className="dashboard__sidebar-icon" />
+            <h2>강의 목록</h2>
+          </div>
+          <button 
+            className="dashboard__course-add-button"
+            onClick={() => setIsCourseModalOpen(true)}
+            title="강의 추가"
+          >
+            <Plus size={18} />
+          </button>
         </div>
         <div className="dashboard__sidebar-content">
           {courses.map((course) => (
@@ -410,233 +368,65 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </button>
             </div>
           </section>
-
-          {/* 가능한 시간 목록 섹션 */}
-          <section className="dashboard__available-times-section">
-              <div className="dashboard__available-times-header">
-                <div className="dashboard__available-times-header-left">
-                  <Clock size={20} className="dashboard__available-times-icon" />
-                  <h3 className="dashboard__available-times-title">가능한 시간</h3>
-                </div>
-                <div className="dashboard__available-times-header-right">
-                  <span className="dashboard__available-times-count">{availableTimes.length}</span>
-                  <button 
-                    className="dashboard__available-times-add"
-                    onClick={() => setIsTimeModalOpen(true)}
-                    title="시간 추가"
-                  >
-                    <Plus size={18} />
-                  </button>
-                </div>
-              </div>
-              {availableTimes.length > 0 ? (
-                <div className="dashboard__available-times-list">
-                  {availableTimes.map((time) => (
-                    <div key={time.id} className="dashboard__available-time-card">
-                      <div className="dashboard__available-time-content">
-                        <div className="dashboard__available-time-day">{time.day}</div>
-                        <div className="dashboard__available-time-time">
-                          {time.startTime} - {time.endTime}
-                        </div>
-                      </div>
-                      <button 
-                        className="dashboard__available-time-remove"
-                        onClick={() => handleRemoveTime(time.id)}
-                        title="삭제"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="dashboard__available-times-empty">
-                  <Clock size={40} className="dashboard__available-times-empty-icon" />
-                  <p className="dashboard__available-times-empty-text">
-                    아직 추가된 가능한 시간이 없습니다.
-                  </p>
-                  <p className="dashboard__available-times-empty-hint">
-                    오른쪽 위 + 버튼을 눌러 시간을 추가해보세요.
-                  </p>
-                </div>
-              )}
-            </section>
         </div>
       </main>
       </div>
 
-      {/* 가능한 시간 추가 모달 */}
-      {isTimeModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsTimeModalOpen(false)}>
+      {/* 강의 추가 모달 */}
+      {isCourseModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsCourseModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
-                <Clock size={24} />
-                가능한 시간 추가
+                <Plus size={24} />
+                강의 추가
               </h2>
               <button 
                 className="modal-close"
-                onClick={() => setIsTimeModalOpen(false)}
+                onClick={() => setIsCourseModalOpen(false)}
               >
                 <X size={20} />
               </button>
             </div>
             
             <div className="modal-body">
-              {/* 시간 추가 폼 */}
-              <div className="time-form">
-                <div className="time-form-group">
-                  <label className="time-form-label">요일</label>
-                  <div className="time-form-days-grid">
-                    {["월", "화", "수", "목", "금", "토", "일"].map((dayShort, index) => {
-                      const dayFull = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"][index];
-                      return (
-                        <button
-                          key={dayFull}
-                          type="button"
-                          className={`time-form-day-button ${newTime.day === dayFull ? 'time-form-day-button--active' : ''}`}
-                          onClick={() => {
-                            setNewTime({...newTime, day: dayFull});
-                            setTimeOverlapWarning("");
-                          }}
-                        >
-                          {dayShort}
-                        </button>
-                      );
-                    })}
-                  </div>
+              <div className="event-form">
+                <div className="event-form-group">
+                  <label className="event-form-label">강의명</label>
+                  <input 
+                    type="text"
+                    className="event-form-input"
+                    placeholder="예: 운영체제"
+                    value={newCourse.title}
+                    onChange={(e) => setNewCourse({...newCourse, title: e.target.value})}
+                  />
                 </div>
                 
-                <div className="time-form-row">
-                  <div className="time-form-group">
-                    <label className="time-form-label">시작 시간</label>
-                    <div className="time-form-time-row">
-                      <div className="time-form-select-wrapper">
-                        <select 
-                          className="time-form-select-small"
-                          value={newTime.startHour}
-                          onChange={(e) => {
-                            setNewTime({...newTime, startHour: e.target.value});
-                            setTimeOverlapWarning("");
-                          }}
-                        >
-                          {Array.from({ length: 24 }, (_, i) => {
-                            const hour = i.toString().padStart(2, '0');
-                            return <option key={hour} value={hour}>{hour}</option>;
-                          })}
-                        </select>
-                      </div>
-                      <span className="time-form-separator">:</span>
-                      <div className="time-form-select-wrapper">
-                        <select 
-                          className="time-form-select-small"
-                          value={newTime.startMinute}
-                          onChange={(e) => {
-                            setNewTime({...newTime, startMinute: e.target.value});
-                            setTimeOverlapWarning("");
-                          }}
-                        >
-                          {["00", "10", "20", "30", "40", "50"].map(min => (
-                            <option key={min} value={min}>{min}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="time-form-group">
-                    <label className="time-form-label">종료 시간</label>
-                    <div className="time-form-time-row">
-                      <div className="time-form-select-wrapper">
-                        <select 
-                          className="time-form-select-small"
-                          value={newTime.endHour}
-                          onChange={(e) => {
-                            setNewTime({...newTime, endHour: e.target.value});
-                            setTimeOverlapWarning("");
-                          }}
-                        >
-                          {Array.from({ length: 24 }, (_, i) => {
-                            const hour = i.toString().padStart(2, '0');
-                            return <option key={hour} value={hour}>{hour}</option>;
-                          })}
-                        </select>
-                      </div>
-                      <span className="time-form-separator">:</span>
-                      <div className="time-form-select-wrapper">
-                        <select 
-                          className="time-form-select-small"
-                          value={newTime.endMinute}
-                          onChange={(e) => {
-                            setNewTime({...newTime, endMinute: e.target.value});
-                            setTimeOverlapWarning("");
-                          }}
-                        >
-                          {["00", "10", "20", "30", "40", "50"].map(min => (
-                            <option key={min} value={min}>{min}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
+                <div className="event-form-group">
+                  <label className="event-form-label">강의 코드</label>
+                  <input 
+                    type="text"
+                    className="event-form-input"
+                    placeholder="예: CSE301"
+                    value={newCourse.code}
+                    onChange={(e) => setNewCourse({...newCourse, code: e.target.value})}
+                  />
                 </div>
-                
-                {timeOverlapWarning && (
-                  <div className="time-form-warning">
-                    {timeOverlapWarning}
-                  </div>
-                )}
-
-                <button 
-                  className="time-form-add-button"
-                  onClick={handleAddTime}
-                >
-                  <Plus size={18} />
-                  시간 추가
-                </button>
               </div>
-
-              {/* 추가된 시간 목록 */}
-              {availableTimes.length > 0 && (
-                <div className="time-list">
-                  <h3 className="time-list-title">추가된 가능한 시간</h3>
-                  <div className="time-list-items">
-                    {availableTimes.map((time) => (
-                      <div key={time.id} className="time-list-item">
-                        <div className="time-list-item-info">
-                          <span className="time-list-item-day">{time.day}</span>
-                          <span className="time-list-item-time">
-                            {time.startTime} - {time.endTime}
-                          </span>
-                        </div>
-                        <button 
-                          className="time-list-item-remove"
-                          onClick={() => handleRemoveTime(time.id)}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="modal-footer">
               <button 
                 className="modal-button modal-button--secondary"
-                onClick={() => setIsTimeModalOpen(false)}
+                onClick={() => setIsCourseModalOpen(false)}
               >
                 취소
               </button>
               <button 
                 className="modal-button modal-button--primary"
-                onClick={() => {
-                  setIsTimeModalOpen(false);
-                  // 여기서 저장 로직 추가
-                }}
+                onClick={handleAddCourse}
               >
-                저장
+                추가
               </button>
             </div>
           </div>
@@ -727,6 +517,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                     {predefinedColors.map((color) => (
                       <button
                         key={color}
+                        type="button"
                         className={`event-color-swatch ${newEvent.color === color ? 'event-color-swatch--active' : ''}`}
                         style={{ backgroundColor: color }}
                         onClick={() => setNewEvent({...newEvent, color: color})}
@@ -734,25 +525,6 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                         {newEvent.color === color && <span className="event-color-check">✓</span>}
                       </button>
                     ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* 미리보기 */}
-              <div className="event-preview">
-                <div className="event-preview-label">미리보기</div>
-                <div 
-                  className="event-preview-card"
-                  style={{ backgroundColor: newEvent.color }}
-                >
-                  <div className="event-preview-header">
-                    {newEvent.category && (
-                      <span className="event-preview-category">{newEvent.category}</span>
-                    )}
-                    <span className="event-preview-date">{newEvent.month}월 {newEvent.date}일</span>
-                  </div>
-                  <div className="event-preview-title">
-                    {newEvent.title || "일정 제목을 입력하세요"}
                   </div>
                 </div>
               </div>
@@ -776,7 +548,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         </div>
       )}
 
-      {/* 일정 상세/수정 모달 */}
+      {/* 일정 상세보기/수정 모달 */}
       {isEventDetailModalOpen && selectedEvent && (
         <div className="modal-overlay" onClick={() => setIsEventDetailModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -800,12 +572,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                   <input 
                     type="text"
                     className="event-form-input"
-                    placeholder="예: 중간고사, 과제 제출"
                     value={selectedEvent.title}
                     onChange={(e) => setSelectedEvent({...selectedEvent, title: e.target.value})}
                   />
                 </div>
-                
+
                 <div className="event-form-group">
                   <label className="event-form-label">날짜</label>
                   <select 
@@ -849,25 +620,6 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                   </div>
                 </div>
               </div>
-
-              {/* 미리보기 */}
-              <div className="event-preview">
-                <div className="event-preview-label">미리보기</div>
-                <div 
-                  className="event-preview-card"
-                  style={{ backgroundColor: selectedEvent.color }}
-                >
-                  <div className="event-preview-header">
-                    {selectedEvent.category && (
-                      <span className="event-preview-category">{selectedEvent.category}</span>
-                    )}
-                    <span className="event-preview-date">1월 {selectedEvent.date}일</span>
-                  </div>
-                  <div className="event-preview-title">
-                    {selectedEvent.title || "일정 제목을 입력하세요"}
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="modal-footer">
@@ -877,19 +629,20 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               >
                 삭제
               </button>
-              <div style={{ flex: 1 }}></div>
-              <button 
-                className="modal-button modal-button--secondary"
-                onClick={() => setIsEventDetailModalOpen(false)}
-              >
-                취소
-              </button>
-              <button 
-                className="modal-button modal-button--primary"
-                onClick={handleUpdateEvent}
-              >
-                저장
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  className="modal-button modal-button--secondary"
+                  onClick={() => setIsEventDetailModalOpen(false)}
+                >
+                  취소
+                </button>
+                <button 
+                  className="modal-button modal-button--primary"
+                  onClick={handleUpdateEvent}
+                >
+                  저장
+                </button>
+              </div>
             </div>
           </div>
         </div>

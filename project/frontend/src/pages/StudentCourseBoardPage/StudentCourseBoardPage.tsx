@@ -18,7 +18,7 @@ import {
   X,
   Plus
 } from "lucide-react";
-import "./course-board.css";
+import "./student-courseboard.css";
 
 interface CourseBoardPageProps {
   course: {

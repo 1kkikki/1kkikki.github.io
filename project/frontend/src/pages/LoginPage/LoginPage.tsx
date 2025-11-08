@@ -1,10 +1,10 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Lock } from "lucide-react";
 import { login } from "../../api/auth";   // ✅ 로그인 API 불러오기
 import "./login-page.css";
 
 interface LoginPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, type?: 'student' | 'professor') => void;
 }
 
 export default function LoginPage({ onNavigate }: LoginPageProps) {
@@ -12,6 +12,17 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+
+  // 컴포넌트 마운트 시 저장된 사용자 이름 불러오기
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    const savedRememberMe = localStorage.getItem("rememberMe") === "true";
+    
+    if (savedEmail && savedRememberMe) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,8 +32,27 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
 
     if (data.access_token) {
       console.log("✅ 로그인 성공:", data);
+      
+      // 사용자 이름 기억하기 처리
+      if (rememberMe) {
+        localStorage.setItem("rememberedEmail", email);
+        localStorage.setItem("rememberMe", "true");
+      } else {
+        localStorage.removeItem("rememberedEmail");
+        localStorage.removeItem("rememberMe");
+      }
+      
       alert(`환영합니다, ${data.user.name}님!`);
-      onNavigate("dashboard");
+      
+      // 사용자 타입에 따라 적절한 대시보드로 이동
+      const userType = data.user.user_type;
+      if (userType === 'student') {
+        onNavigate('student-dashboard', 'student');
+      } else if (userType === 'professor') {
+        onNavigate('professor-dashboard', 'professor');
+      } else {
+        setError("알 수 없는 사용자 유형입니다.");
+      }
     } else {
       console.error("❌ 로그인 실패:", data.message);
       setError(data.message || "로그인 실패. 다시 시도해주세요.");

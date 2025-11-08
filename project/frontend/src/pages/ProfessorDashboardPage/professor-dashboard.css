@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f9fafb;
+  background: linear-gradient(to bottom, #ffffff 0%, #f5f5f5 100%);
   position: relative;
   overflow: hidden;
   font-family: 'Noto Sans KR', 'Poppins', sans-serif;
@@ -143,6 +143,7 @@
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   background: #f9fafb;
   color: #374151;
@@ -153,6 +154,26 @@
   background: #0f172a;
   border-bottom: 1px solid #334155;
   color: #f1f5f9;
+}
+
+.dashboard__course-add-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #a855f7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dashboard__course-add-button:hover {
+  background: #9333ea;
+  transform: scale(1.05);
 }
 
 .dashboard__sidebar-icon {
@@ -259,7 +280,7 @@
 }
 
 .dashboard__notifications-icon {
-  color: #a855f7;
+  color: #3b82f6;
   flex-shrink: 0;
 }
 
@@ -276,8 +297,8 @@
 }
 
 .dashboard__notifications-count {
-  background: #f3e8ff;
-  color: #7e22ce;
+  background: #dbeafe;
+  color: #1e40af;
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
@@ -327,7 +348,7 @@
 }
 
 .dashboard__notification-card--info {
-  border-left: 3px solid #a855f7;
+  border-left: 3px solid #3b82f6;
 }
 
 .dashboard__notification-icon-wrapper {
@@ -346,7 +367,7 @@
 }
 
 .dashboard__notification-card--info .dashboard__notification-icon-wrapper {
-  color: #a855f7;
+  color: #3b82f6;
 }
 
 .dashboard__notification-content {
@@ -365,7 +386,7 @@
 .dashboard__notification-course {
   font-size: 11px;
   font-weight: 500;
-  color: #a855f7;
+  color: #3b82f6;
 }
 
 .dashboard__notification-time {
@@ -381,9 +402,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  line-clamp: 2;
+  /* autoprefixer: off */
+  -webkit-box-orient: vertical;
+  /* autoprefixer: on */
   transition: color 0.3s ease;
 }
 
@@ -611,9 +633,9 @@
 }
 
 .dashboard__calendar-cell--today {
-  background: #f3e8ff;
-  border: 2px solid #a855f7;
-  box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.2);
+  background: #dbeafe;
+  border: 2px solid #60a5fa;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.2);
 }
 
 .dashboard__calendar-date {
@@ -629,7 +651,7 @@
 }
 
 .dashboard__calendar-cell--today .dashboard__calendar-date {
-  color: #9333ea;
+  color: #2563eb;
 }
 
 .dashboard__calendar-events {
@@ -712,233 +734,12 @@
 
 .dashboard__action-button--primary:hover {
   background: #9333ea;
-  box-shadow: 0 6px 16px rgba(168, 85, 247, 0.3);
+  box-shadow: 0 6px 16px rgba(168, 85, 247, 0.4);
 }
 
 /* ===================================
    NOTIFICATIONS SECTION
    =================================== */
-
-.dashboard__available-times-section {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.3s ease;
-}
-
-.dark .dashboard__available-times-section {
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(51, 65, 85, 0.5);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-.dashboard__available-times-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #e5e7eb;
-  transition: border-color 0.3s ease;
-}
-
-.dark .dashboard__available-times-header {
-  border-bottom: 2px solid #334155;
-}
-
-.dashboard__available-times-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.dashboard__available-times-header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.dashboard__available-times-icon {
-  color: #a855f7;
-}
-
-.dashboard__available-times-title {
-  margin: 0;
-  color: #1f2937;
-  font-weight: 500;
-  font-size: 18px;
-  transition: color 0.3s ease;
-}
-
-.dark .dashboard__available-times-title {
-  color: #f1f5f9;
-}
-
-.dashboard__available-times-count {
-  background: #f3e8ff;
-  color: #7e22ce;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.dashboard__available-times-add {
-  background: #a855f7;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
-}
-
-.dashboard__available-times-add:hover {
-  transform: translateY(-3px) scale(1.05);
-  background: #9333ea;
-  box-shadow: 0 8px 20px rgba(147, 51, 234, 0.4);
-}
-
-.dashboard__available-times-add:active {
-  transform: translateY(-1px) scale(1.02);
-}
-
-.dashboard__available-times-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.dashboard__available-time-card {
-  background: white;
-  border-radius: 14px;
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.dark .dashboard__available-time-card {
-  background: #1e293b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.dashboard__available-time-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-.dark .dashboard__available-time-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.dashboard__available-time-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.dashboard__available-time-day {
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  min-width: 60px;
-  transition: color 0.3s ease;
-}
-
-.dark .dashboard__available-time-day {
-  color: #f1f5f9;
-}
-
-.dashboard__available-time-time {
-  font-size: 13px;
-  color: #6b7280;
-  font-family: monospace;
-  font-weight: 400;
-  transition: color 0.3s ease;
-}
-
-.dark .dashboard__available-time-time {
-  color: #94a3b8;
-}
-
-.dashboard__available-time-remove {
-  background: rgba(239, 68, 68, 0.1);
-  border: none;
-  border-radius: 10px;
-  padding: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  color: #dc2626;
-}
-
-.dashboard__available-time-remove:hover {
-  background: rgba(239, 68, 68, 0.2);
-  transform: scale(1.1);
-}
-
-.dashboard__available-times-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 24px;
-  text-align: center;
-  background: #f9fafb;
-  border-radius: 16px;
-  border: 2px dashed #e5e7eb;
-  transition: all 0.3s ease;
-}
-
-.dark .dashboard__available-times-empty {
-  background: #1e293b;
-  border: 2px dashed #334155;
-}
-
-.dashboard__available-times-empty-icon {
-  color: #d1d5db;
-  margin-bottom: 16px;
-  opacity: 0.7;
-}
-
-.dashboard__available-times-empty-text {
-  margin: 0 0 8px 0;
-  color: #6b7280;
-  font-size: 15px;
-  font-weight: 400;
-  transition: color 0.3s ease;
-}
-
-.dark .dashboard__available-times-empty-text {
-  color: #94a3b8;
-}
-
-.dashboard__available-times-empty-hint {
-  margin: 0;
-  color: #9ca3af;
-  font-size: 13px;
-  font-weight: 400;
-  transition: color 0.3s ease;
-}
-
-.dark .dashboard__available-times-empty-hint {
-  color: #64748b;
-}
 
 .dashboard__notifications-section {
   background: #ffffff;
@@ -1306,8 +1107,8 @@
 
 .time-form-select-small:focus {
   outline: none;
-  border-color: #a855f7;
-  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.15);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
 }
 
 .time-form-separator {
@@ -1721,8 +1522,13 @@
     background: white;
   }
 
+  .dark .dashboard {
+    background: #0f172a;
+  }
+
   .dashboard > div:not(.dashboard__header) {
     box-shadow: none;
+    flex-direction: column;
   }
 
   .dashboard__sidebar {
@@ -1731,22 +1537,36 @@
     border-bottom: 1px solid #e5e7eb;
     max-height: none;
     flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .dark .dashboard__sidebar {
+    border-bottom: 1px solid #334155;
   }
 
   .dashboard__sidebar-header {
     writing-mode: vertical-rl;
     border-bottom: none;
     border-right: 1px solid #e5e7eb;
+    padding: 16px 12px;
+    min-width: auto;
+  }
+
+  .dark .dashboard__sidebar-header {
+    border-right: 1px solid #334155;
   }
 
   .dashboard__sidebar-content {
     flex-direction: row;
     overflow-x: auto;
     flex: 1;
+    padding: 12px;
+    gap: 12px;
   }
 
   .dashboard__course-button {
     min-width: 160px;
+    flex-shrink: 0;
   }
 
   .dashboard__notifications-section {
@@ -1761,18 +1581,45 @@
     max-width: 100%;
   }
 
+  .dashboard__calendar-section {
+    padding: 16px;
+  }
+
   .dashboard__calendar-cell {
-    min-height: 60px;
+    min-height: 80px;
+    height: auto;
   }
 
   .dashboard__calendar-event {
     font-size: 9px;
   }
+
+  .dashboard__calendar-date {
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 768px) {
+  .dashboard__header {
+    padding: 12px 16px;
+  }
+
+  .dashboard__header-buttons {
+    gap: 8px;
+  }
+
+  .dashboard__mypage-button,
+  .dashboard__logout-button {
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+
   .dashboard__sidebar {
     max-height: 150px;
+  }
+
+  .dashboard__sidebar-header h2 {
+    font-size: 14px;
   }
 
   .dashboard__course-button {
@@ -1780,17 +1627,45 @@
     padding: 10px 12px;
   }
 
+  .dashboard__course-code {
+    font-size: 9px;
+  }
+
+  .dashboard__course-title {
+    font-size: 13px;
+  }
+
   .dashboard__main {
     padding: 12px;
   }
 
   .dashboard__calendar-section {
-    padding: 16px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .dashboard__month-nav {
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+
+  .dashboard__month-text {
+    font-size: 16px;
+    min-width: 120px;
+  }
+
+  .dashboard__month-nav-button {
+    padding: 6px 10px;
+  }
+
+  .dashboard__calendar {
+    border-radius: 12px;
   }
 
   .dashboard__calendar-cell {
-    min-height: 60px;
-    padding: 4px;
+    min-height: 70px;
+    padding: 6px 4px;
   }
 
   .dashboard__calendar-date {
@@ -1799,7 +1674,13 @@
 
   .dashboard__calendar-event {
     font-size: 8px;
-    padding: 2px 4px;
+    padding: 3px 4px;
+    gap: 2px;
+  }
+
+  .dashboard__calendar-event-dot {
+    width: 4px;
+    height: 4px;
   }
 
   .dashboard__calendar-weekday {
@@ -1807,11 +1688,141 @@
     padding: 8px 4px;
   }
 
-  .modal-content {
-    width: 95%;
+  .dashboard__calendar-actions {
+    margin-top: 14px;
+    gap: 10px;
   }
 
-  .time-form-row {
+  .dashboard__action-button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .modal-content {
+    width: 95%;
+    max-width: 420px;
+  }
+
+  .modal-header {
+    padding: 18px;
+  }
+
+  .modal-title {
+    font-size: 18px;
+  }
+
+  .modal-body {
+    padding: 18px;
+  }
+
+  .time-form-row,
+  .event-form-row {
     grid-template-columns: 1fr;
+  }
+
+  .event-color-picker {
+    gap: 8px;
+  }
+
+  .event-color-swatch {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard__header {
+    padding: 10px 12px;
+  }
+
+  .dashboard__mypage-button,
+  .dashboard__logout-button {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+
+  .dashboard__mypage-button svg,
+  .dashboard__logout-button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .dashboard__main {
+    padding: 8px;
+  }
+
+  .dashboard__calendar-section {
+    padding: 10px;
+  }
+
+  .dashboard__month-text {
+    font-size: 14px;
+    min-width: 100px;
+  }
+
+  .dashboard__calendar-cell {
+    min-height: 60px;
+    padding: 4px 2px;
+  }
+
+  .dashboard__calendar-date {
+    font-size: 10px;
+  }
+
+  .dashboard__calendar-event {
+    font-size: 7px;
+    padding: 2px 3px;
+  }
+
+  .dashboard__calendar-weekday {
+    font-size: 10px;
+    padding: 6px 2px;
+  }
+
+  .dashboard__action-button {
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+
+  .dashboard__action-button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .modal-content {
+    width: 98%;
+    max-height: 90vh;
+  }
+
+  .modal-header {
+    padding: 14px;
+  }
+
+  .modal-title {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 14px;
+  }
+
+  .modal-footer {
+    padding: 14px;
+  }
+
+  .modal-button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .event-form-label,
+  .time-form-label {
+    font-size: 13px;
+  }
+
+  .event-form-input,
+  .event-form-select {
+    padding: 8px 10px;
+    font-size: 13px;
   }
 }

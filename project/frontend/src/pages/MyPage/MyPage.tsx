@@ -4,7 +4,7 @@ import "./my-page.css";
 import { getProfile, updateProfile, changePassword } from "../../api/profile";
 
 interface MyPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, type?: 'student' | 'professor') => void;
 }
 
 type MenuSection = 'profile' | 'security' | 'notifications' | 'appearance' | 'legal';
@@ -167,7 +167,23 @@ export default function MyPage({ onNavigate }: MyPageProps) {
         <div className="mypage__header-content">
           <button 
             className="mypage__back-button"
-            onClick={() => onNavigate('dashboard')}
+            onClick={() => {
+              // localStorage에서 사용자 타입 확인
+              const userStr = localStorage.getItem('user');
+              if (userStr) {
+                const user = JSON.parse(userStr);
+                const userType = user.user_type;
+                if (userType === 'student') {
+                  onNavigate('student-dashboard', 'student');
+                } else if (userType === 'professor') {
+                  onNavigate('professor-dashboard', 'professor');
+                } else {
+                  onNavigate('home');
+                }
+              } else {
+                onNavigate('home');
+              }
+            }}
             title="대시보드로 돌아가기"
           >
             <ArrowLeft size={20} />
