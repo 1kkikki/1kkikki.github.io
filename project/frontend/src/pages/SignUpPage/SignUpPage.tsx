@@ -8,6 +8,7 @@ interface SignUpPageProps {
 
 export default function SignUpPage({ onNavigate }: SignUpPageProps) {
   const [formData, setFormData] = useState({
+    userType: "student", // 기본값: 학생
     studentId: "",
     name: "",
     email: "",
@@ -32,6 +33,7 @@ export default function SignUpPage({ onNavigate }: SignUpPageProps) {
     }
     try {
     const response = await register({
+      userType: formData.userType,
       studentId: formData.studentId,
       name: formData.name,
       email: formData.email,
@@ -59,6 +61,28 @@ export default function SignUpPage({ onNavigate }: SignUpPageProps) {
         <h1 className="signup-page__title">SIGN UP</h1>
 
         <form className="signup-page__form" onSubmit={handleSubmit}>
+          {/* 교수/학생 선택 버튼 */}
+          <div className="signup-page__user-type-group">
+            <button
+              type="button"
+              className={`signup-page__user-type-button ${
+                formData.userType === "student" ? "active" : ""
+              }`}
+              onClick={() => setFormData({ ...formData, userType: "student" })}
+            >
+              학생
+            </button>
+            <button
+              type="button"
+              className={`signup-page__user-type-button ${
+                formData.userType === "professor" ? "active" : ""
+              }`}
+              onClick={() => setFormData({ ...formData, userType: "professor" })}
+            >
+              교수
+            </button>
+          </div>
+
           <div className="signup-page__input-group">
             <input
               type="text"
