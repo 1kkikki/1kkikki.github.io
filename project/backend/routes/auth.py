@@ -17,6 +17,10 @@ def register():
     # 🔸 필수값 확인
     if not all(field in data for field in required_fields):
         return jsonify({"message": "필수 입력값이 누락되었습니다."}), 400
+    
+    # 🔸 userType 유효성 검사
+    if data["userType"] not in ["student", "professor"]:
+        return jsonify({"message": "유효하지 않은 사용자 유형입니다."}), 400
 
     # 🔸 이메일 / 아이디 중복 확인
     if User.query.filter_by(email=data["email"]).first():
@@ -33,8 +37,7 @@ def register():
         name=data["name"],
         email=data["email"],
         username=data["username"],
-        password_hash=hashed_pw,
-        user_type=data["userType"]  # ✅ "student" or "professor"
+        password_hash=hashed_pw
     )
 
     db.session.add(new_user)

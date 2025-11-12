@@ -8,6 +8,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    user_type = db.Column(db.String(20), nullable=False, default='student')  # 'student' or 'professor'
     profile_image = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_type = db.Column(db.String(20), nullable=False, default="student")  # ✅ 추가됨
@@ -19,6 +20,7 @@ class User(db.Model):
             "name": self.name,
             "email": self.email,
             "username": self.username,
+            "user_type": self.user_type,
             "profile_image": self.profile_image,
             "userType": self.user_type  # ✅ 추가됨
         }

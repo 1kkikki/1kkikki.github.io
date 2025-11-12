@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
 import "./professor-dashboard.css";
@@ -214,7 +214,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         <aside className="dashboard__sidebar">
         <div className="dashboard__sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Calendar size={20} className="dashboard__sidebar-icon" />
+            <List size={20} className="dashboard__sidebar-icon" />
             <h2>강의 목록</h2>
           </div>
           <button 

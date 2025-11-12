@@ -139,11 +139,12 @@
 }
 
 .dashboard__sidebar-header {
-  padding: 24px 16px;
+  padding: 20px 12px 20px 12px;
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 0;
   background: #f9fafb;
   color: #374151;
   transition: all 0.3s ease;
@@ -157,12 +158,17 @@
 
 .dashboard__sidebar-icon {
   flex-shrink: 0;
+  margin-right: 8px;
+  margin-left: 0;
+  padding-left: 0;
 }
 
 .dashboard__sidebar-header h2 {
   margin: 0;
+  padding: 0;
   font-size: 16px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .dashboard__sidebar-content {
@@ -226,11 +232,12 @@
 
 .dashboard__notifications-section {
   padding: 16px 12px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 2px solid #e5e7eb;
   background: #fafbfc;
   overflow-y: auto;
   flex: 1;
   transition: all 0.3s ease;
+  margin-top: 0;
 }
 
 .dark .dashboard__notifications-section {
@@ -259,7 +266,7 @@
 }
 
 .dashboard__notifications-icon {
-  color: #a855f7;
+  color: #3b82f6;
   flex-shrink: 0;
 }
 
@@ -276,8 +283,8 @@
 }
 
 .dashboard__notifications-count {
-  background: #f3e8ff;
-  color: #7e22ce;
+  background: #dbeafe;
+  color: #1e40af;
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
@@ -327,7 +334,7 @@
 }
 
 .dashboard__notification-card--info {
-  border-left: 3px solid #a855f7;
+  border-left: 3px solid #3b82f6;
 }
 
 .dashboard__notification-icon-wrapper {
@@ -346,7 +353,7 @@
 }
 
 .dashboard__notification-card--info .dashboard__notification-icon-wrapper {
-  color: #a855f7;
+  color: #3b82f6;
 }
 
 .dashboard__notification-content {
@@ -365,7 +372,7 @@
 .dashboard__notification-course {
   font-size: 11px;
   font-weight: 500;
-  color: #a855f7;
+  color: #3b82f6;
 }
 
 .dashboard__notification-time {

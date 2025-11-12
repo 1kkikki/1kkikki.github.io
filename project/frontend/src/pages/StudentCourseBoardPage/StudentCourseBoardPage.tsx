@@ -16,7 +16,8 @@ import {
   Heart,
   MessageCircle,
   X,
-  Plus
+  Plus,
+  Clock
 } from "lucide-react";
 import "./student-courseboard.css";
 
@@ -28,6 +29,14 @@ interface CourseBoardPageProps {
   };
   onBack: () => void;
   onNavigate: (page: string) => void;
+  availableTimes?: AvailableTime[];
+}
+
+interface AvailableTime {
+  id: string;
+  day: string;
+  startTime: string;
+  endTime: string;
 }
 
 interface Post {
@@ -59,7 +68,7 @@ interface Notification {
   isRead: boolean;
 }
 
-export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBoardPageProps) {
+export default function CourseBoardPage({ course, onBack, onNavigate, availableTimes = [] }: CourseBoardPageProps) {
   const [activeTab, setActiveTab] = useState("공지");
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -68,6 +77,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostContent, setNewPostContent] = useState("");
   const [newComment, setNewComment] = useState("");
+  const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
+  const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
+  const [isResultView, setIsResultView] = useState(false);
+  const [newTime, setNewTime] = useState({ 
+    day: "월요일", 
+    startHour: "09", 
+    startMinute: "00", 
+    endHour: "10", 
+    endMinute: "00" 
+  });
+  const [timeOverlapWarning, setTimeOverlapWarning] = useState("");
 
   // 상단 탭 메뉴
   const tabs = [
@@ -239,6 +259,147 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     setSelectedPost(post);
   };
 
+  // 가능한 시간 관련 함수
+  const handleOpenAvailableTimeModal = () => {
+    // Dashboard에서 가져온 가능한 시간을 불러옴
+    setMyAvailableTimes([...availableTimes]);
+    setIsResultView(false); // 처음에는 입력 단계
+    setIsAvailableTimeModalOpen(true);
+  };
+
+  const checkTimeOverlap = (day: string, startTime: string, endTime: string): boolean => {
+    const start = new Date(`2000-01-01 ${startTime}`);
+    const end = new Date(`2000-01-01 ${endTime}`);
+    
+    return myAvailableTimes.some(time => {
+      if (time.day !== day) return false;
+      
+      const existingStart = new Date(`2000-01-01 ${time.startTime}`);
+      const existingEnd = new Date(`2000-01-01 ${time.endTime}`);
+      
+      return (start < existingEnd && end > existingStart);
+    });
+  };
+
+  const handleAddTime = () => {
+    setTimeOverlapWarning("");
+    
+    const startTime = `${newTime.startHour}:${newTime.startMinute}`;
+    const endTime = `${newTime.endHour}:${newTime.endMinute}`;
+    
+    const start = new Date(`2000-01-01 ${startTime}`);
+    const end = new Date(`2000-01-01 ${endTime}`);
+    
+    if (start >= end) {
+      setTimeOverlapWarning("종료 시간은 시작 시간보다 늦어야 합니다.");
+      return;
+    }
+
+    // 겹치는 시간이 있는지 확인
+    if (checkTimeOverlap(newTime.day, startTime, endTime)) {
+      setTimeOverlapWarning("⚠️ 이미 해당 요일에 겹치는 시간이 있습니다.");
+      return;
+    }
+
+    const time: AvailableTime = {
+      id: Date.now().toString(),
+      day: newTime.day,
+      startTime: startTime,
+      endTime: endTime
+    };
+    
+    setMyAvailableTimes([...myAvailableTimes, time]);
+    setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
+  };
+
+  const handleRemoveTime = (id: string) => {
+    setMyAvailableTimes(myAvailableTimes.filter(t => t.id !== id));
+  };
+
+  const handleSubmitAvailableTime = () => {
+    // 서버에 제출하고 결과 보기 모드로 전환
+    setIsResultView(true);
+  };
+
+  // 팀원들의 가능한 시간 (더미 데이터 - 실제로는 서버에서 가져와야 함)
+  const teamMembersAvailableTimes = [
+    { name: "김민수", times: [
+      { day: "월요일", startTime: "10:00", endTime: "12:00" },
+      { day: "화요일", startTime: "13:00", endTime: "15:00" },
+      { day: "수요일", startTime: "10:00", endTime: "11:00" },
+      { day: "토요일", startTime: "14:00", endTime: "17:00" },
+    ]},
+    { name: "이지은", times: [
+      { day: "월요일", startTime: "10:00", endTime: "12:00" },
+      { day: "화요일", startTime: "10:00", endTime: "11:00" },
+      { day: "수요일", startTime: "10:00", endTime: "11:00" },
+      { day: "토요일", startTime: "14:00", endTime: "16:00" },
+    ]},
+    { name: "최수연", times: [
+      { day: "월요일", startTime: "10:00", endTime: "11:00" },
+      { day: "화요일", startTime: "13:00", endTime: "15:00" },
+      { day: "수요일", startTime: "10:00", endTime: "12:00" },
+      { day: "토요일", startTime: "14:00", endTime: "18:00" },
+    ]}
+  ];
+
+  // 시간을 30분 단위 슬롯으로 변환
+  const convertToTimeSlots = (times: AvailableTime[]): Set<string> => {
+    const slots = new Set<string>();
+    const dayMap: { [key: string]: number } = {
+      "월요일": 0, "화요일": 1, "수요일": 2, "목요일": 3, "금요일": 4, "토요일": 5, "일요일": 6
+    };
+
+    times.forEach(time => {
+      const dayIndex = dayMap[time.day];
+      if (dayIndex === undefined) return;
+
+      const [startHour, startMin] = time.startTime.split(':').map(Number);
+      const [endHour, endMin] = time.endTime.split(':').map(Number);
+      
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+
+      // 30분 단위로 슬롯 생성
+      for (let minutes = startMinutes; minutes < endMinutes; minutes += 30) {
+        const hour = Math.floor(minutes / 60);
+        const min = minutes % 60;
+        if (hour >= 9 && hour < 19) {
+          slots.add(`${dayIndex}-${hour}-${min}`);
+        }
+      }
+    });
+
+    return slots;
+  };
+
+  // 모든 팀원이 가능한 시간 계산
+  const calculateOptimalTimes = () => {
+    const allMemberSlots = [
+      convertToTimeSlots(myAvailableTimes),
+      ...teamMembersAvailableTimes.map(m => convertToTimeSlots(m.times))
+    ];
+
+    // 모든 팀원이 가능한 시간 찾기
+    const optimalSlots = new Set<string>();
+    const firstMemberSlots = allMemberSlots[0];
+
+    firstMemberSlots.forEach(slot => {
+      const allHaveSlot = allMemberSlots.every(memberSlots => memberSlots.has(slot));
+      if (allHaveSlot) {
+        optimalSlots.add(slot);
+      }
+    });
+
+    return optimalSlots;
+  };
+
+  const isTimeSlotOptimal = (day: number, hour: number) => {
+    const optimalTimes = calculateOptimalTimes();
+    // 전체 시간 슬롯 체크 (00분과 30분 모두)
+    return optimalTimes.has(`${day}-${hour}-0`) || optimalTimes.has(`${day}-${hour}-30`);
+  };
+
   return (
     <div className="course-board">
       {/* 헤더 */}
@@ -341,6 +502,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            {activeTab === "팀 게시판" && (
+              <button 
+                className="course-board__available-time-button"
+                onClick={handleOpenAvailableTimeModal}
+              >
+                <Clock size={18} />
+                가능한 시간
+              </button>
+            )}
           </div>
 
           {/* 게시글 목록 */}
@@ -540,6 +710,270 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                   <Send size={18} />
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 가능한 시간 모달 */}
+      {isAvailableTimeModalOpen && (
+        <div className="course-board__modal-overlay" onClick={() => setIsAvailableTimeModalOpen(false)}>
+          <div className="course-board__modal course-board__modal--available-time" onClick={(e) => e.stopPropagation()}>
+            <div className="course-board__modal-header">
+              <h2>
+                <Clock size={24} />
+                가능한 시간
+              </h2>
+              <button onClick={() => setIsAvailableTimeModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="course-board__modal-body">
+              {!isResultView ? (
+                /* 시간 입력 단계 */
+                <>
+                  <div className="available-time-info">
+                    <p className="available-time-description">
+                      팀원들과 만날 수 있는 시간을 선택해주세요. 
+                      Dashboard에서 입력한 시간이 자동으로 불러와지며, 추가로 시간을 더 입력할 수 있습니다.
+                    </p>
+                  </div>
+
+                  {/* 시간 추가 폼 */}
+                  <div className="time-form">
+                    <div className="time-form-group">
+                      <label className="time-form-label">요일</label>
+                      <div className="time-form-days-grid">
+                        {["월", "화", "수", "목", "금", "토", "일"].map((dayShort, index) => {
+                          const dayFull = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"][index];
+                          return (
+                            <button
+                              key={dayFull}
+                              type="button"
+                              className={`time-form-day-button ${newTime.day === dayFull ? 'time-form-day-button--active' : ''}`}
+                              onClick={() => {
+                                setNewTime({...newTime, day: dayFull});
+                                setTimeOverlapWarning("");
+                              }}
+                            >
+                              {dayShort}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
+                    <div className="time-form-row">
+                      <div className="time-form-group">
+                        <label className="time-form-label">시작 시간</label>
+                        <div className="time-form-time-row">
+                          <div className="time-form-select-wrapper">
+                            <select 
+                              className="time-form-select-small"
+                              value={newTime.startHour}
+                              onChange={(e) => {
+                                setNewTime({...newTime, startHour: e.target.value});
+                                setTimeOverlapWarning("");
+                              }}
+                            >
+                              {Array.from({ length: 24 }, (_, i) => {
+                                const hour = i.toString().padStart(2, '0');
+                                return <option key={hour} value={hour}>{hour}</option>;
+                              })}
+                            </select>
+                          </div>
+                          <span className="time-form-separator">:</span>
+                          <div className="time-form-select-wrapper">
+                            <select 
+                              className="time-form-select-small"
+                              value={newTime.startMinute}
+                              onChange={(e) => {
+                                setNewTime({...newTime, startMinute: e.target.value});
+                                setTimeOverlapWarning("");
+                              }}
+                            >
+                              {["00", "10", "20", "30", "40", "50"].map(min => (
+                                <option key={min} value={min}>{min}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="time-form-group">
+                        <label className="time-form-label">종료 시간</label>
+                        <div className="time-form-time-row">
+                          <div className="time-form-select-wrapper">
+                            <select 
+                              className="time-form-select-small"
+                              value={newTime.endHour}
+                              onChange={(e) => {
+                                setNewTime({...newTime, endHour: e.target.value});
+                                setTimeOverlapWarning("");
+                              }}
+                            >
+                              {Array.from({ length: 24 }, (_, i) => {
+                                const hour = i.toString().padStart(2, '0');
+                                return <option key={hour} value={hour}>{hour}</option>;
+                              })}
+                            </select>
+                          </div>
+                          <span className="time-form-separator">:</span>
+                          <div className="time-form-select-wrapper">
+                            <select 
+                              className="time-form-select-small"
+                              value={newTime.endMinute}
+                              onChange={(e) => {
+                                setNewTime({...newTime, endMinute: e.target.value});
+                                setTimeOverlapWarning("");
+                              }}
+                            >
+                              {["00", "10", "20", "30", "40", "50"].map(min => (
+                                <option key={min} value={min}>{min}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {timeOverlapWarning && (
+                      <div className="time-form-warning">
+                        {timeOverlapWarning}
+                      </div>
+                    )}
+
+                    <button 
+                      className="time-form-add-button"
+                      onClick={handleAddTime}
+                    >
+                      <Plus size={18} />
+                      시간 추가
+                    </button>
+                  </div>
+
+                  {/* 추가된 시간 목록 */}
+                  {myAvailableTimes.length > 0 && (
+                    <div className="time-list">
+                      <h3 className="time-list-title">추가된 만남 가능 시간 ({myAvailableTimes.length}개)</h3>
+                      <div className="time-list-items">
+                        {myAvailableTimes.map((time) => (
+                          <div key={time.id} className="time-list-item">
+                            <div className="time-list-item-info">
+                              <span className="time-list-item-day">{time.day}</span>
+                              <span className="time-list-item-time">
+                                {time.startTime} - {time.endTime}
+                              </span>
+                            </div>
+                            <button 
+                              className="time-list-item-remove"
+                              onClick={() => handleRemoveTime(time.id)}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* 결과 보기 단계 */
+                <>
+                  <div className="result-header">
+                    <h3 className="result-title">✨ 팀 미팅 가능 시간 분석 결과</h3>
+                    <p className="result-description">
+                      모든 팀원이 만날 수 있는 최적의 시간을 찾았습니다!
+                    </p>
+                  </div>
+
+                  {/* 주간 시간표 그리드 - 결과 단계 */}
+                  <div className="time-schedule time-schedule--result">
+                    <div className="time-schedule__header">
+                      <div className="time-schedule__corner"></div>
+                      {["월", "화", "수", "목", "금", "토", "일"].map((day, index) => (
+                        <div key={index} className="time-schedule__day-header time-schedule__day-header--result">
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="time-schedule__body">
+                      {Array.from({ length: 10 }, (_, hourIndex) => (
+                        <div key={hourIndex} className="time-schedule__row">
+                          <div className="time-schedule__time-label time-schedule__time-label--result">
+                            {(9 + hourIndex).toString().padStart(2, '0')}:00
+                          </div>
+                          {Array.from({ length: 7 }, (_, dayIndex) => {
+                            const isOptimal = isTimeSlotOptimal(dayIndex, hourIndex);
+                            
+                            return (
+                              <div
+                                key={`${dayIndex}-${hourIndex}`}
+                                className={`time-schedule__cell time-schedule__cell--result ${
+                                  isOptimal ? 'time-schedule__cell--optimal-result' : 'time-schedule__cell--unavailable-result'
+                                }`}
+                                title={isOptimal ? '✓ 모든 팀원 만남 가능!' : '✗ 일부 팀원 불가능'}
+                              >
+                                {isOptimal && <span className="time-schedule__optimal-icon">✓</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 범례 - 결과 단계 */}
+                  <div className="time-schedule__legend time-schedule__legend--result">
+                    <div className="time-schedule__legend-item">
+                      <div className="time-schedule__legend-box time-schedule__legend-box--optimal-result">
+                        <span className="legend-check">✓</span>
+                      </div>
+                      <span><strong>모든 팀원 만남 가능</strong> - 이 시간에 미팅을 잡으세요!</span>
+                    </div>
+                    <div className="time-schedule__legend-item">
+                      <div className="time-schedule__legend-box time-schedule__legend-box--unavailable-result"></div>
+                      <span>일부 팀원 불가능</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="course-board__modal-footer">
+              {!isResultView ? (
+                <>
+                  <button 
+                    className="course-board__modal-button course-board__modal-button--cancel"
+                    onClick={() => setIsAvailableTimeModalOpen(false)}
+                  >
+                    취소
+                  </button>
+                  <button 
+                    className="course-board__modal-button course-board__modal-button--submit"
+                    onClick={handleSubmitAvailableTime}
+                  >
+                    제출
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    className="course-board__modal-button course-board__modal-button--secondary"
+                    onClick={() => setIsResultView(false)}
+                  >
+                    다시 선택
+                  </button>
+                  <button 
+                    className="course-board__modal-button course-board__modal-button--primary"
+                    onClick={() => setIsAvailableTimeModalOpen(false)}
+                  >
+                    확인
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
