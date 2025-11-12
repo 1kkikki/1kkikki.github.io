@@ -286,8 +286,10 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         {/* 왼쪽 사이드바 */}
         <aside className="dashboard__sidebar">
         <div className="dashboard__sidebar-header">
-          <List size={20} className="dashboard__sidebar-icon" />
-          <h2>강의 목록</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <List size={20} className="dashboard__sidebar-icon" />
+            <h2>강의 목록</h2>
+          </div>
         </div>
         <div className="dashboard__sidebar-content">
           {courses.map((course) => (

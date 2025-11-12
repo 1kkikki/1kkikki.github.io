@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { 
   Home, 
   Bell, 
@@ -17,7 +17,8 @@ import {
   MessageCircle,
   X,
   Plus,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react";
 import "./student-courseboard.css";
 
@@ -51,6 +52,18 @@ interface Post {
   comments: Comment[];
   isPinned?: boolean;
   isLiked?: boolean;
+}
+
+interface TeamRecruitment {
+  id: number;
+  title: string;
+  description: string;
+  author: string;
+  timestamp: string;
+  maxMembers: number;
+  currentMembers: number;
+  membersList: string[];
+  isJoined: boolean;
 }
 
 interface Comment {
@@ -88,6 +101,63 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     endMinute: "00" 
   });
   const [timeOverlapWarning, setTimeOverlapWarning] = useState("");
+  
+  // 모집 관련 상태
+  const [selectedRecruitment, setSelectedRecruitment] = useState<TeamRecruitment | null>(null);
+  const [isCreateRecruitmentOpen, setIsCreateRecruitmentOpen] = useState(false);
+  const [newRecruitment, setNewRecruitment] = useState({
+    title: "",
+    description: "",
+    maxMembers: 3
+  });
+
+  // 모집 데이터
+  const [recruitments, setRecruitments] = useState<TeamRecruitment[]>([
+    {
+      id: 1,
+      title: "알고리즘 스터디 멤버 모집",
+      description: "매주 금요일 저녁 7시에 모여서 알고리즘 문제를 풀이합니다. 백준, 프로그래머스 등의 플랫폼을 활용하며, 함께 성장하실 분들을 모집합니다!",
+      author: "김민수",
+      timestamp: "2025. 10. 24. 16:00",
+      maxMembers: 4,
+      currentMembers: 2,
+      membersList: ["김민수", "이지은"],
+      isJoined: false
+    },
+    {
+      id: 2,
+      title: "프로젝트 팀원 모집 (웹 개발)",
+      description: "웹 프로그래밍 팀 프로젝트를 함께할 팀원을 모집합니다. React, Node.js 경험자 우대하며, 열정적으로 참여해주실 분들을 기다립니다.",
+      author: "박서준",
+      timestamp: "2025. 10. 25. 10:30",
+      maxMembers: 5,
+      currentMembers: 3,
+      membersList: ["박서준", "최수연", "정민호"],
+      isJoined: false
+    },
+    {
+      id: 3,
+      title: "데이터베이스 과제 스터디",
+      description: "데이터베이스 과목 과제를 함께 공부할 팀원을 찾습니다. SQL 쿼리 작성과 ERD 설계를 중점적으로 다룹니다.",
+      author: "이준호",
+      timestamp: "2025. 10. 26. 09:15",
+      maxMembers: 4,
+      currentMembers: 2,
+      membersList: ["이준호", "김지수"],
+      isJoined: false
+    },
+    {
+      id: 4,
+      title: "운영체제 스터디원 모집",
+      description: "운영체제 과목 중간고사 대비 스터디를 진행합니다. 주 2회(화, 목) 만나서 개념 정리 및 문제 풀이를 진행할 예정입니다.",
+      author: "최수연",
+      timestamp: "2025. 10. 26. 14:20",
+      maxMembers: 3,
+      currentMembers: 3,
+      membersList: ["최수연", "강민지", "박민준"],
+      isJoined: false
+    }
+  ]);
 
   // 상단 탭 메뉴
   const tabs = [
@@ -168,6 +238,20 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          post.content.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
+  });
+
+  // 정렬된 모집 목록 (마감 안된 것 우선, 최신순)
+  const sortedRecruitments = [...recruitments].sort((a, b) => {
+    const aFull = a.currentMembers >= a.maxMembers;
+    const bFull = b.currentMembers >= b.maxMembers;
+    
+    // 마감 여부로 먼저 정렬 (마감 안된 것이 앞으로)
+    if (aFull !== bFull) {
+      return aFull ? 1 : -1;
+    }
+    
+    // 같은 마감 상태면 최신순 (id가 높을수록 최신)
+    return b.id - a.id;
   });
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -324,22 +408,22 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 팀원들의 가능한 시간 (더미 데이터 - 실제로는 서버에서 가져와야 함)
   const teamMembersAvailableTimes = [
     { name: "김민수", times: [
-      { day: "월요일", startTime: "10:00", endTime: "12:00" },
-      { day: "화요일", startTime: "13:00", endTime: "15:00" },
-      { day: "수요일", startTime: "10:00", endTime: "11:00" },
-      { day: "토요일", startTime: "14:00", endTime: "17:00" },
+      { id: "m1-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
+      { id: "m1-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
+      { id: "m1-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
+      { id: "m1-4", day: "토요일", startTime: "14:00", endTime: "17:00" },
     ]},
     { name: "이지은", times: [
-      { day: "월요일", startTime: "10:00", endTime: "12:00" },
-      { day: "화요일", startTime: "10:00", endTime: "11:00" },
-      { day: "수요일", startTime: "10:00", endTime: "11:00" },
-      { day: "토요일", startTime: "14:00", endTime: "16:00" },
+      { id: "m2-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
+      { id: "m2-2", day: "화요일", startTime: "10:00", endTime: "11:00" },
+      { id: "m2-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
+      { id: "m2-4", day: "토요일", startTime: "14:00", endTime: "16:00" },
     ]},
     { name: "최수연", times: [
-      { day: "월요일", startTime: "10:00", endTime: "11:00" },
-      { day: "화요일", startTime: "13:00", endTime: "15:00" },
-      { day: "수요일", startTime: "10:00", endTime: "12:00" },
-      { day: "토요일", startTime: "14:00", endTime: "18:00" },
+      { id: "m3-1", day: "월요일", startTime: "10:00", endTime: "11:00" },
+      { id: "m3-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
+      { id: "m3-3", day: "수요일", startTime: "10:00", endTime: "12:00" },
+      { id: "m3-4", day: "토요일", startTime: "14:00", endTime: "18:00" },
     ]}
   ];
 
@@ -398,6 +482,87 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     const optimalTimes = calculateOptimalTimes();
     // 전체 시간 슬롯 체크 (00분과 30분 모두)
     return optimalTimes.has(`${day}-${hour}-0`) || optimalTimes.has(`${day}-${hour}-30`);
+  };
+
+  // 모집 참여/취소 핸들러
+  const handleJoinRecruitment = (recruitmentId: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setRecruitments(recruitments.map(recruitment => {
+      if (recruitment.id === recruitmentId) {
+        if (recruitment.isJoined) {
+          // 참여 취소
+          return {
+            ...recruitment,
+            currentMembers: recruitment.currentMembers - 1,
+            membersList: recruitment.membersList.filter(name => name !== "나"),
+            isJoined: false
+          };
+        } else {
+          // 참여하기
+          if (recruitment.currentMembers >= recruitment.maxMembers) {
+            alert("이미 인원이 가득 찼습니다.");
+            return recruitment;
+          }
+          return {
+            ...recruitment,
+            currentMembers: recruitment.currentMembers + 1,
+            membersList: [...recruitment.membersList, "나"],
+            isJoined: true
+          };
+        }
+      }
+      return recruitment;
+    }));
+  };
+
+  // 모집 생성 핸들러
+  const handleCreateRecruitment = () => {
+    if (!newRecruitment.title.trim()) {
+      alert("제목을 입력해주세요.");
+      return;
+    }
+    if (!newRecruitment.description.trim()) {
+      alert("내용을 입력해주세요.");
+      return;
+    }
+    if (newRecruitment.maxMembers < 2) {
+      alert("인원수는 최소 2명 이상이어야 합니다.");
+      return;
+    }
+
+    const recruitment: TeamRecruitment = {
+      id: recruitments.length + 1,
+      title: newRecruitment.title,
+      description: newRecruitment.description,
+      author: "나",
+      timestamp: formatDateTime(new Date()),
+      maxMembers: newRecruitment.maxMembers,
+      currentMembers: 1,
+      membersList: ["나"],
+      isJoined: true
+    };
+
+    setRecruitments([recruitment, ...recruitments]);
+    setNewRecruitment({ title: "", description: "", maxMembers: 3 });
+    setIsCreateRecruitmentOpen(false);
+  };
+
+  // 모집 삭제 핸들러
+  const handleDeleteRecruitment = (recruitmentId: number) => {
+    if (confirm("이 모집글을 삭제하시겠습니까?")) {
+      setRecruitments(recruitments.filter(r => r.id !== recruitmentId));
+      setSelectedRecruitment(null);
+    }
+  };
+
+  // 게시글 삭제 핸들러
+  const handleDeletePost = (postId: number) => {
+    if (confirm("이 게시글을 삭제하시겠습니까?")) {
+      setPosts(posts.filter(p => p.id !== postId));
+      setSelectedPost(null);
+    }
   };
 
   return (
@@ -513,60 +678,116 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
             )}
           </div>
 
-          {/* 게시글 목록 */}
-          <div className="course-board__posts">
-            <div className="course-board__posts-header">
-              {filteredPosts.length}개의 글
-            </div>
-            {filteredPosts.map((post) => (
-              <article 
-                key={post.id} 
-                className="course-board__post"
-                onClick={() => handlePostClick(post)}
-              >
-                <div className="course-board__post-header">
-                  <div className="course-board__post-author">
-                    <div className="course-board__post-avatar">
-                      <User size={20} />
-                    </div>
-                    <div className="course-board__post-meta">
-                      <span className="course-board__post-author-name">{post.author}</span>
-                      <span className="course-board__post-timestamp">{post.timestamp}</span>
-                    </div>
-                  </div>
-                  {post.isPinned && (
-                    <div className="course-board__post-pinned">
-                      <Pin size={14} />
-                    </div>
-                  )}
-                </div>
-
-                <div className="course-board__post-content">
-                  <h3 className="course-board__post-title">{post.title}</h3>
-                  <p className="course-board__post-preview">{post.content}</p>
-                </div>
-
-                <div className="course-board__post-footer">
-                  <div className="course-board__post-actions">
-                    <button 
-                      className="course-board__post-action"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLikePost(post.id);
-                      }}
+          {/* 게시글 목록 또는 모집 카드 */}
+          {activeTab === "모집" ? (
+            /* 모집 카드 */
+            <div className="recruitment-cards">
+              <div className="course-board__posts-header">
+                {sortedRecruitments.length}개의 모집
+              </div>
+              <div className="recruitment-cards__grid">
+                {sortedRecruitments.map((recruitment) => {
+                  const isFull = recruitment.currentMembers >= recruitment.maxMembers;
+                  return (
+                    <div 
+                      key={recruitment.id} 
+                      className="recruitment-card"
+                      onClick={() => setSelectedRecruitment(recruitment)}
                     >
-                      <Heart size={14} fill={post.isLiked ? "currentColor" : "none"} />
-                      <span>좋아요 {post.likes}</span>
-                    </button>
-                    <button className="course-board__post-action">
-                      <MessageCircle size={14} />
-                      <span>댓글 {post.comments.length}</span>
-                    </button>
+                      <div className="recruitment-card__header">
+                        <h3 className="recruitment-card__title">{recruitment.title}</h3>
+                        <div className="recruitment-card__author">
+                          <User size={16} />
+                          <span>{recruitment.author}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="recruitment-card__content">
+                        <p className="recruitment-card__description">{recruitment.description}</p>
+                      </div>
+                      
+                      <div className="recruitment-card__footer">
+                        <div className="recruitment-card__members">
+                          <Users size={18} />
+                          <span className={isFull ? "recruitment-card__members-full" : ""}>
+                            {recruitment.currentMembers} / {recruitment.maxMembers}명
+                          </span>
+                          {isFull && <span className="recruitment-card__full-badge">마감</span>}
+                        </div>
+                        
+                        <button 
+                          className={`recruitment-card__join-button ${
+                            recruitment.isJoined ? "recruitment-card__join-button--joined" : ""
+                          } ${isFull && !recruitment.isJoined ? "recruitment-card__join-button--disabled" : ""}`}
+                          onClick={(e) => handleJoinRecruitment(recruitment.id, e)}
+                          disabled={isFull && !recruitment.isJoined}
+                        >
+                          {recruitment.isJoined ? "참여 취소" : isFull ? "마감" : "참여하기"}
+                        </button>
+                      </div>
+                      
+                      <div className="recruitment-card__timestamp">{recruitment.timestamp}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* 일반 게시글 목록 */
+            <div className="course-board__posts">
+              <div className="course-board__posts-header">
+                {filteredPosts.length}개의 글
+              </div>
+              {filteredPosts.map((post) => (
+                <article 
+                  key={post.id} 
+                  className="course-board__post"
+                  onClick={() => handlePostClick(post)}
+                >
+                  <div className="course-board__post-header">
+                    <div className="course-board__post-author">
+                      <div className="course-board__post-avatar">
+                        <User size={20} />
+                      </div>
+                      <div className="course-board__post-meta">
+                        <span className="course-board__post-author-name">{post.author}</span>
+                        <span className="course-board__post-timestamp">{post.timestamp}</span>
+                      </div>
+                    </div>
+                    {post.isPinned && (
+                      <div className="course-board__post-pinned">
+                        <Pin size={14} />
+                      </div>
+                    )}
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
+
+                  <div className="course-board__post-content">
+                    <h3 className="course-board__post-title">{post.title}</h3>
+                    <p className="course-board__post-preview">{post.content}</p>
+                  </div>
+
+                  <div className="course-board__post-footer">
+                    <div className="course-board__post-actions">
+                      <button 
+                        className="course-board__post-action"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLikePost(post.id);
+                        }}
+                      >
+                        <Heart size={14} fill={post.isLiked ? "currentColor" : "none"} />
+                        <span>좋아요 {post.likes}</span>
+                      </button>
+                      <button className="course-board__post-action">
+                        <MessageCircle size={14} />
+                        <span>댓글 {post.comments.length}</span>
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
 
         </main>
       </div>
@@ -574,8 +795,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       {/* 플로팅 게시글 작성 버튼 */}
       <button 
         className="course-board__floating-add-button"
-        onClick={() => setIsCreatePostOpen(true)}
-        aria-label="게시글 작성"
+        onClick={() => activeTab === "모집" ? setIsCreateRecruitmentOpen(true) : setIsCreatePostOpen(true)}
+        aria-label={activeTab === "모집" ? "모집 작성" : "게시글 작성"}
       >
         <Plus size={24} />
       </button>
@@ -709,6 +930,187 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 >
                   <Send size={18} />
                 </button>
+              </div>
+              
+              {/* 삭제 버튼 (본인 글인 경우만) */}
+              {selectedPost.author === "나" && (
+                <div className="post-detail-delete-section">
+                  <button 
+                    className="post-detail-delete-button"
+                    onClick={() => handleDeletePost(selectedPost.id)}
+                    title="게시글 삭제"
+                  >
+                    <Trash2 size={18} />
+                    <span>게시글 삭제</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모집 생성 모달 */}
+      {isCreateRecruitmentOpen && (
+        <div className="course-board__modal-overlay" onClick={() => setIsCreateRecruitmentOpen(false)}>
+          <div className="course-board__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="course-board__modal-header">
+              <h2>팀원 모집</h2>
+              <button onClick={() => setIsCreateRecruitmentOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="course-board__modal-body">
+              <input
+                type="text"
+                placeholder="모집 제목 (예: 알고리즘 스터디 멤버 모집)"
+                className="course-board__modal-input"
+                value={newRecruitment.title}
+                onChange={(e) => setNewRecruitment({...newRecruitment, title: e.target.value})}
+              />
+              <textarea
+                placeholder="모집 내용을 입력하세요"
+                className="course-board__modal-textarea"
+                value={newRecruitment.description}
+                onChange={(e) => setNewRecruitment({...newRecruitment, description: e.target.value})}
+                rows={8}
+              />
+              <div className="recruitment-form-group">
+                <label className="recruitment-form-label">
+                  <Users size={18} />
+                  인원수 (본인 포함)
+                </label>
+                <div className="recruitment-member-counter">
+                  <button
+                    type="button"
+                    className="recruitment-member-counter__button"
+                    onClick={() => setNewRecruitment({
+                      ...newRecruitment, 
+                      maxMembers: Math.max(2, newRecruitment.maxMembers - 1)
+                    })}
+                    disabled={newRecruitment.maxMembers <= 2}
+                  >
+                    −
+                  </button>
+                  <span className="recruitment-member-counter__value">
+                    {newRecruitment.maxMembers}명
+                  </span>
+                  <button
+                    type="button"
+                    className="recruitment-member-counter__button"
+                    onClick={() => setNewRecruitment({
+                      ...newRecruitment, 
+                      maxMembers: Math.min(10, newRecruitment.maxMembers + 1)
+                    })}
+                    disabled={newRecruitment.maxMembers >= 10}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="course-board__modal-footer">
+              <button 
+                className="course-board__modal-button course-board__modal-button--cancel"
+                onClick={() => setIsCreateRecruitmentOpen(false)}
+              >
+                취소
+              </button>
+              <button 
+                className="course-board__modal-button course-board__modal-button--submit"
+                onClick={handleCreateRecruitment}
+              >
+                작성
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모집 상세보기 모달 */}
+      {selectedRecruitment && (
+        <div className="course-board__modal-overlay" onClick={() => setSelectedRecruitment(null)}>
+          <div className="course-board__modal course-board__modal--large" onClick={(e) => e.stopPropagation()}>
+            <div className="course-board__modal-header">
+              <h2>모집 상세</h2>
+              <button onClick={() => setSelectedRecruitment(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="course-board__modal-body course-board__post-detail">
+              {/* 모집 헤더 */}
+              <div className="course-board__detail-header">
+                <div className="course-board__post-author">
+                  <div className="course-board__post-avatar">
+                    <User size={24} />
+                  </div>
+                  <div className="course-board__post-meta">
+                    <span className="course-board__post-author-name">{selectedRecruitment.author}</span>
+                    <span className="course-board__post-timestamp">{selectedRecruitment.timestamp}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 모집 내용 */}
+              <div className="course-board__detail-content">
+                <h2>{selectedRecruitment.title}</h2>
+                <p>{selectedRecruitment.description}</p>
+              </div>
+
+              {/* 인원 정보 */}
+              <div className="recruitment-detail-members">
+                <div className="recruitment-detail-members__header">
+                  <Users size={20} />
+                  <h3>참여 인원 ({selectedRecruitment.currentMembers} / {selectedRecruitment.maxMembers})</h3>
+                </div>
+                <div className="recruitment-detail-members__list">
+                  {selectedRecruitment.membersList.map((member, index) => (
+                    <div key={index} className="recruitment-detail-member">
+                      <div className="recruitment-detail-member__avatar">
+                        <User size={18} />
+                      </div>
+                      <span className="recruitment-detail-member__name">{member}</span>
+                      {index === 0 && <span className="recruitment-detail-member__badge">리더</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 참여 버튼 */}
+              <div className="course-board__detail-actions">
+                <button 
+                  className={`recruitment-detail-join-button ${
+                    selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
+                  } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
+                  onClick={() => {
+                    handleJoinRecruitment(selectedRecruitment.id);
+                    // 상태 업데이트를 반영하기 위해 모달도 업데이트
+                    const updated = recruitments.find(r => r.id === selectedRecruitment.id);
+                    if (updated) setSelectedRecruitment(updated);
+                  }}
+                  disabled={selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined}
+                >
+                  <Users size={20} />
+                  <span>
+                    {selectedRecruitment.isJoined 
+                      ? "참여 취소" 
+                      : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers 
+                        ? "마감" 
+                        : "참여하기"}
+                  </span>
+                </button>
+                
+                {/* 삭제 버튼 (본인 글인 경우만) */}
+                {selectedRecruitment.author === "나" && (
+                  <button 
+                    className="recruitment-detail-delete-button"
+                    onClick={() => handleDeleteRecruitment(selectedRecruitment.id)}
+                    title="모집글 삭제"
+                  >
+                    <Trash2 size={18} />
+                    <span>삭제</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
