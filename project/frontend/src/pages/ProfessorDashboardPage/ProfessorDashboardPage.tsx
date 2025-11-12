@@ -26,7 +26,28 @@ interface Course {
 }
 
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
-  const [currentMonth, setCurrentMonth] = useState("2025년 1월");
+  const today = new Date();
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0~11
+
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentYear(currentYear - 1);
+      setCurrentMonth(11);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentYear(currentYear + 1);
+      setCurrentMonth(0);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+  };
+
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
@@ -63,8 +84,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   }
 
   // 캘린더 날짜 생성 (2025년 1월 - 수요일 시작)
-  const daysInMonth = 31;
-  const firstDayOfWeek = 3; // 수요일 시작
+  const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0=일요일
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate(); // 말일
   const totalCells = Math.ceil((daysInMonth + firstDayOfWeek) / 7) * 7;
   
   const calendarDays = Array.from({ length: totalCells }, (_, i) => {
@@ -285,14 +306,14 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             <div className="dashboard__month-nav">
               <button
                 className="dashboard__month-nav-button"
-                onClick={() => setCurrentMonth("이전 달")}
+                onClick={handlePrevMonth}
               >
                 <ChevronLeft size={18} />
               </button>
-              <span className="dashboard__month-text">{currentMonth}</span>
+              <span className="dashboard__month-text">{`${currentYear}년 ${currentMonth + 1}월`}</span>
               <button
                 className="dashboard__month-nav-button"
-                onClick={() => setCurrentMonth("다음 달")}
+                onClick={handleNextMonth}
               >
                 <ChevronRight size={18} />
               </button>
@@ -320,8 +341,18 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               <div className="dashboard__calendar-grid">
                 {calendarDays.map((day, index) => {
                   const dayEvents = day ? events.filter(e => e.date === day) : [];
-                  const isToday = day === 15;
-                  
+
+                  const today = new Date();
+                  const nowYear = today.getFullYear();
+                  const nowMonth = today.getMonth();
+                  const nowDate = today.getDate();
+
+                  const isToday =
+                    day &&
+                    nowYear === currentYear &&
+                    nowMonth === currentMonth &&
+                    day === nowDate;
+
                   return (
                     <div
                       key={index}

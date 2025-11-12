@@ -20,5 +20,5 @@ class User(db.Model):
             "email": self.email,
             "username": self.username,
             "profile_image": self.profile_image,
-            "userType": self.user_type  # ✅ 추가됨
+            "user_type": self.user_type  # ✅ 추가됨
         }
