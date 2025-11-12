@@ -184,6 +184,7 @@
   margin: 0;
   font-size: 16px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .dashboard__sidebar-content {
@@ -247,11 +248,12 @@
 
 .dashboard__notifications-section {
   padding: 16px 12px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 2px solid #e5e7eb;
   background: #fafbfc;
   overflow-y: auto;
   flex: 1;
   transition: all 0.3s ease;
+  margin-top: 0;
 }
 
 .dark .dashboard__notifications-section {

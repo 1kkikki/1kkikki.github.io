@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User } from "lucide-react";
+import React, { useState } from "react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import CourseBoardPage from "../StudentCourseBoardPage/StudentCourseBoardPage";
 import "./student-dashboard.css";
@@ -94,6 +94,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         course={selectedCourse} 
         onBack={() => setSelectedCourse(null)}
         onNavigate={onNavigate}
+        availableTimes={availableTimes}
       />
     );
   }
@@ -285,7 +286,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         {/* 왼쪽 사이드바 */}
         <aside className="dashboard__sidebar">
         <div className="dashboard__sidebar-header">
-          <Calendar size={20} className="dashboard__sidebar-icon" />
+          <List size={20} className="dashboard__sidebar-icon" />
           <h2>강의 목록</h2>
         </div>
         <div className="dashboard__sidebar-content">

@@ -359,6 +359,28 @@
   color: #9ca3af;
 }
 
+.course-board__available-time-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #a855f7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.2);
+}
+
+.course-board__available-time-button:hover {
+  background: #9333ea;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
+}
+
 .course-board__filter-button,
 .course-board__view-toggle {
   display: flex;
@@ -704,6 +726,28 @@
   box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
 }
 
+.course-board__modal-button--primary {
+  background: #a855f7;
+  color: white;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+}
+
+.course-board__modal-button--primary:hover {
+  background: #9333ea;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
+}
+
+.course-board__modal-button--secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.course-board__modal-button--secondary:hover {
+  background: #e5e7eb;
+}
+
 /* ===================================
    POST DETAIL
    =================================== */
@@ -960,5 +1004,574 @@
 
   .course-board__comment-input {
     padding: 12px 16px;
+  }
+}
+
+/* ===================================
+   AVAILABLE TIME MODAL
+   =================================== */
+
+.course-board__modal--available-time {
+  max-width: 900px;
+  width: 95%;
+}
+
+.available-time-info {
+  margin-bottom: 24px;
+}
+
+.available-time-description {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+}
+
+.available-time-description strong {
+  color: #a855f7;
+  font-weight: 500;
+}
+
+.available-time-instruction {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border-left: 3px solid #a855f7;
+}
+
+/* ===================================
+   TIME SCHEDULE GRID
+   =================================== */
+
+.time-schedule {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.time-schedule__header {
+  display: grid;
+  grid-template-columns: 80px repeat(7, 1fr);
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.time-schedule__corner {
+  border-right: 1px solid #e5e7eb;
+}
+
+.time-schedule__day-header {
+  padding: 12px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 14px;
+  color: #374151;
+  border-right: 1px solid #e5e7eb;
+}
+
+.time-schedule__day-header:last-child {
+  border-right: none;
+}
+
+.time-schedule__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.time-schedule__row {
+  display: grid;
+  grid-template-columns: 80px repeat(7, 1fr);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.time-schedule__row:last-child {
+  border-bottom: none;
+}
+
+.time-schedule__time-label {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+}
+
+.time-schedule__cell {
+  height: 50px;
+  border-right: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.time-schedule__cell:last-child {
+  border-right: none;
+}
+
+.time-schedule__cell:hover {
+  transform: scale(1.02);
+  z-index: 10;
+  box-shadow: inset 0 0 0 2px #a855f7;
+}
+
+/* ===================================
+   결과 헤더
+   =================================== */
+
+.result-header {
+  text-align: center;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.result-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.result-description {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* ===================================
+   결과 시간표 스타일
+   =================================== */
+
+.time-schedule--result {
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.time-schedule__day-header--result {
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.time-schedule__time-label--result {
+  background: #f9fafb;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* 결과 단계 - 보라색 (모든 팀원 가능) */
+.time-schedule__cell--optimal-result {
+  background: #ddd6fe;
+  cursor: default;
+  position: relative;
+}
+
+.time-schedule__cell--optimal-result:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* 결과 단계 - 흰색 (불가능한 시간) */
+.time-schedule__cell--unavailable-result {
+  background: #ffffff;
+  cursor: default;
+  position: relative;
+}
+
+.time-schedule__cell--unavailable-result:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* 최적 시간 체크 아이콘 */
+.time-schedule__optimal-icon {
+  color: #7c3aed;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* 결과 보기 모드 셀 (클릭 불가) */
+.time-schedule__cell--result {
+  cursor: default;
+}
+
+.time-schedule__cell--result:hover {
+  transform: none;
+}
+
+.time-schedule__check {
+  color: #7c3aed;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* ===================================
+   TIME SCHEDULE LEGEND
+   =================================== */
+
+.time-schedule__legend {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.time-schedule__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.time-schedule__legend-box {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+}
+
+.time-schedule__legend--result {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.time-schedule__legend--result .time-schedule__legend-item {
+  font-size: 14px;
+}
+
+.time-schedule__legend-box--optimal-result {
+  background: #ddd6fe;
+  border: 1px solid #a855f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legend-check {
+  color: #7c3aed;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.time-schedule__legend-box--unavailable-result {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+/* ===================================
+   TIME FORM (입력 폼)
+   =================================== */
+
+.time-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  background: #f9fafb;
+  border-radius: 16px;
+  border: 2px dashed #d1d5db;
+  margin-bottom: 20px;
+}
+
+.time-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.time-form-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.time-form-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.time-form-day-button {
+  padding: 12px 8px;
+  background: white;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  transition: all 0.3s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.time-form-day-button:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.time-form-day-button--active {
+  background: #a855f7;
+  color: white;
+  border-color: #a855f7;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+}
+
+.time-form-day-button--active:hover {
+  background: #9333ea;
+  border-color: #9333ea;
+}
+
+.time-form-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.time-form-select-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.time-form-select-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #6b7280;
+  pointer-events: none;
+}
+
+.time-form-select-small {
+  width: 100%;
+  padding: 12px 30px 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #374151;
+  background: white;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.time-form-select-small:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.time-form-select-small:focus {
+  outline: none;
+  border-color: #a855f7;
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.15);
+}
+
+.time-form-separator {
+  font-size: 20px;
+  color: #9ca3af;
+  font-weight: 300;
+  margin: 0 4px;
+}
+
+.time-form-warning {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 400;
+  border: 2px solid #fecaca;
+}
+
+.time-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.time-form-add-button {
+  background: #a855f7;
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.3);
+}
+
+.time-form-add-button:hover {
+  transform: translateY(-3px);
+  background: #9333ea;
+  box-shadow: 0 8px 24px rgba(147, 51, 234, 0.4);
+}
+
+/* ===================================
+   TIME LIST (시간 목록)
+   =================================== */
+
+.time-list {
+  margin-top: 20px;
+}
+
+.time-list-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+
+.time-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.time-list-item {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+}
+
+.time-list-item:hover {
+  border-color: #a855f7;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.2);
+}
+
+.time-list-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time-list-item-day {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.time-list-item-time {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.time-list-item-remove {
+  background: #fee2e2;
+  border: none;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: #dc2626;
+}
+
+.time-list-item-remove:hover {
+  background: #fecaca;
+}
+
+/* ===================================
+   RESPONSIVE - TIME SCHEDULE
+   =================================== */
+
+@media (max-width: 768px) {
+  .course-board__modal--available-time {
+    width: 98%;
+    max-height: 95vh;
+  }
+
+  .time-schedule__header {
+    grid-template-columns: 50px repeat(7, 1fr);
+  }
+
+  .time-schedule__row {
+    grid-template-columns: 50px repeat(7, 1fr);
+  }
+
+  .time-schedule__time-label {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .time-schedule__day-header {
+    padding: 10px 6px;
+    font-size: 13px;
+  }
+
+  .time-schedule__cell {
+    height: 40px;
+  }
+
+  .time-schedule__check {
+    font-size: 14px;
+  }
+
+  .time-schedule__legend {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .time-schedule__legend-item {
+    font-size: 12px;
+  }
+
+  .time-schedule__legend-box {
+    width: 20px;
+    height: 20px;
+  }
+
+  .available-time-description {
+    font-size: 13px;
+  }
+
+  .available-time-instruction {
+    font-size: 12px;
+    padding: 10px 14px;
   }
 }
