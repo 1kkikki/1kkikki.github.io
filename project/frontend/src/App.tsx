@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AuthProvider } from "./contexts/AuthContext";
 import HomePage from "./pages/HomePage/HomePage";
 import LoginPage from "./pages/LoginPage/LoginPage";
 import SignUpPage from "./pages/SignUpPage/SignUpPage";
@@ -39,7 +40,7 @@ export default function App() {
 
 
   return (
-    <>
+    <AuthProvider>
       {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
       {currentPage === 'login' && <LoginPage onNavigate={handleNavigate} />}
       {currentPage === 'signup' && <SignUpPage onNavigate={handleNavigate} />}
@@ -55,7 +56,7 @@ export default function App() {
           courseCode={courseInfo.code}
         />
       )}
-    </>
+    </AuthProvider>
   );
 }
 

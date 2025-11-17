@@ -1,13 +1,15 @@
-import React, { useState } from "react";
-import { 
-  Home, 
-  Bell, 
-  Users, 
-  Calendar, 
-  Settings, 
-  Search, 
-  Filter, 
-  Menu, 
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { getBoardPosts, createBoardPost, deleteBoardPost } from "../../api/board";
+import {
+  Home,
+  Bell,
+  Users,
+  Calendar,
+  Settings,
+  Search,
+  Filter,
+  Menu,
   Send,
   User,
   Hash,
@@ -82,6 +84,8 @@ interface Notification {
 }
 
 export default function CourseBoardPage({ course, onBack, onNavigate, availableTimes = [] }: CourseBoardPageProps) {
+  const { user } = useAuth();
+
   const [activeTab, setActiveTab] = useState("공지");
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -93,15 +97,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
   const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
   const [isResultView, setIsResultView] = useState(false);
-  const [newTime, setNewTime] = useState({ 
-    day: "월요일", 
-    startHour: "09", 
-    startMinute: "00", 
-    endHour: "10", 
-    endMinute: "00" 
+  const [newTime, setNewTime] = useState({
+    day: "월요일",
+    startHour: "09",
+    startMinute: "00",
+    endHour: "10",
+    endMinute: "00"
   });
   const [timeOverlapWarning, setTimeOverlapWarning] = useState("");
-  
+
   // 모집 관련 상태
   const [selectedRecruitment, setSelectedRecruitment] = useState<TeamRecruitment | null>(null);
   const [isCreateRecruitmentOpen, setIsCreateRecruitmentOpen] = useState(false);
@@ -167,63 +171,70 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     { id: "team", name: "팀 게시판", icon: Hash },
   ];
 
+  // 매핑 함수
+  function tabNameToCategory(tab: string): string {
+    switch (tab) {
+      case "공지":
+        return "notice";
+      case "모집":
+        return "recruit";
+      case "커뮤니티":
+        return "community";
+      case "팀 게시판":
+        return "team";
+      default:
+        return "community";
+    }
+  }
+
+  function categoryToTabName(category: string): string {
+    switch (category) {
+      case "notice":
+        return "공지";
+      case "recruit":
+        return "모집";
+      case "community":
+        return "커뮤니티";
+      case "team":
+        return "팀 게시판";
+      default:
+        return "커뮤니티";
+    }
+  }
+
   // 샘플 게시글 데이터
-  const [posts, setPosts] = useState<Post[]>([
-    {
-      id: 1,
-      title: "공지사항",
-      content: "내용",
-      author: "박선생",
-      timestamp: "2025. 10. 27. 14:30",
-      category: "공지",
-      tags: ["공지", "중요공지"],
-      likes: 0,
-      comments: [],
-      isPinned: true,
-      isLiked: false
-    },
-    {
-      id: 2,
-      title: "팀 프로젝트 회의 일정 투표",
-      content: "이번 주 회의 일정을 투표로 정하겠습니다. 가능한 시간을 댓글로 남겨주세요.",
-      author: "김민수",
-      timestamp: "2025. 10. 26. 09:15",
-      category: "팀 게시판",
-      tags: ["팀활동", "회의"],
-      likes: 5,
-      comments: [
-        { id: 1, author: "이지은", content: "화요일 2시 가능합니다!", timestamp: "2025. 10. 26. 14:30" },
-        { id: 2, author: "최수연", content: "수요일 3시 좋아요", timestamp: "2025. 10. 26. 15:20" }
-      ],
-      isLiked: false
-    },
-    {
-      id: 3,
-      title: "과제 관련 질문있습니다",
-      content: "3번 문제 어떻게 푸셨나요? 힌트 좀 주실 수 있을까요?",
-      author: "이지은",
-      timestamp: "2025. 10. 25. 18:45",
-      category: "커뮤니티",
-      tags: ["과제", "질문"],
-      likes: 3,
-      comments: [
-        { id: 1, author: "박민준", content: "먼저 배열을 정렬해보세요", timestamp: "2025. 10. 25. 19:10" }
-      ],
-      isLiked: false
-    },
-    {
-      id: 4,
-      title: "스터디 그룹 멤버 모집",
-      content: "알고리즘 스터디 멤버 2명 더 구합니다. 매주 금요일 저녁 7시에 모여서 문제 풀이합니다!",
-      author: "최수연",
-      timestamp: "2025. 10. 24. 16:00",
-      category: "모집",
-      tags: ["모집", "스터디"],
-      likes: 7,
-      comments: [],
-      isLiked: false
-    },
-  ]);
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  // 서버에서 게시글 목록 가져오기
+  async function loadPosts() {
+    try {
+      // 여기서 course.id 쓰는 건 그대로 놔두기 (지금 백엔드에서 Integer course_id 쓰고 있으니까)
+      const data = await getBoardPosts(course.code);
+
+      const mapped: Post[] = data.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        content: p.content,
+        author: p.author || "익명",
+        timestamp: p.created_at,
+        category: categoryToTabName(p.category),
+        tags: [],
+        likes: 0,
+        comments: [],
+        isPinned: false,
+        isLiked: false,
+      }));
+
+      setPosts(mapped);
+    } catch (err) {
+      console.error("게시글 불러오기 실패:", err);
+    }
+  }
+
+  // 탭이 바뀔 때마다, 처음 렌더링 할 때 서버에서 게시글 다시 불러오기
+  useEffect(() => {
+    loadPosts();
+  }, [activeTab, course.id]);
 
   // 알림 데이터
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -236,7 +247,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const filteredPosts = posts.filter(post => {
     const matchesTab = post.category === activeTab;
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         post.content.toLowerCase().includes(searchQuery.toLowerCase());
+      post.content.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -244,12 +255,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const sortedRecruitments = [...recruitments].sort((a, b) => {
     const aFull = a.currentMembers >= a.maxMembers;
     const bFull = b.currentMembers >= b.maxMembers;
-    
+
     // 마감 여부로 먼저 정렬 (마감 안된 것이 앞으로)
     if (aFull !== bFull) {
       return aFull ? 1 : -1;
     }
-    
+
     // 같은 마감 상태면 최신순 (id가 높을수록 최신)
     return b.id - a.id;
   });
@@ -265,29 +276,52 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
   };
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (!newPostTitle.trim() || !newPostContent.trim()) {
       alert("제목과 내용을 입력해주세요.");
       return;
     }
 
-    const newPost: Post = {
-      id: posts.length + 1,
-      title: newPostTitle,
-      content: newPostContent,
-      author: "나",
-      timestamp: formatDateTime(new Date()),
-      category: activeTab,
-      tags: [],
-      likes: 0,
-      comments: [],
-      isLiked: false
-    };
+    try {
+      // 탭(공지/모집/커뮤니티/팀 게시판)을 백엔드 category 값으로 변환
+      const categoryForApi = tabNameToCategory(activeTab);
 
-    setPosts([newPost, ...posts]);
-    setNewPostTitle("");
-    setNewPostContent("");
-    setIsCreatePostOpen(false);
+      // 서버에 글 생성 요청 보내기
+      const res = await createBoardPost(
+        course.code,
+        newPostTitle,    
+        newPostContent,  
+        categoryForApi
+      );
+
+      const p = res.post;
+
+      // 서버에서 돌아온 데이터 → 화면에서 쓰는 Post 타입으로 변환
+      const createdPost: Post = {
+        id: p.id,
+        title: p.title,
+        content: p.content,
+        author: p.author || (user?.name || "나"),
+        timestamp: p.created_at,
+        category: categoryToTabName(p.category),
+        tags: [],
+        likes: 0,
+        comments: [],
+        isPinned: false,
+        isLiked: false,
+      };
+
+      // 맨 앞에 추가
+      setPosts((prev) => [createdPost, ...prev]);
+
+      // 폼 초기화 & 모달 닫기
+      setNewPostTitle("");
+      setNewPostContent("");
+      setIsCreatePostOpen(false);
+    } catch (err) {
+      console.error("게시글 작성 실패:", err);
+      alert("게시글 작성 중 오류가 발생했습니다.");
+    }
   };
 
   const handleLikePost = (postId: number) => {
@@ -354,26 +388,26 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const checkTimeOverlap = (day: string, startTime: string, endTime: string): boolean => {
     const start = new Date(`2000-01-01 ${startTime}`);
     const end = new Date(`2000-01-01 ${endTime}`);
-    
+
     return myAvailableTimes.some(time => {
       if (time.day !== day) return false;
-      
+
       const existingStart = new Date(`2000-01-01 ${time.startTime}`);
       const existingEnd = new Date(`2000-01-01 ${time.endTime}`);
-      
+
       return (start < existingEnd && end > existingStart);
     });
   };
 
   const handleAddTime = () => {
     setTimeOverlapWarning("");
-    
+
     const startTime = `${newTime.startHour}:${newTime.startMinute}`;
     const endTime = `${newTime.endHour}:${newTime.endMinute}`;
-    
+
     const start = new Date(`2000-01-01 ${startTime}`);
     const end = new Date(`2000-01-01 ${endTime}`);
-    
+
     if (start >= end) {
       setTimeOverlapWarning("종료 시간은 시작 시간보다 늦어야 합니다.");
       return;
@@ -391,7 +425,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       startTime: startTime,
       endTime: endTime
     };
-    
+
     setMyAvailableTimes([...myAvailableTimes, time]);
     setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
   };
@@ -407,24 +441,30 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 팀원들의 가능한 시간 (더미 데이터 - 실제로는 서버에서 가져와야 함)
   const teamMembersAvailableTimes = [
-    { name: "김민수", times: [
-      { id: "m1-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
-      { id: "m1-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
-      { id: "m1-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
-      { id: "m1-4", day: "토요일", startTime: "14:00", endTime: "17:00" },
-    ]},
-    { name: "이지은", times: [
-      { id: "m2-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
-      { id: "m2-2", day: "화요일", startTime: "10:00", endTime: "11:00" },
-      { id: "m2-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
-      { id: "m2-4", day: "토요일", startTime: "14:00", endTime: "16:00" },
-    ]},
-    { name: "최수연", times: [
-      { id: "m3-1", day: "월요일", startTime: "10:00", endTime: "11:00" },
-      { id: "m3-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
-      { id: "m3-3", day: "수요일", startTime: "10:00", endTime: "12:00" },
-      { id: "m3-4", day: "토요일", startTime: "14:00", endTime: "18:00" },
-    ]}
+    {
+      name: "김민수", times: [
+        { id: "m1-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
+        { id: "m1-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
+        { id: "m1-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
+        { id: "m1-4", day: "토요일", startTime: "14:00", endTime: "17:00" },
+      ]
+    },
+    {
+      name: "이지은", times: [
+        { id: "m2-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
+        { id: "m2-2", day: "화요일", startTime: "10:00", endTime: "11:00" },
+        { id: "m2-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
+        { id: "m2-4", day: "토요일", startTime: "14:00", endTime: "16:00" },
+      ]
+    },
+    {
+      name: "최수연", times: [
+        { id: "m3-1", day: "월요일", startTime: "10:00", endTime: "11:00" },
+        { id: "m3-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
+        { id: "m3-3", day: "수요일", startTime: "10:00", endTime: "12:00" },
+        { id: "m3-4", day: "토요일", startTime: "14:00", endTime: "18:00" },
+      ]
+    }
   ];
 
   // 시간을 30분 단위 슬롯으로 변환
@@ -440,7 +480,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
       const [startHour, startMin] = time.startTime.split(':').map(Number);
       const [endHour, endMin] = time.endTime.split(':').map(Number);
-      
+
       const startMinutes = startHour * 60 + startMin;
       const endMinutes = endHour * 60 + endMin;
 
@@ -558,10 +598,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   };
 
   // 게시글 삭제 핸들러
-  const handleDeletePost = (postId: number) => {
-    if (confirm("이 게시글을 삭제하시겠습니까?")) {
-      setPosts(posts.filter(p => p.id !== postId));
+  const handleDeletePost = async (postId: number) => {
+    const ok = confirm("이 게시글을 삭제하시겠습니까?");
+    if (!ok) return;
+
+    try {
+      await deleteBoardPost(postId);
+      // 성공하면 프론트에서도 제거
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
       setSelectedPost(null);
+    } catch (err) {
+      console.error("게시글 삭제 실패:", err);
+      alert("게시글 삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -582,7 +630,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         <div className="course-board__header-right">
           {/* 알림 버튼 */}
           <div className="course-board__notification-wrapper">
-            <button 
+            <button
               className="course-board__icon-button"
               onClick={() => setIsNotificationOpen(!isNotificationOpen)}
             >
@@ -591,11 +639,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 <span className="course-board__notification-badge">{unreadCount}</span>
               )}
             </button>
-            
+
             {/* 알림 드롭다운 */}
             {isNotificationOpen && (
               <>
-                <div 
+                <div
                   className="course-board__notification-overlay"
                   onClick={() => setIsNotificationOpen(false)}
                 />
@@ -608,8 +656,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   </div>
                   <div className="course-board__notification-list">
                     {notifications.map(notif => (
-                      <div 
-                        key={notif.id} 
+                      <div
+                        key={notif.id}
                         className={`course-board__notification-item ${!notif.isRead ? 'course-board__notification-item--unread' : ''}`}
                       >
                         <div className="course-board__notification-content">
@@ -627,7 +675,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
 
           {/* 프로필 버튼 */}
-          <button 
+          <button
             className="course-board__profile-button"
             onClick={() => onNavigate('mypage')}
           >
@@ -668,7 +716,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               />
             </div>
             {activeTab === "팀 게시판" && (
-              <button 
+              <button
                 className="course-board__available-time-button"
                 onClick={handleOpenAvailableTimeModal}
               >
@@ -689,8 +737,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 {sortedRecruitments.map((recruitment) => {
                   const isFull = recruitment.currentMembers >= recruitment.maxMembers;
                   return (
-                    <div 
-                      key={recruitment.id} 
+                    <div
+                      key={recruitment.id}
                       className="recruitment-card"
                       onClick={() => setSelectedRecruitment(recruitment)}
                     >
@@ -701,11 +749,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           <span>{recruitment.author}</span>
                         </div>
                       </div>
-                      
+
                       <div className="recruitment-card__content">
                         <p className="recruitment-card__description">{recruitment.description}</p>
                       </div>
-                      
+
                       <div className="recruitment-card__footer">
                         <div className="recruitment-card__members">
                           <Users size={18} />
@@ -714,18 +762,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           </span>
                           {isFull && <span className="recruitment-card__full-badge">마감</span>}
                         </div>
-                        
-                        <button 
-                          className={`recruitment-card__join-button ${
-                            recruitment.isJoined ? "recruitment-card__join-button--joined" : ""
-                          } ${isFull && !recruitment.isJoined ? "recruitment-card__join-button--disabled" : ""}`}
+
+                        <button
+                          className={`recruitment-card__join-button ${recruitment.isJoined ? "recruitment-card__join-button--joined" : ""
+                            } ${isFull && !recruitment.isJoined ? "recruitment-card__join-button--disabled" : ""}`}
                           onClick={(e) => handleJoinRecruitment(recruitment.id, e)}
                           disabled={isFull && !recruitment.isJoined}
                         >
                           {recruitment.isJoined ? "참여 취소" : isFull ? "마감" : "참여하기"}
                         </button>
                       </div>
-                      
+
                       <div className="recruitment-card__timestamp">{recruitment.timestamp}</div>
                     </div>
                   );
@@ -739,8 +786,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 {filteredPosts.length}개의 글
               </div>
               {filteredPosts.map((post) => (
-                <article 
-                  key={post.id} 
+                <article
+                  key={post.id}
                   className="course-board__post"
                   onClick={() => handlePostClick(post)}
                 >
@@ -768,7 +815,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
                   <div className="course-board__post-footer">
                     <div className="course-board__post-actions">
-                      <button 
+                      <button
                         className="course-board__post-action"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -793,7 +840,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       </div>
 
       {/* 플로팅 게시글 작성 버튼 */}
-      <button 
+      <button
         className="course-board__floating-add-button"
         onClick={() => activeTab === "모집" ? setIsCreateRecruitmentOpen(true) : setIsCreatePostOpen(true)}
         aria-label={activeTab === "모집" ? "모집 작성" : "게시글 작성"}
@@ -828,13 +875,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               />
             </div>
             <div className="course-board__modal-footer">
-              <button 
+              <button
                 className="course-board__modal-button course-board__modal-button--cancel"
                 onClick={() => setIsCreatePostOpen(false)}
               >
                 취소
               </button>
-              <button 
+              <button
                 className="course-board__modal-button course-board__modal-button--submit"
                 onClick={handleCreatePost}
               >
@@ -877,7 +924,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
               {/* 좋아요 버튼 */}
               <div className="course-board__detail-actions">
-                <button 
+                <button
                   className={`course-board__detail-like ${selectedPost.isLiked ? 'course-board__detail-like--active' : ''}`}
                   onClick={() => handleLikePost(selectedPost.id)}
                 >
@@ -924,18 +971,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     }
                   }}
                 />
-                <button 
+                <button
                   className="course-board__comment-submit"
                   onClick={handleAddComment}
                 >
                   <Send size={18} />
                 </button>
               </div>
-              
+
               {/* 삭제 버튼 (본인 글인 경우만) */}
-              {selectedPost.author === "나" && (
+              {selectedPost.author === user?.name && (
                 <div className="post-detail-delete-section">
-                  <button 
+                  <button
                     className="post-detail-delete-button"
                     onClick={() => handleDeletePost(selectedPost.id)}
                     title="게시글 삭제"
@@ -966,13 +1013,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 placeholder="모집 제목 (예: 알고리즘 스터디 멤버 모집)"
                 className="course-board__modal-input"
                 value={newRecruitment.title}
-                onChange={(e) => setNewRecruitment({...newRecruitment, title: e.target.value})}
+                onChange={(e) => setNewRecruitment({ ...newRecruitment, title: e.target.value })}
               />
               <textarea
                 placeholder="모집 내용을 입력하세요"
                 className="course-board__modal-textarea"
                 value={newRecruitment.description}
-                onChange={(e) => setNewRecruitment({...newRecruitment, description: e.target.value})}
+                onChange={(e) => setNewRecruitment({ ...newRecruitment, description: e.target.value })}
                 rows={8}
               />
               <div className="recruitment-form-group">
@@ -985,7 +1032,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     type="button"
                     className="recruitment-member-counter__button"
                     onClick={() => setNewRecruitment({
-                      ...newRecruitment, 
+                      ...newRecruitment,
                       maxMembers: Math.max(2, newRecruitment.maxMembers - 1)
                     })}
                     disabled={newRecruitment.maxMembers <= 2}
@@ -999,7 +1046,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     type="button"
                     className="recruitment-member-counter__button"
                     onClick={() => setNewRecruitment({
-                      ...newRecruitment, 
+                      ...newRecruitment,
                       maxMembers: Math.min(10, newRecruitment.maxMembers + 1)
                     })}
                     disabled={newRecruitment.maxMembers >= 10}
@@ -1010,13 +1057,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               </div>
             </div>
             <div className="course-board__modal-footer">
-              <button 
+              <button
                 className="course-board__modal-button course-board__modal-button--cancel"
                 onClick={() => setIsCreateRecruitmentOpen(false)}
               >
                 취소
               </button>
-              <button 
+              <button
                 className="course-board__modal-button course-board__modal-button--submit"
                 onClick={handleCreateRecruitment}
               >
@@ -1078,10 +1125,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
               {/* 참여 버튼 */}
               <div className="course-board__detail-actions">
-                <button 
-                  className={`recruitment-detail-join-button ${
-                    selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
-                  } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
+                <button
+                  className={`recruitment-detail-join-button ${selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
+                    } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
                   onClick={() => {
                     handleJoinRecruitment(selectedRecruitment.id);
                     // 상태 업데이트를 반영하기 위해 모달도 업데이트
@@ -1092,17 +1138,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 >
                   <Users size={20} />
                   <span>
-                    {selectedRecruitment.isJoined 
-                      ? "참여 취소" 
-                      : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers 
-                        ? "마감" 
+                    {selectedRecruitment.isJoined
+                      ? "참여 취소"
+                      : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers
+                        ? "마감"
                         : "참여하기"}
                   </span>
                 </button>
-                
+
                 {/* 삭제 버튼 (본인 글인 경우만) */}
                 {selectedRecruitment.author === "나" && (
-                  <button 
+                  <button
                     className="recruitment-detail-delete-button"
                     onClick={() => handleDeleteRecruitment(selectedRecruitment.id)}
                     title="모집글 삭제"
@@ -1130,14 +1176,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="course-board__modal-body">
               {!isResultView ? (
                 /* 시간 입력 단계 */
                 <>
                   <div className="available-time-info">
                     <p className="available-time-description">
-                      팀원들과 만날 수 있는 시간을 선택해주세요. 
+                      팀원들과 만날 수 있는 시간을 선택해주세요.
                       Dashboard에서 입력한 시간이 자동으로 불러와지며, 추가로 시간을 더 입력할 수 있습니다.
                     </p>
                   </div>
@@ -1155,7 +1201,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                               type="button"
                               className={`time-form-day-button ${newTime.day === dayFull ? 'time-form-day-button--active' : ''}`}
                               onClick={() => {
-                                setNewTime({...newTime, day: dayFull});
+                                setNewTime({ ...newTime, day: dayFull });
                                 setTimeOverlapWarning("");
                               }}
                             >
@@ -1165,17 +1211,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         })}
                       </div>
                     </div>
-                    
+
                     <div className="time-form-row">
                       <div className="time-form-group">
                         <label className="time-form-label">시작 시간</label>
                         <div className="time-form-time-row">
                           <div className="time-form-select-wrapper">
-                            <select 
+                            <select
                               className="time-form-select-small"
                               value={newTime.startHour}
                               onChange={(e) => {
-                                setNewTime({...newTime, startHour: e.target.value});
+                                setNewTime({ ...newTime, startHour: e.target.value });
                                 setTimeOverlapWarning("");
                               }}
                             >
@@ -1187,11 +1233,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           </div>
                           <span className="time-form-separator">:</span>
                           <div className="time-form-select-wrapper">
-                            <select 
+                            <select
                               className="time-form-select-small"
                               value={newTime.startMinute}
                               onChange={(e) => {
-                                setNewTime({...newTime, startMinute: e.target.value});
+                                setNewTime({ ...newTime, startMinute: e.target.value });
                                 setTimeOverlapWarning("");
                               }}
                             >
@@ -1202,16 +1248,16 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="time-form-group">
                         <label className="time-form-label">종료 시간</label>
                         <div className="time-form-time-row">
                           <div className="time-form-select-wrapper">
-                            <select 
+                            <select
                               className="time-form-select-small"
                               value={newTime.endHour}
                               onChange={(e) => {
-                                setNewTime({...newTime, endHour: e.target.value});
+                                setNewTime({ ...newTime, endHour: e.target.value });
                                 setTimeOverlapWarning("");
                               }}
                             >
@@ -1223,11 +1269,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           </div>
                           <span className="time-form-separator">:</span>
                           <div className="time-form-select-wrapper">
-                            <select 
+                            <select
                               className="time-form-select-small"
                               value={newTime.endMinute}
                               onChange={(e) => {
-                                setNewTime({...newTime, endMinute: e.target.value});
+                                setNewTime({ ...newTime, endMinute: e.target.value });
                                 setTimeOverlapWarning("");
                               }}
                             >
@@ -1239,14 +1285,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         </div>
                       </div>
                     </div>
-                    
+
                     {timeOverlapWarning && (
                       <div className="time-form-warning">
                         {timeOverlapWarning}
                       </div>
                     )}
 
-                    <button 
+                    <button
                       className="time-form-add-button"
                       onClick={handleAddTime}
                     >
@@ -1268,7 +1314,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                                 {time.startTime} - {time.endTime}
                               </span>
                             </div>
-                            <button 
+                            <button
                               className="time-list-item-remove"
                               onClick={() => handleRemoveTime(time.id)}
                             >
@@ -1300,7 +1346,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         </div>
                       ))}
                     </div>
-                    
+
                     <div className="time-schedule__body">
                       {Array.from({ length: 10 }, (_, hourIndex) => (
                         <div key={hourIndex} className="time-schedule__row">
@@ -1309,13 +1355,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           </div>
                           {Array.from({ length: 7 }, (_, dayIndex) => {
                             const isOptimal = isTimeSlotOptimal(dayIndex, hourIndex);
-                            
+
                             return (
                               <div
                                 key={`${dayIndex}-${hourIndex}`}
-                                className={`time-schedule__cell time-schedule__cell--result ${
-                                  isOptimal ? 'time-schedule__cell--optimal-result' : 'time-schedule__cell--unavailable-result'
-                                }`}
+                                className={`time-schedule__cell time-schedule__cell--result ${isOptimal ? 'time-schedule__cell--optimal-result' : 'time-schedule__cell--unavailable-result'
+                                  }`}
                                 title={isOptimal ? '✓ 모든 팀원 만남 가능!' : '✗ 일부 팀원 불가능'}
                               >
                                 {isOptimal && <span className="time-schedule__optimal-icon">✓</span>}
@@ -1347,13 +1392,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
             <div className="course-board__modal-footer">
               {!isResultView ? (
                 <>
-                  <button 
+                  <button
                     className="course-board__modal-button course-board__modal-button--cancel"
                     onClick={() => setIsAvailableTimeModalOpen(false)}
                   >
                     취소
                   </button>
-                  <button 
+                  <button
                     className="course-board__modal-button course-board__modal-button--submit"
                     onClick={handleSubmitAvailableTime}
                   >
@@ -1362,13 +1407,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 </>
               ) : (
                 <>
-                  <button 
+                  <button
                     className="course-board__modal-button course-board__modal-button--secondary"
                     onClick={() => setIsResultView(false)}
                   >
                     다시 선택
                   </button>
-                  <button 
+                  <button
                     className="course-board__modal-button course-board__modal-button--primary"
                     onClick={() => setIsAvailableTimeModalOpen(false)}
                   >

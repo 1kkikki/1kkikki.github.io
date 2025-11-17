@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { User, Lock } from "lucide-react";
-import { login } from "../../api/auth";   // ✅ 로그인 API 불러오기
+import { login } from "../../api/auth";   // 로그인 API 불러오기
 import "./login-page.css";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface LoginPageProps {
   onNavigate: (page: string, type?: 'student' | 'professor') => void;
@@ -12,6 +13,8 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+
+  const { login: saveLogin } = useAuth();
 
   // 컴포넌트 마운트 시 저장된 사용자 이름 불러오기
   useEffect(() => {
@@ -32,6 +35,8 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
 
     if (data.access_token) {
       console.log("✅ 로그인 성공:", data);
+
+      saveLogin(data.user, data.access_token);
       
       // 사용자 이름 기억하기 처리
       if (rememberMe) {
