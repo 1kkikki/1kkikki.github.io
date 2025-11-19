@@ -930,6 +930,267 @@
   color: #1f2937;
 }
 
+/* Delete Account Section */
+.mypage__delete-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.dark .mypage__delete-section {
+  background: #1f2937;
+  border: 1px solid #374151;
+}
+
+.mypage__delete-warning {
+  margin: 0;
+  color: #6b7280;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.dark .mypage__delete-warning {
+  color: #9ca3af;
+}
+
+.mypage__delete-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  align-self: flex-start;
+}
+
+.mypage__delete-button:hover {
+  background: #e5e7eb;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.dark .mypage__delete-button {
+  background: #374151;
+  color: #9ca3af;
+  border: 1px solid #4b5563;
+}
+
+.dark .mypage__delete-button:hover {
+  background: #4b5563;
+  color: #d1d5db;
+  border-color: #6b7280;
+}
+
+.mypage__delete-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Modal */
+.mypage__modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.mypage__modal-content {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.dark .mypage__modal-content {
+  background: #1f2937;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.mypage__modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.dark .mypage__modal-header {
+  border-bottom: 2px solid #374151;
+}
+
+.mypage__modal-header h3 {
+  margin: 0;
+  font-family: 'Noto Sans KR', sans-serif;
+  color: #1f2937;
+  font-size: 1.5rem;
+}
+
+.dark .mypage__modal-header h3 {
+  color: #f3f4f6;
+}
+
+.mypage__modal-close {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.mypage__modal-close:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.dark .mypage__modal-close {
+  color: #9ca3af;
+}
+
+.dark .mypage__modal-close:hover {
+  background: #374151;
+  color: #f3f4f6;
+}
+
+.mypage__modal-body {
+  padding: 2rem;
+  flex: 1;
+}
+
+.mypage__modal-warning {
+  margin: 0 0 1.5rem 0;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.dark .mypage__modal-warning {
+  background: #1f2937;
+  border: 1px solid #374151;
+  color: #9ca3af;
+}
+
+.mypage__modal-warning strong {
+  color: #374151;
+}
+
+.dark .mypage__modal-warning strong {
+  color: #d1d5db;
+}
+
+.mypage__modal-footer {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  border-top: 2px solid #f3f4f6;
+  justify-content: flex-end;
+}
+
+.dark .mypage__modal-footer {
+  border-top: 2px solid #374151;
+}
+
+.mypage__modal-cancel {
+  padding: 0.625rem 1.25rem;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  color: #6b7280;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mypage__modal-cancel:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+  color: #1f2937;
+}
+
+.dark .mypage__modal-cancel {
+  background: #374151;
+  border: 2px solid #4b5563;
+  color: #d1d5db;
+}
+
+.dark .mypage__modal-cancel:hover {
+  background: #4b5563;
+  border-color: #6b7280;
+  color: #f3f4f6;
+}
+
+.mypage__modal-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1.25rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mypage__modal-delete:hover {
+  background: #e5e7eb;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.dark .mypage__modal-delete {
+  background: #374151;
+  color: #9ca3af;
+  border: 1px solid #4b5563;
+}
+
+.dark .mypage__modal-delete:hover {
+  background: #4b5563;
+  color: #d1d5db;
+  border-color: #6b7280;
+}
+
+.mypage__modal-delete svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .mypage__container {
@@ -1073,5 +1334,26 @@
 
   .mypage__footer {
     padding: 1.25rem;
+  }
+
+  .mypage__modal-content {
+    max-width: 100%;
+    margin: 1rem;
+  }
+
+  .mypage__modal-header,
+  .mypage__modal-body,
+  .mypage__modal-footer {
+    padding: 1.25rem;
+  }
+
+  .mypage__modal-footer {
+    flex-direction: column;
+  }
+
+  .mypage__modal-cancel,
+  .mypage__modal-delete {
+    width: 100%;
+    justify-content: center;
   }
 }

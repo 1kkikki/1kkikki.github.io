@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
 * {
   margin: 0;
@@ -58,6 +58,31 @@
   animation: fade-in-up 0.6s ease-out;
 }
 
+.login-page__back-button {
+  position: fixed;
+  top: 1.25rem;
+  left: 2rem;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.login-page__back-button:hover {
+  background: white;
+  color: #1f2937;
+  transform: translateX(-4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
@@ -70,13 +95,13 @@
 }
 
 .login-page__title {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Poppins', 'Noto Sans KR', sans-serif;
   font-size: 2.5rem;
-  font-weight: 600;
+  font-weight: 500;
   text-align: center;
-  color: #1a1a1a;
+  color: #4b5563;
   margin: 0 0 2.5rem;
-  letter-spacing: 2px;
+  letter-spacing: -0.3px;
 }
 
 .login-page__form {
@@ -95,7 +120,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   font-size: 1rem;
-  font-family: inherit;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #1a1a1a;
   background: #f9fafb;
   transition: all 0.3s ease;
@@ -152,6 +177,7 @@
 
 .login-page__checkbox-label {
   font-size: 0.9rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #6b7280;
   cursor: pointer;
   user-select: none;
@@ -168,10 +194,10 @@
   border-radius: 12px;
   font-size: 1rem;
   font-weight: 600;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: inherit;
-  letter-spacing: 0.3px;
+  letter-spacing: -0.2px;
   height: 52px;
   display: flex;
   align-items: center;
@@ -195,6 +221,7 @@
 
 .login-page__link {
   font-size: 0.9rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #6b7280;
   text-decoration: none;
   transition: color 0.3s ease;
@@ -202,6 +229,22 @@
 }
 
 .login-page__link:hover {
+  color: #a855f7;
+}
+
+.login-page__link-button {
+  font-size: 0.9rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  line-height: 1.5;
+  padding: 0;
+}
+
+.login-page__link-button:hover {
   color: #a855f7;
 }
 
@@ -222,18 +265,19 @@
 
 .login-page__footer-text {
   font-size: 0.95rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #6b7280;
 }
 
 .login-page__footer-link {
   font-size: 0.95rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #a855f7;
   font-weight: 600;
   background: none;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: inherit;
 }
 
 .login-page__footer-link:hover {
@@ -243,6 +287,12 @@
 
 /* 반응형 */
 @media (max-width: 640px) {
+  .login-page__back-button {
+    top: 1rem;
+    left: 1.5rem;
+    padding: 0.5rem 1rem;
+  }
+  
   .login-page__container {
     padding: 2rem 1.5rem;
   }
@@ -260,5 +310,267 @@
   .login-page__submit-button {
     font-size: 1rem;
     height: 48px;
+  }
+}
+
+/* ===============================
+   모달 스타일
+   =============================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-container {
+  background: white;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modal-slide-up 0.3s ease-out;
+  position: relative;
+}
+
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.75rem 2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  font-family: 'Poppins', 'Noto Sans KR', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.modal-close-button:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.modal-form {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.modal-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modal-label {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.modal-input-wrapper {
+  position: relative;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.875rem 3rem 0.875rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  color: #1a1a1a;
+  background: #f9fafb;
+  transition: all 0.3s ease;
+  height: 50px;
+}
+
+.modal-input::placeholder {
+  color: #9ca3af;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #a855f7;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+.modal-input-icon {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.modal-error {
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  margin: -0.5rem 0 0 0;
+  padding: 0;
+}
+
+.modal-submit-button {
+  width: 100%;
+  margin-top: 0.5rem;
+  background: #a855f7;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.modal-submit-button:hover {
+  background: #9333ea;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(168, 85, 247, 0.3);
+}
+
+.modal-success {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 0.5rem 0;
+}
+
+.modal-success-text {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 0.9rem;
+  color: #166534;
+  margin: 0 0 0.5rem 0;
+}
+
+.modal-success-id {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #15803d;
+  margin: 0;
+  word-break: break-all;
+}
+
+.modal-success-content {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.modal-success-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.modal-success-message {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 1rem;
+  color: #374151;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* 모달 반응형 */
+@media (max-width: 640px) {
+  .modal-container {
+    width: 95%;
+    border-radius: 16px;
+  }
+  
+  .modal-header {
+    padding: 1.5rem 1.5rem;
+  }
+  
+  .modal-title {
+    font-size: 1.25rem;
+  }
+  
+  .modal-form {
+    padding: 1.5rem;
+    gap: 1.25rem;
+  }
+  
+  .modal-input {
+    height: 46px;
+    font-size: 0.95rem;
+  }
+  
+  .modal-submit-button {
+    height: 48px;
+    font-size: 0.95rem;
+  }
+  
+  .modal-success-content {
+    padding: 1.5rem;
   }
 }

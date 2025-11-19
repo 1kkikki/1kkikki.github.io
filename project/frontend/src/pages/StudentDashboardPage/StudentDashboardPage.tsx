@@ -95,10 +95,6 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     setAvailableTimes(formatted);
   }
 
-  useEffect(() => {
-    fetchAvailableTimes();
-  }, []);
-
   // 왼쪽 사이드바 강의 목록
   const courses = [
     { id: 1, title: "운영체제", code: "CSE301" },
@@ -106,6 +102,24 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     { id: 3, title: "인공지능기초", code: "CSE402" },
     { id: 4, title: "컴퓨터보안", code: "CSE302" }
   ];
+
+  useEffect(() => {
+    fetchAvailableTimes();
+  }, []);
+
+  // MyPage에서 돌아온 경우 courseboard 자동 선택
+  useEffect(() => {
+    const selectedCourseStr = localStorage.getItem('selectedCourse');
+    if (selectedCourseStr) {
+      const courseInfo = JSON.parse(selectedCourseStr);
+      // courses 배열에서 해당 course 찾기
+      const course = courses.find(c => c.id === courseInfo.courseId);
+      if (course) {
+        setSelectedCourse(course);
+      }
+      localStorage.removeItem('selectedCourse');
+    }
+  }, []);
 
   // 캘린더 날짜 생성 (2025년 1월 - 수요일 시작)
   const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();

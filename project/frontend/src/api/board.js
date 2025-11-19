@@ -1,7 +1,7 @@
 const API_URL = "http://127.0.0.1:5000";
 
 export async function createBoardPost(course_id, title, content, category) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
   const res = await fetch(`${API_URL}/board/`, {
     method: "POST",
@@ -16,7 +16,7 @@ export async function createBoardPost(course_id, title, content, category) {
 }
 
 export async function getBoardPosts(course_id) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
   const res = await fetch(`${API_URL}/board/${course_id}`, {
     method: "GET",
@@ -27,7 +27,7 @@ export async function getBoardPosts(course_id) {
 }
 
 export async function deleteBoardPost(post_id) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
   const res = await fetch(`${API_URL}/board/${post_id}`, {
     method: "DELETE",

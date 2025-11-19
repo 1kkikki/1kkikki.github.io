@@ -2,7 +2,7 @@ const API_URL = "http://127.0.0.1:5000";
 
 // 가능한 시간 추가
 export async function addAvailableTime(day_of_week, start_time, end_time) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${API_URL}/available/`, {
       method: "POST",
@@ -27,7 +27,7 @@ export async function addAvailableTime(day_of_week, start_time, end_time) {
 
 // 가능한 시간 목록 조회
 export async function getMyAvailableTimes() {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${API_URL}/available/`, {
       method: "GET",
@@ -48,7 +48,7 @@ export async function getMyAvailableTimes() {
 
 // 가능한 시간 삭제
 export async function deleteAvailableTime(id) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${API_URL}/available/${id}`, {
       method: "DELETE",

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 /* ===================================
    SIGN UP PAGE STYLES
    =================================== */
@@ -35,6 +37,31 @@
   animation: fade-in-up 0.6s ease-out;
 }
 
+.signup-page__back-button {
+  position: fixed;
+  top: 1.25rem;
+  left: 2rem;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.signup-page__back-button:hover {
+  background: white;
+  color: #1f2937;
+  transform: translateX(-4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
@@ -47,13 +74,13 @@
 }
 
 .signup-page__title {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Poppins', 'Noto Sans KR', sans-serif;
   font-size: 2.5rem;
-  font-weight: 600;
+  font-weight: 500;
   text-align: center;
-  color: #1a1a1a;
+  color: #4b5563;
   margin: 0 0 2.5rem;
-  letter-spacing: 2px;
+  letter-spacing: -0.3px;
 }
 
 .signup-page__form {
@@ -76,7 +103,7 @@
   border-radius: 12px;
   font-size: 1rem;
   font-weight: 600;
-  font-family: inherit;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #6b7280;
   background: #f9fafb;
   cursor: pointer;
@@ -115,7 +142,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   font-size: 1rem;
-  font-family: inherit;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #1a1a1a;
   background: #f9fafb;
   transition: all 0.3s ease;
@@ -146,10 +173,10 @@
   border-radius: 12px;
   font-size: 1rem;
   font-weight: 600;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: inherit;
-  letter-spacing: 0.3px;
+  letter-spacing: -0.2px;
   height: 52px;
   display: flex;
   align-items: center;
@@ -180,12 +207,14 @@
 
 .signup-page__footer-text {
   font-size: 0.95rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #6b7280;
   line-height: 1.5;
 }
 
 .signup-page__footer-link {
   font-size: 0.95rem;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   color: #a855f7;
   font-weight: 600;
   background: none;
@@ -194,7 +223,6 @@
   transition: all 0.3s ease;
   padding: 0;
   line-height: 1.5;
-  font-family: inherit;
 }
 
 .signup-page__footer-link:hover {
@@ -204,6 +232,12 @@
 
 /* Responsive */
 @media (max-width: 640px) {
+  .signup-page__back-button {
+    top: 1rem;
+    left: 1.5rem;
+    padding: 0.5rem 1rem;
+  }
+  
   .signup-page__container {
     padding: 2rem 1.5rem;
   }

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import "./signup-page.css";
 import { register } from "../../api/auth";
 
@@ -62,7 +63,13 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
   return (
     <div className="signup-page">
       <div className="signup-page__background"></div>
-
+      <button 
+        className="signup-page__back-button"
+        onClick={() => onNavigate("home")}
+        title="홈으로 돌아가기"
+      >
+        <ArrowLeft size={20} />
+      </button>
       <div className="signup-page__container">
         <h1 className="signup-page__title">SIGN UP</h1>
 

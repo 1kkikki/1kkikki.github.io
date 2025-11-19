@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
@@ -71,6 +71,20 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     { id: 4, title: "컴퓨터보안", code: "CSE302" }
   ]);
   const [newCourse, setNewCourse] = useState({ title: "", code: "" });
+
+  // MyPage에서 돌아온 경우 courseboard 자동 선택
+  useEffect(() => {
+    const selectedCourseStr = localStorage.getItem('selectedCourse');
+    if (selectedCourseStr) {
+      const courseInfo = JSON.parse(selectedCourseStr);
+      // courses 배열에서 해당 course 찾기
+      const course = courses.find(c => c.id === courseInfo.courseId);
+      if (course) {
+        setSelectedCourse(course);
+      }
+      localStorage.removeItem('selectedCourse');
+    }
+  }, [courses]);
 
   // 게시판 페이지가 선택되었을 때
   if (selectedCourse) {

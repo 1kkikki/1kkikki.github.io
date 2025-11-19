@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Lock } from "lucide-react";
+import { User, Lock, ArrowLeft, X, Mail, Search } from "lucide-react";
 import { login } from "../../api/auth";   // 로그인 API 불러오기
 import "./login-page.css";
 import { useAuth } from "../../contexts/AuthContext";
@@ -13,6 +13,20 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+  const [showFindId, setShowFindId] = useState(false);
+  const [showFindPassword, setShowFindPassword] = useState(false);
+  
+  // 아이디 찾기 상태
+  const [findIdName, setFindIdName] = useState("");
+  const [findIdEmail, setFindIdEmail] = useState("");
+  const [foundId, setFoundId] = useState("");
+  const [findIdError, setFindIdError] = useState("");
+  
+  // 비밀번호 찾기 상태
+  const [findPasswordId, setFindPasswordId] = useState("");
+  const [findPasswordEmail, setFindPasswordEmail] = useState("");
+  const [findPasswordError, setFindPasswordError] = useState("");
+  const [findPasswordSuccess, setFindPasswordSuccess] = useState(false);
 
   const { login: saveLogin } = useAuth();
 
@@ -64,9 +78,68 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
     }
   };
 
+  const handleFindId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFindIdError("");
+    setFoundId("");
+    
+    if (!findIdName || !findIdEmail) {
+      setFindIdError("이름과 이메일을 모두 입력해주세요.");
+      return;
+    }
+    
+    // TODO: 백엔드 API 연결
+    // 현재는 UI만 구현
+    alert("아이디 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n이름: " + findIdName + "\n이메일: " + findIdEmail);
+    
+    // 예시: 찾은 아이디 표시 (실제로는 API 응답에서 받아옴)
+    // setFoundId("example_user");
+  };
+
+  const handleFindPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFindPasswordError("");
+    setFindPasswordSuccess(false);
+    
+    if (!findPasswordId || !findPasswordEmail) {
+      setFindPasswordError("아이디와 이메일을 모두 입력해주세요.");
+      return;
+    }
+    
+    // TODO: 백엔드 API 연결
+    // 현재는 UI만 구현
+    alert("비밀번호 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n아이디: " + findPasswordId + "\n이메일: " + findPasswordEmail);
+    
+    // 예시: 성공 메시지 표시 (실제로는 API 응답에서 받아옴)
+    // setFindPasswordSuccess(true);
+  };
+
+  const closeFindIdModal = () => {
+    setShowFindId(false);
+    setFindIdName("");
+    setFindIdEmail("");
+    setFoundId("");
+    setFindIdError("");
+  };
+
+  const closeFindPasswordModal = () => {
+    setShowFindPassword(false);
+    setFindPasswordId("");
+    setFindPasswordEmail("");
+    setFindPasswordError("");
+    setFindPasswordSuccess(false);
+  };
+
   return (
     <div className="login-page">
       <div className="login-page__background"></div>
+      <button 
+        className="login-page__back-button"
+        onClick={() => onNavigate("home")}
+        title="홈으로 돌아가기"
+      >
+        <ArrowLeft size={20} />
+      </button>
       <div className="login-page__container">
         <h1 className="login-page__title">LOGIN</h1>
 
@@ -119,9 +192,21 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
           </button>
 
           <div className="login-page__links">
-            <a href="#" className="login-page__link">아이디 찾기</a>
+            <button 
+              type="button"
+              onClick={() => setShowFindId(true)}
+              className="login-page__link-button"
+            >
+              아이디 찾기
+            </button>
             <span className="login-page__link-divider">|</span>
-            <a href="#" className="login-page__link">비밀번호 찾기</a>
+            <button 
+              type="button"
+              onClick={() => setShowFindPassword(true)}
+              className="login-page__link-button"
+            >
+              비밀번호 찾기
+            </button>
           </div>
 
           <div className="login-page__footer">
@@ -136,6 +221,132 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
           </div>
         </form>
       </div>
+
+      {/* 아이디 찾기 모달 */}
+      {showFindId && (
+        <div className="modal-overlay" onClick={closeFindIdModal}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">아이디 찾기</h2>
+              <button className="modal-close-button" onClick={closeFindIdModal}>
+                <X size={24} />
+              </button>
+            </div>
+            <form className="modal-form" onSubmit={handleFindId}>
+              <div className="modal-input-group">
+                <label className="modal-label">이름</label>
+                <div className="modal-input-wrapper">
+                  <input
+                    type="text"
+                    className="modal-input"
+                    placeholder="이름을 입력하세요"
+                    value={findIdName}
+                    onChange={(e) => setFindIdName(e.target.value)}
+                    required
+                  />
+                  <User className="modal-input-icon" size={20} />
+                </div>
+              </div>
+              <div className="modal-input-group">
+                <label className="modal-label">이메일</label>
+                <div className="modal-input-wrapper">
+                  <input
+                    type="email"
+                    className="modal-input"
+                    placeholder="이메일을 입력하세요"
+                    value={findIdEmail}
+                    onChange={(e) => setFindIdEmail(e.target.value)}
+                    required
+                  />
+                  <Mail className="modal-input-icon" size={20} />
+                </div>
+              </div>
+              {findIdError && (
+                <p className="modal-error">{findIdError}</p>
+              )}
+              {foundId && (
+                <div className="modal-success">
+                  <p className="modal-success-text">찾은 아이디:</p>
+                  <p className="modal-success-id">{foundId}</p>
+                </div>
+              )}
+              <button type="submit" className="modal-submit-button">
+                <Search size={18} />
+                아이디 찾기
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 비밀번호 찾기 모달 */}
+      {showFindPassword && (
+        <div className="modal-overlay" onClick={closeFindPasswordModal}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">비밀번호 찾기</h2>
+              <button className="modal-close-button" onClick={closeFindPasswordModal}>
+                <X size={24} />
+              </button>
+            </div>
+            {!findPasswordSuccess ? (
+              <form className="modal-form" onSubmit={handleFindPassword}>
+                <div className="modal-input-group">
+                  <label className="modal-label">아이디</label>
+                  <div className="modal-input-wrapper">
+                    <input
+                      type="text"
+                      className="modal-input"
+                      placeholder="아이디를 입력하세요"
+                      value={findPasswordId}
+                      onChange={(e) => setFindPasswordId(e.target.value)}
+                      required
+                    />
+                    <User className="modal-input-icon" size={20} />
+                  </div>
+                </div>
+                <div className="modal-input-group">
+                  <label className="modal-label">이메일</label>
+                  <div className="modal-input-wrapper">
+                    <input
+                      type="email"
+                      className="modal-input"
+                      placeholder="이메일을 입력하세요"
+                      value={findPasswordEmail}
+                      onChange={(e) => setFindPasswordEmail(e.target.value)}
+                      required
+                    />
+                    <Mail className="modal-input-icon" size={20} />
+                  </div>
+                </div>
+                {findPasswordError && (
+                  <p className="modal-error">{findPasswordError}</p>
+                )}
+                <button type="submit" className="modal-submit-button">
+                  <Search size={18} />
+                  비밀번호 찾기
+                </button>
+              </form>
+            ) : (
+              <div className="modal-success-content">
+                <div className="modal-success-icon">✓</div>
+                <p className="modal-success-message">
+                  비밀번호 재설정 링크가 이메일로 전송되었습니다.
+                  <br />
+                  이메일을 확인해주세요.
+                </p>
+                <button 
+                  type="button"
+                  onClick={closeFindPasswordModal}
+                  className="modal-submit-button"
+                >
+                  확인
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

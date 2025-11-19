@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Home, 
   Bell, 
@@ -22,6 +22,7 @@ import {
   Check,
   Trash2
 } from "lucide-react";
+import { getProfile } from "../../api/profile";
 import "./professor-courseboard.css";
 import "../StudentCourseBoardPage/student-courseboard.css";
 
@@ -77,6 +78,11 @@ interface TeamRecruitment {
 }
 
 export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBoardPageProps) {
+  // localStorage에서 프로필을 먼저 확인하여 초기값 설정
+  const [profileImage, setProfileImage] = useState<string | null>(() => {
+    const cached = localStorage.getItem('userProfileImage');
+    return cached || null;
+  });
   const [activeTab, setActiveTab] = useState("공지");
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -242,6 +248,83 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   });
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  // 프로필 이미지 가져오기
+  useEffect(() => {
+    // 먼저 localStorage에서 프로필 확인 (즉시 표시)
+    const cachedProfile = localStorage.getItem('userProfileImage');
+    if (cachedProfile) {
+      setProfileImage(cachedProfile);
+    }
+
+    // 그 다음 서버에서 최신 프로필 가져오기
+    async function fetchProfile() {
+      const data = await getProfile();
+      if (data.profile && data.profile.profile_image) {
+        setProfileImage(data.profile.profile_image);
+        localStorage.setItem('userProfileImage', data.profile.profile_image);
+      } else if (data.profile && !data.profile.profile_image) {
+        setProfileImage(null);
+        localStorage.removeItem('userProfileImage');
+      }
+    }
+    fetchProfile();
+  }, []);
+
+  // 프로필 아바타 렌더링 함수
+  const renderProfileAvatar = (authorName: string, size: number = 20) => {
+    const isCurrentUser = authorName === "나";
+    const profile = isCurrentUser ? profileImage : null;
+    
+    if (profile) {
+      if (profile.startsWith('color:')) {
+        const color = profile.replace('color:', '');
+        return (
+          <div 
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              background: color, 
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 'none'
+            }}
+          >
+            <User size={size} color="white" />
+          </div>
+        );
+      } else {
+        return (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              background: 'transparent',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <img 
+              src={profile} 
+              alt="프로필" 
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover', 
+                borderRadius: '50%' 
+              }} 
+            />
+          </div>
+        );
+      }
+    }
+    return <User size={size} />;
+  };
 
   const formatDateTime = (date: Date) => {
     const year = date.getFullYear();
@@ -504,9 +587,41 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
           {/* 프로필 버튼 */}
           <button 
             className="course-board__profile-button"
-            onClick={() => onNavigate('mypage')}
+            onClick={() => {
+              // courseboard에서 온 경우를 표시하기 위해 localStorage에 저장
+              localStorage.setItem('returnToCourseboard', JSON.stringify({
+                courseId: course.id,
+                courseTitle: course.title,
+                courseCode: course.code
+              }));
+              onNavigate('mypage');
+            }}
+            style={
+              profileImage && profileImage.startsWith('color:') 
+                ? { background: profileImage.replace('color:', ''), padding: 0 } 
+                : profileImage 
+                  ? { background: 'transparent', padding: 0 } 
+                  : {}
+            }
           >
-            <User size={20} />
+            {profileImage ? (
+              profileImage.startsWith('color:') ? (
+                <User size={20} color="white" />
+              ) : (
+                <img 
+                  src={profileImage} 
+                  alt="프로필" 
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover', 
+                    borderRadius: '50%' 
+                  }} 
+                />
+              )
+            ) : (
+              <User size={20} />
+            )}
           </button>
         </div>
       </header>
@@ -612,8 +727,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
               >
                 <div className="course-board__post-header">
                   <div className="course-board__post-author">
-                    <div className="course-board__post-avatar">
-                      <User size={20} />
+                    <div 
+                      className="course-board__post-avatar"
+                      style={
+                        profileImage && post.author === "나"
+                          ? (profileImage.startsWith('color:') 
+                              ? { background: profileImage.replace('color:', '') }
+                              : { background: 'transparent' })
+                          : {}
+                      }
+                    >
+                      {renderProfileAvatar(post.author, 20)}
                     </div>
                     <div className="course-board__post-meta">
                       <span className="course-board__post-author-name">{post.author}</span>
@@ -725,8 +849,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
               {/* 게시글 헤더 */}
               <div className="course-board__detail-header">
                 <div className="course-board__post-author">
-                  <div className="course-board__post-avatar">
-                    <User size={24} />
+                  <div 
+                    className="course-board__post-avatar"
+                    style={
+                      profileImage && selectedPost.author === "나"
+                        ? (profileImage.startsWith('color:') 
+                            ? { background: profileImage.replace('color:', '') }
+                            : { background: 'transparent' })
+                        : {}
+                    }
+                  >
+                    {renderProfileAvatar(selectedPost.author, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <span className="course-board__post-author-name">{selectedPost.author}</span>
@@ -758,8 +891,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                 <div className="course-board__comments-list">
                   {selectedPost.comments.map((comment) => (
                     <div key={comment.id} className="course-board__comment">
-                      <div className="course-board__comment-avatar">
-                        <User size={20} />
+                      <div 
+                        className="course-board__comment-avatar"
+                        style={
+                          profileImage && comment.author === "나"
+                            ? (profileImage.startsWith('color:') 
+                                ? { background: profileImage.replace('color:', '') }
+                                : { background: 'transparent' })
+                            : {}
+                        }
+                      >
+                        {renderProfileAvatar(comment.author, 20)}
                       </div>
                       <div className="course-board__comment-content">
                         <div className="course-board__comment-header">
@@ -775,8 +917,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
               {/* 댓글 작성 */}
               <div className="course-board__comment-write">
-                <div className="course-board__comment-avatar">
-                  <User size={20} />
+                <div 
+                  className="course-board__comment-avatar"
+                  style={
+                    profileImage
+                      ? (profileImage.startsWith('color:') 
+                          ? { background: profileImage.replace('color:', '') }
+                          : { background: 'transparent' })
+                      : {}
+                  }
+                >
+                  {renderProfileAvatar("나", 20)}
                 </div>
                 <input
                   type="text"
@@ -908,7 +1059,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
               <div className="course-board__detail-header">
                 <div className="course-board__post-author">
                   <div className="course-board__post-avatar">
-                    <User size={24} />
+                    {renderProfileAvatar(selectedRecruitment.author, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <span className="course-board__post-author-name">{selectedRecruitment.author}</span>

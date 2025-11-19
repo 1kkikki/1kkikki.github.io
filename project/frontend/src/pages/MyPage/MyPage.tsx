@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Settings, Lock, Palette, Shield, FileText, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Settings, Lock, Palette, Shield, FileText, Eye, EyeOff, UserX, X } from "lucide-react";
 import "./my-page.css";
-import { getProfile, updateProfile, changePassword } from "../../api/profile";
+import { getProfile, updateProfile, changePassword, deleteAccount } from "../../api/profile";
 
 interface MyPageProps {
   onNavigate: (page: string, type?: 'student' | 'professor') => void;
@@ -33,21 +33,56 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     showAvatars: true
   });
   const [isSaved, setIsSaved] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteIdentifier, setDeleteIdentifier] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
 
   useEffect(() => {
   async function fetchProfile() {
+    const token = localStorage.getItem("token");
+    
+    // 토큰이 없으면 로그인 페이지로 이동
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      onNavigate("login");
+      return;
+    }
+
     const data = await getProfile();
     if (data.profile) {
       setName(data.profile.name);
       setEmail(data.profile.email);
-      setStudentId(data.profile.student_id);
+      setStudentId(data.profile.student_id || "");
       
       if (data.profile.profile_image) {
         setProfileImage(data.profile.profile_image);
+        // localStorage에도 저장
+        localStorage.setItem('userProfileImage', data.profile.profile_image);
+      } else {
+        localStorage.removeItem('userProfileImage');
       }
-    } else if (data.error) {
+    } else if (data.error === "UNAUTHORIZED" || data.status === 401) {
+      // 인증 실패(401)일 때만 로그인 페이지로 이동
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       alert("로그인이 필요합니다.");
       onNavigate("login");
+    } else if (data.error) {
+      // 기타 에러(네트워크 에러 등)는 콘솔에만 출력하고 페이지는 유지
+      console.error("프로필을 불러오는 중 오류가 발생했습니다:", data.error);
+      // localStorage에 저장된 사용자 정보가 있으면 그것을 사용
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          setName(user.name || "");
+          setEmail(user.email || "");
+          setStudentId(user.student_id || user.username || "");
+        } catch (e) {
+          console.error("저장된 사용자 정보 파싱 오류:", e);
+        }
+      }
     }
   }
   fetchProfile();
@@ -140,6 +175,12 @@ export default function MyPage({ onNavigate }: MyPageProps) {
 
     const res = await updateProfile(updateData);
     if (res.message) {
+      // 프로필 저장 후 localStorage에 저장하여 다른 페이지에서 즉시 사용할 수 있도록 함
+      if (profileImage) {
+        localStorage.setItem('userProfileImage', profileImage);
+      } else {
+        localStorage.removeItem('userProfileImage');
+      }
       alert(res.message);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2000);
@@ -150,6 +191,40 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     console.error("프로필 업데이트 오류:", error);
     alert("서버 오류가 발생했습니다.");
   }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteIdentifier.trim()) {
+      alert("아이디 또는 이메일을 입력해주세요.");
+      return;
+    }
+    if (!deletePassword.trim()) {
+      alert("비밀번호를 입력해주세요.");
+      return;
+    }
+
+    const confirmMessage = "정말로 회원탈퇴를 하시겠습니까?\n이 작업은 되돌릴 수 없습니다.";
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const res = await deleteAccount(deleteIdentifier, deletePassword);
+      if (res.message) {
+        alert(res.message);
+        // 로그아웃 처리
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userProfileImage");
+        // 홈페이지로 이동
+        onNavigate("home");
+      } else {
+        alert(res.error || "회원탈퇴 실패");
+      }
+    } catch (error) {
+      alert("서버 오류가 발생했습니다.");
+      console.error(error);
+    }
   };
 
 
@@ -168,23 +243,48 @@ export default function MyPage({ onNavigate }: MyPageProps) {
           <button 
             className="mypage__back-button"
             onClick={() => {
-              // localStorage에서 사용자 타입 확인
-              const userStr = localStorage.getItem('user');
-              if (userStr) {
-                const user = JSON.parse(userStr);
-                const userType = user.user_type;
-                if (userType === 'student') {
-                  onNavigate('student-dashboard', 'student');
-                } else if (userType === 'professor') {
-                  onNavigate('professor-dashboard', 'professor');
+              // courseboard에서 온 경우 확인
+              const returnToCourseboard = localStorage.getItem('returnToCourseboard');
+              if (returnToCourseboard) {
+                // courseboard로 돌아가야 함 - Dashboard로 이동하고 course 정보 전달
+                const courseInfo = JSON.parse(returnToCourseboard);
+                localStorage.setItem('selectedCourse', returnToCourseboard);
+                localStorage.removeItem('returnToCourseboard');
+                
+                // 사용자 타입에 따라 Dashboard로 이동
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                  const user = JSON.parse(userStr);
+                  const userType = user.user_type;
+                  if (userType === 'student') {
+                    onNavigate('student-dashboard', 'student');
+                  } else if (userType === 'professor') {
+                    onNavigate('professor-dashboard', 'professor');
+                  } else {
+                    onNavigate('home');
+                  }
                 } else {
                   onNavigate('home');
                 }
               } else {
-                onNavigate('home');
+                // 일반적인 경우 - Dashboard로 이동
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                  const user = JSON.parse(userStr);
+                  const userType = user.user_type;
+                  if (userType === 'student') {
+                    onNavigate('student-dashboard', 'student');
+                  } else if (userType === 'professor') {
+                    onNavigate('professor-dashboard', 'professor');
+                  } else {
+                    onNavigate('home');
+                  }
+                } else {
+                  onNavigate('home');
+                }
               }
             }}
-            title="대시보드로 돌아가기"
+            title="뒤로가기"
           >
             <ArrowLeft size={20} />
           </button>
@@ -510,6 +610,26 @@ export default function MyPage({ onNavigate }: MyPageProps) {
                     </button>
                   </div>
                 </div>
+
+                {/* 회원탈퇴 */}
+                <div className="mypage__content-block">
+                  <h3 className="mypage__block-title">
+                    <UserX size={18} />
+                    회원탈퇴
+                  </h3>
+                  <div className="mypage__delete-section">
+                    <p className="mypage__delete-warning">
+                      회원탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.
+                    </p>
+                    <button 
+                      className="mypage__delete-button"
+                      onClick={() => setShowDeleteModal(true)}
+                    >
+                      <UserX size={18} />
+                      회원탈퇴
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -614,6 +734,86 @@ export default function MyPage({ onNavigate }: MyPageProps) {
           </div>
         </main>
       </div>
+
+      {/* 회원탈퇴 모달 */}
+      {showDeleteModal && (
+        <div className="mypage__modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="mypage__modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="mypage__modal-header">
+              <h3>회원탈퇴</h3>
+              <button 
+                className="mypage__modal-close"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="mypage__modal-body">
+              <p className="mypage__modal-warning">
+                회원탈퇴를 진행하려면 아이디 또는 이메일과 비밀번호를 입력해주세요.
+                <br />
+                <strong>이 작업은 되돌릴 수 없습니다.</strong>
+              </p>
+              <div className="mypage__form">
+                <div className="mypage__form-row">
+                  <label>
+                    <Mail size={14} />
+                    아이디 또는 이메일
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteIdentifier}
+                    onChange={(e) => setDeleteIdentifier(e.target.value)}
+                    className="mypage__input"
+                    placeholder="아이디 또는 이메일을 입력하세요"
+                  />
+                </div>
+                <div className="mypage__form-row">
+                  <label>
+                    <Lock size={14} />
+                    비밀번호
+                  </label>
+                  <div className="mypage__password-wrapper">
+                    <input
+                      type={showDeletePassword ? "text" : "password"}
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      className="mypage__input"
+                      placeholder="비밀번호를 입력하세요"
+                    />
+                    <button
+                      type="button"
+                      className="mypage__password-toggle"
+                      onClick={() => setShowDeletePassword(!showDeletePassword)}
+                    >
+                      {showDeletePassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mypage__modal-footer">
+              <button 
+                className="mypage__modal-cancel"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteIdentifier("");
+                  setDeletePassword("");
+                }}
+              >
+                취소
+              </button>
+              <button 
+                className="mypage__modal-delete"
+                onClick={handleDeleteAccount}
+              >
+                <UserX size={18} />
+                회원탈퇴
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
