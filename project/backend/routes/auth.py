@@ -7,7 +7,7 @@ from datetime import timedelta
 auth_bp = Blueprint("auth", __name__)
 
 # =====================================================
-# ✅ 회원가입 (교수 / 학생 구분)
+# 회원가입 (교수 / 학생 구분)
 # =====================================================
 @auth_bp.route("/register", methods=["POST"])
 def register():
@@ -37,7 +37,8 @@ def register():
         name=data["name"],
         email=data["email"],
         username=data["username"],
-        password_hash=hashed_pw
+        password_hash=hashed_pw,
+        user_type=data["userType"] 
     )
 
     db.session.add(new_user)
@@ -51,7 +52,7 @@ def register():
 
 
 # =====================================================
-# ✅ 로그인
+# 로그인
 # =====================================================
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -76,5 +77,5 @@ def login():
         "message": "로그인 성공",
         "access_token": access_token,
         "user": user.to_dict(),      # 사용자 정보
-        "userType": user.user_type   # ✅ 교수/학생 구분 포함
+        "userType": user.user_type   # 교수/학생 구분 포함
     }), 200
