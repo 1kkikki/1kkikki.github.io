@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { User, Lock, BookOpen } from "lucide-react";
 import { login } from "../../api/auth";
+import { enrollCourse } from "../../api/course";
+import { useAuth } from "../../contexts/AuthContext";
 import "./course-join-login-page.css";
 
 interface CourseJoinLoginPageProps {
@@ -16,6 +18,7 @@ export default function CourseJoinLoginPage({
   courseName = "강의",
   courseCode = ""
 }: CourseJoinLoginPageProps) {
+  const { login: saveLogin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,24 +26,47 @@ export default function CourseJoinLoginPage({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const credentials = { email, password };
-    const data = await login(credentials);
+    try {
+      const credentials = { email, password };
+      const data = await login(credentials);
 
-    if (data.access_token) {
-      console.log("✅ 로그인 성공:", data);
-      
-      // 사용자 타입 확인 - 학생만 강의 참여 가능
-      const userType = data.user.user_type;
-      if (userType === 'student') {
-        // 학생 대시보드로 이동 (실제로는 강의 ID를 전달하여 해당 강의로 자동 입장)
-        alert(`${courseName} 강의에 참여했습니다!`);
-        onNavigate('student-dashboard', 'student');
+      if (data.access_token) {
+        console.log("✅ 로그인 성공:", data);
+        
+        // AuthContext에 저장
+        saveLogin(data.user, data.access_token);
+        
+        // 사용자 타입 확인 - 학생만 강의 참여 가능
+        const userType = data.user.user_type;
+        if (userType === 'student') {
+          // 강의 참여 시도
+          try {
+            await enrollCourse(parseInt(courseId));
+            alert(`${courseName} 강의에 참여했습니다!`);
+            onNavigate('student-dashboard', 'student');
+          } catch (err: any) {
+            if (err.response?.data?.message) {
+              // 이미 수강 중인 경우
+              if (err.response.data.message.includes("이미 수강")) {
+                alert(`이미 수강 중인 강의입니다.`);
+                onNavigate('student-dashboard', 'student');
+              } else {
+                setError(err.response.data.message);
+              }
+            } else {
+              setError("강의 참여 중 오류가 발생했습니다.");
+            }
+          }
+        } else {
+          setError("학생 계정만 강의에 참여할 수 있습니다.");
+        }
       } else {
-        setError("학생 계정만 강의에 참여할 수 있습니다.");
+        console.error("❌ 로그인 실패:", data.message);
+        setError(data.message || "로그인 실패. 다시 시도해주세요.");
       }
-    } else {
-      console.error("❌ 로그인 실패:", data.message);
-      setError(data.message || "로그인 실패. 다시 시도해주세요.");
+    } catch (err) {
+      console.error("로그인 에러:", err);
+      setError("로그인 중 오류가 발생했습니다.");
     }
   };
 

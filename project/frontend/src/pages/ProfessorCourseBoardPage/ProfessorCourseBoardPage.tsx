@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike } from "../../api/board";
 import { 
   Home, 
   Bell, 
@@ -41,11 +43,13 @@ interface Post {
   title: string;
   content: string;
   author: string;
+  author_profile_image?: string | null;
   timestamp: string;
   category: string;
   tags: string[];
   likes: number;
   comments: Comment[];
+  comments_count?: number;
   isPinned?: boolean;
   isLiked?: boolean;
 }
@@ -53,6 +57,7 @@ interface Post {
 interface Comment {
   id: number;
   author: string;
+  author_profile_image?: string | null;
   content: string;
   timestamp: string;
 }
@@ -78,6 +83,8 @@ interface TeamRecruitment {
 }
 
 export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBoardPageProps) {
+  const { user } = useAuth();
+  
   // localStorage에서 프로필을 먼저 확인하여 초기값 설정
   const [profileImage, setProfileImage] = useState<string | null>(() => {
     const cached = localStorage.getItem('userProfileImage');
@@ -160,63 +167,67 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     { id: "community", name: "커뮤니티", icon: MessageCircle },
   ];
 
+  // 매핑 함수
+  function tabNameToCategory(tab: string): string {
+    switch (tab) {
+      case "공지":
+        return "notice";
+      case "모집":
+        return "recruit";
+      case "커뮤니티":
+        return "community";
+      default:
+        return "community";
+    }
+  }
+
+  function categoryToTabName(category: string): string {
+    switch (category) {
+      case "notice":
+        return "공지";
+      case "recruit":
+        return "모집";
+      case "community":
+        return "커뮤니티";
+      default:
+        return "커뮤니티";
+    }
+  }
+
   // 샘플 게시글 데이터
-  const [posts, setPosts] = useState<Post[]>([
-    {
-      id: 1,
-      title: "이번 SMS, 이메일로 공지를 한꺼번에, 여러 분산 앱은 팀별로 분산된 일을 팀 공지시키 상태를 현지화니다. 스마트하드도 중요시키 밀집으로 만들니다 만집과도 밀집으로",
-      content: "중요한 공지사항입니다. 모든 학생들은 이 내용을 숙지해 주시기 바랍니다. 다음 주 월요일까지 관련 서류를 제출해 주세요.",
-      author: "박선생",
-      timestamp: "2025. 10. 27. 14:30",
-      category: "공지",
-      tags: ["공지", "중요공지"],
-      likes: 0,
-      comments: [],
-      isPinned: true,
-      isLiked: false
-    },
-    {
-      id: 2,
-      title: "팀 프로젝트 회의 일정 투표",
-      content: "이번 주 회의 일정을 투표로 정하겠습니다. 가능한 시간을 댓글로 남겨주세요.",
-      author: "김민수",
-      timestamp: "2025. 10. 26. 09:15",
-      category: "커뮤니티",
-      tags: ["팀활동", "회의"],
-      likes: 5,
-      comments: [
-        { id: 1, author: "이지은", content: "화요일 2시 가능합니다!", timestamp: "2025. 10. 26. 14:30" },
-        { id: 2, author: "최수연", content: "수요일 3시 좋아요", timestamp: "2025. 10. 26. 15:20" }
-      ],
-      isLiked: false
-    },
-    {
-      id: 3,
-      title: "과제 관련 질문있습니다",
-      content: "3번 문제 어떻게 푸셨나요? 힌트 좀 주실 수 있을까요?",
-      author: "이지은",
-      timestamp: "2025. 10. 25. 18:45",
-      category: "커뮤니티",
-      tags: ["과제", "질문"],
-      likes: 3,
-      comments: [
-        { id: 1, author: "박민준", content: "먼저 배열을 정렬해보세요", timestamp: "2025. 10. 25. 19:10" }
-      ],
-      isLiked: false
-    },
-    {
-      id: 4,
-      title: "스터디 그룹 멤버 모집",
-      content: "알고리즘 스터디 멤버 2명 더 구합니다. 매주 금요일 저녁 7시에 모여서 문제 풀이합니다!",
-      author: "최수연",
-      timestamp: "2025. 10. 24. 16:00",
-      category: "모집",
-      tags: ["모집", "스터디"],
-      likes: 7,
-      comments: [],
-      isLiked: false
-    },
-  ]);
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  // 서버에서 게시글 목록 가져오기
+  async function loadPosts() {
+    try {
+      const data = await getBoardPosts(course.code);
+
+      const mapped: Post[] = data.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        content: p.content,
+        author: p.author || "익명",
+        author_profile_image: p.author_profile_image || null,
+        timestamp: p.created_at,
+        category: categoryToTabName(p.category),
+        tags: [],
+        likes: p.likes || 0,
+        comments: [],
+        comments_count: p.comments_count || 0,
+        isPinned: false,
+        isLiked: p.is_liked || false,
+      }));
+
+      setPosts(mapped);
+    } catch (err) {
+      console.error("게시글 불러오기 실패:", err);
+    }
+  }
+
+  // 탭이 바뀔 때마다, 처음 렌더링 할 때 서버에서 게시글 다시 불러오기
+  useEffect(() => {
+    loadPosts();
+  }, [activeTab, course.id]);
 
   // 알림 데이터
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -272,9 +283,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   }, []);
 
   // 프로필 아바타 렌더링 함수
-  const renderProfileAvatar = (authorName: string, size: number = 20) => {
-    const isCurrentUser = authorName === "나";
-    const profile = isCurrentUser ? profileImage : null;
+  const renderProfileAvatar = (authorName: string, authorProfileImage: string | null | undefined, size: number = 20) => {
+    const isCurrentUser = authorName === user?.name;
+    const profile = isCurrentUser ? profileImage : authorProfileImage;
     
     if (profile) {
       if (profile.startsWith('color:')) {
@@ -335,82 +346,127 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
   };
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (!newPostTitle.trim() || !newPostContent.trim()) {
       alert("제목과 내용을 입력해주세요.");
       return;
     }
 
-    const newPost: Post = {
-      id: posts.length + 1,
-      title: newPostTitle,
-      content: newPostContent,
-      author: "나",
-      timestamp: formatDateTime(new Date()),
-      category: activeTab,
-      tags: [],
-      likes: 0,
-      comments: [],
-      isLiked: false
-    };
+    try {
+      // 탭(공지/모집/커뮤니티)을 백엔드 category 값으로 변환
+      const categoryForApi = tabNameToCategory(activeTab);
 
-    setPosts([newPost, ...posts]);
-    setNewPostTitle("");
-    setNewPostContent("");
-    setIsCreatePostOpen(false);
-  };
+      // 서버에 글 생성 요청 보내기
+      const res = await createBoardPost(
+        course.code,
+        newPostTitle,    
+        newPostContent,  
+        categoryForApi
+      );
 
-  const handleLikePost = (postId: number) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-          isLiked: !post.isLiked
-        };
-      }
-      return post;
-    }));
+      const p = res.post;
 
-    if (selectedPost && selectedPost.id === postId) {
-      setSelectedPost({
-        ...selectedPost,
-        likes: selectedPost.isLiked ? selectedPost.likes - 1 : selectedPost.likes + 1,
-        isLiked: !selectedPost.isLiked
-      });
+      // 서버에서 돌아온 데이터 → 화면에서 쓰는 Post 타입으로 변환
+      const createdPost: Post = {
+        id: p.id,
+        title: p.title,
+        content: p.content,
+        author: p.author || (user?.name || "나"),
+        timestamp: p.created_at,
+        category: categoryToTabName(p.category),
+        tags: [],
+        likes: 0,
+        comments: [],
+        isPinned: false,
+        isLiked: false,
+      };
+
+      // 맨 앞에 추가
+      setPosts((prev) => [createdPost, ...prev]);
+
+      // 폼 초기화 & 모달 닫기
+      setNewPostTitle("");
+      setNewPostContent("");
+      setIsCreatePostOpen(false);
+    } catch (err) {
+      console.error("게시글 작성 실패:", err);
+      alert("게시글 작성 중 오류가 발생했습니다.");
     }
   };
 
-  const handleAddComment = () => {
-    if (!newComment.trim() || !selectedPost) return;
+  const handleLikePost = async (postId: number) => {
+    try {
+      const res = await toggleLike(postId);
+      
+      // 좋아요 상태 업데이트
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            likes: res.likes,
+            isLiked: res.is_liked
+          };
+        }
+        return post;
+      }));
 
-    const comment: Comment = {
-      id: selectedPost.comments.length + 1,
-      author: "나",
-      content: newComment,
-      timestamp: formatDateTime(new Date())
-    };
-
-    const updatedPosts = posts.map(post => {
-      if (post.id === selectedPost.id) {
-        return {
-          ...post,
-          comments: [...post.comments, comment]
-        };
+      if (selectedPost && selectedPost.id === postId) {
+        setSelectedPost({
+          ...selectedPost,
+          likes: res.likes,
+          isLiked: res.is_liked
+        });
       }
-      return post;
-    });
-
-    setPosts(updatedPosts);
-    setSelectedPost({
-      ...selectedPost,
-      comments: [...selectedPost.comments, comment]
-    });
-    setNewComment("");
+    } catch (err) {
+      console.error("좋아요 실패:", err);
+    }
   };
 
-  const handlePostClick = (post: Post) => {
-    setSelectedPost(post);
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !selectedPost) return;
+
+    try {
+      const res = await createComment(selectedPost.id, newComment);
+      const newCommentData: Comment = {
+        id: res.comment.id,
+        author: res.comment.author,
+        author_profile_image: res.comment.author_profile_image || null,
+        content: res.comment.content,
+        timestamp: res.comment.created_at
+      };
+
+      // 댓글 목록 업데이트
+      setSelectedPost({
+        ...selectedPost,
+        comments: [...selectedPost.comments, newCommentData]
+      });
+      setNewComment("");
+    } catch (err) {
+      console.error("댓글 작성 실패:", err);
+      alert("댓글 작성 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handlePostClick = async (post: Post) => {
+    try {
+      // 댓글 불러오기
+      const comments = await getComments(post.id);
+      const formattedComments: Comment[] = comments.map((c: any) => ({
+        id: c.id,
+        author: c.author,
+        author_profile_image: c.author_profile_image || null,
+        content: c.content,
+        timestamp: c.created_at
+      }));
+      
+      setSelectedPost({
+        ...post,
+        comments: formattedComments
+      });
+    } catch (err) {
+      console.error("댓글 로드 실패:", err);
+      setSelectedPost(post);
+    }
   };
 
   // 모집 참여/취소 핸들러
@@ -425,7 +481,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
           return {
             ...recruitment,
             currentMembers: recruitment.currentMembers - 1,
-            membersList: recruitment.membersList.filter(name => name !== "나"),
+            membersList: recruitment.membersList.filter(name => name !== user?.name),
             isJoined: false
           };
         } else {
@@ -437,7 +493,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
           return {
             ...recruitment,
             currentMembers: recruitment.currentMembers + 1,
-            membersList: [...recruitment.membersList, "나"],
+            membersList: [...recruitment.membersList, user?.name || "나"],
             isJoined: true
           };
         }
@@ -465,11 +521,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       id: recruitments.length + 1,
       title: newRecruitment.title,
       description: newRecruitment.description,
-      author: "나",
+      author: user?.name || "나",
       timestamp: formatDateTime(new Date()),
       maxMembers: newRecruitment.maxMembers,
       currentMembers: 1,
-      membersList: ["나"],
+      membersList: [user?.name || "나"],
       isJoined: true
     };
 
@@ -487,10 +543,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   };
 
   // 게시글 삭제 핸들러
-  const handleDeletePost = (postId: number) => {
-    if (confirm("이 게시글을 삭제하시겠습니까?")) {
-      setPosts(posts.filter(p => p.id !== postId));
+  const handleDeletePost = async (postId: number) => {
+    const ok = confirm("이 게시글을 삭제하시겠습니까?");
+    if (!ok) return;
+
+    try {
+      await deleteBoardPost(postId);
+      // 성공하면 프론트에서도 제거
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
       setSelectedPost(null);
+    } catch (err) {
+      console.error("게시글 삭제 실패:", err);
+      alert("게시글 삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -730,14 +794,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                     <div 
                       className="course-board__post-avatar"
                       style={
-                        profileImage && post.author === "나"
+                        profileImage && post.author === user?.name
                           ? (profileImage.startsWith('color:') 
                               ? { background: profileImage.replace('color:', '') }
                               : { background: 'transparent' })
                           : {}
                       }
                     >
-                      {renderProfileAvatar(post.author, 20)}
+                      {renderProfileAvatar(post.author, post.author_profile_image, 20)}
                     </div>
                     <div className="course-board__post-meta">
                       <span className="course-board__post-author-name">{post.author}</span>
@@ -770,7 +834,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                     </button>
                     <button className="course-board__post-action">
                       <MessageCircle size={14} />
-                      <span>댓글 {post.comments.length}</span>
+                      <span>댓글 {post.comments_count || 0}</span>
                     </button>
                   </div>
                 </div>
@@ -852,14 +916,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                   <div 
                     className="course-board__post-avatar"
                     style={
-                      profileImage && selectedPost.author === "나"
+                      profileImage && selectedPost.author === user?.name
                         ? (profileImage.startsWith('color:') 
                             ? { background: profileImage.replace('color:', '') }
                             : { background: 'transparent' })
                         : {}
                     }
                   >
-                    {renderProfileAvatar(selectedPost.author, 24)}
+                    {renderProfileAvatar(selectedPost.author, selectedPost.author_profile_image, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <span className="course-board__post-author-name">{selectedPost.author}</span>
@@ -901,7 +965,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                             : {}
                         }
                       >
-                        {renderProfileAvatar(comment.author, 20)}
+                        {renderProfileAvatar(comment.author, comment.author_profile_image, 20)}
                       </div>
                       <div className="course-board__comment-content">
                         <div className="course-board__comment-header">
@@ -927,7 +991,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                       : {}
                   }
                 >
-                  {renderProfileAvatar("나", 20)}
+                  {renderProfileAvatar(user?.name || "나", profileImage, 20)}
                 </div>
                 <input
                   type="text"
@@ -950,7 +1014,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
               </div>
               
               {/* 삭제 버튼 (본인 글인 경우만) */}
-              {selectedPost.author === "나" && (
+              {selectedPost.author === user?.name && (
                 <div className="post-detail-delete-section">
                   <button 
                     className="post-detail-delete-button"
@@ -1059,7 +1123,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
               <div className="course-board__detail-header">
                 <div className="course-board__post-author">
                   <div className="course-board__post-avatar">
-                    {renderProfileAvatar(selectedRecruitment.author, 24)}
+                    {renderProfileAvatar(selectedRecruitment.author, null, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <span className="course-board__post-author-name">{selectedRecruitment.author}</span>

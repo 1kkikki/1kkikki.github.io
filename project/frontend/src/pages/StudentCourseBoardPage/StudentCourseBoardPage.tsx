@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getBoardPosts, createBoardPost, deleteBoardPost } from "../../api/board";
+import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike } from "../../api/board";
 import { getProfile } from "../../api/profile";
 import {
   Home,
@@ -48,13 +48,23 @@ interface Post {
   title: string;
   content: string;
   author: string;
+  author_profile_image?: string | null;
   timestamp: string;
   category: string;
   tags: string[];
   likes: number;
   comments: Comment[];
+  comments_count?: number;
   isPinned?: boolean;
   isLiked?: boolean;
+}
+
+interface Comment {
+  id: number;
+  author: string;
+  author_profile_image?: string | null;
+  content: string;
+  timestamp: string;
 }
 
 interface TeamRecruitment {
@@ -222,13 +232,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         title: p.title,
         content: p.content,
         author: p.author || "익명",
+        author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
         tags: [],
-        likes: 0,
+        likes: p.likes || 0,
         comments: [],
+        comments_count: p.comments_count || 0,
         isPinned: false,
-        isLiked: false,
+        isLiked: p.is_liked || false,
       }));
 
       setPosts(mapped);
@@ -265,9 +277,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   }, []);
 
   // 프로필 아바타 렌더링 함수
-  const renderProfileAvatar = (authorName: string, size: number = 20, containerClassName?: string) => {
-    const isCurrentUser = authorName === user?.name || authorName === "나";
-    const profile = isCurrentUser ? profileImage : null;
+  const renderProfileAvatar = (authorName: string, authorProfileImage: string | null | undefined, size: number = 20, containerClassName?: string) => {
+    const isCurrentUser = authorName === user?.name;
+    const profile = isCurrentUser ? profileImage : authorProfileImage;
     
     if (profile) {
       if (profile.startsWith('color:')) {
@@ -409,57 +421,79 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     }
   };
 
-  const handleLikePost = (postId: number) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-          isLiked: !post.isLiked
-        };
-      }
-      return post;
-    }));
+  const handleLikePost = async (postId: number) => {
+    try {
+      const res = await toggleLike(postId);
+      
+      // 좋아요 상태 업데이트
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            likes: res.likes,
+            isLiked: res.is_liked
+          };
+        }
+        return post;
+      }));
 
-    if (selectedPost && selectedPost.id === postId) {
-      setSelectedPost({
-        ...selectedPost,
-        likes: selectedPost.isLiked ? selectedPost.likes - 1 : selectedPost.likes + 1,
-        isLiked: !selectedPost.isLiked
-      });
+      if (selectedPost && selectedPost.id === postId) {
+        setSelectedPost({
+          ...selectedPost,
+          likes: res.likes,
+          isLiked: res.is_liked
+        });
+      }
+    } catch (err) {
+      console.error("좋아요 실패:", err);
     }
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim() || !selectedPost) return;
 
-    const comment: Comment = {
-      id: selectedPost.comments.length + 1,
-      author: "나",
-      content: newComment,
-      timestamp: formatDateTime(new Date())
-    };
+    try {
+      const res = await createComment(selectedPost.id, newComment);
+      const newCommentData: Comment = {
+        id: res.comment.id,
+        author: res.comment.author,
+        author_profile_image: res.comment.author_profile_image || null,
+        content: res.comment.content,
+        timestamp: res.comment.created_at
+      };
 
-    const updatedPosts = posts.map(post => {
-      if (post.id === selectedPost.id) {
-        return {
-          ...post,
-          comments: [...post.comments, comment]
-        };
-      }
-      return post;
-    });
-
-    setPosts(updatedPosts);
-    setSelectedPost({
-      ...selectedPost,
-      comments: [...selectedPost.comments, comment]
-    });
-    setNewComment("");
+      // 댓글 목록 업데이트
+      setSelectedPost({
+        ...selectedPost,
+        comments: [...selectedPost.comments, newCommentData]
+      });
+      setNewComment("");
+    } catch (err) {
+      console.error("댓글 작성 실패:", err);
+      alert("댓글 작성 중 오류가 발생했습니다.");
+    }
   };
 
-  const handlePostClick = (post: Post) => {
-    setSelectedPost(post);
+  const handlePostClick = async (post: Post) => {
+    try {
+      // 댓글 불러오기
+      const comments = await getComments(post.id);
+      const formattedComments: Comment[] = comments.map((c: any) => ({
+        id: c.id,
+        author: c.author,
+        author_profile_image: c.author_profile_image || null,
+        content: c.content,
+        timestamp: c.created_at
+      }));
+      
+      setSelectedPost({
+        ...post,
+        comments: formattedComments
+      });
+    } catch (err) {
+      console.error("댓글 로드 실패:", err);
+      setSelectedPost(post);
+    }
   };
 
   // 가능한 시간 관련 함수
@@ -621,7 +655,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
           return {
             ...recruitment,
             currentMembers: recruitment.currentMembers - 1,
-            membersList: recruitment.membersList.filter(name => name !== "나"),
+            membersList: recruitment.membersList.filter(name => name !== user?.name),
             isJoined: false
           };
         } else {
@@ -633,7 +667,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
           return {
             ...recruitment,
             currentMembers: recruitment.currentMembers + 1,
-            membersList: [...recruitment.membersList, "나"],
+            membersList: [...recruitment.membersList, user?.name || "나"],
             isJoined: true
           };
         }
@@ -661,11 +695,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       id: recruitments.length + 1,
       title: newRecruitment.title,
       description: newRecruitment.description,
-      author: "나",
+      author: user?.name || "나",
       timestamp: formatDateTime(new Date()),
       maxMembers: newRecruitment.maxMembers,
       currentMembers: 1,
-      membersList: ["나"],
+      membersList: [user?.name || "나"],
       isJoined: true
     };
 
@@ -863,7 +897,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         <h3 className="recruitment-card__title">{recruitment.title}</h3>
                         <div className="recruitment-card__author">
                           <div style={{ width: '16px', height: '16px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {renderProfileAvatar(recruitment.author, 16)}
+                            {renderProfileAvatar(recruitment.author, null, 16)}
                           </div>
                           <span>{recruitment.author}</span>
                         </div>
@@ -922,7 +956,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                             : {}
                         }
                       >
-                        {renderProfileAvatar(post.author, 20)}
+                        {renderProfileAvatar(post.author, post.author_profile_image, 20)}
                       </div>
                       <div className="course-board__post-meta">
                         <span className="course-board__post-author-name">{post.author}</span>
@@ -955,7 +989,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       </button>
                       <button className="course-board__post-action">
                         <MessageCircle size={14} />
-                        <span>댓글 {post.comments.length}</span>
+                        <span>댓글 {post.comments_count || 0}</span>
                       </button>
                     </div>
                   </div>
@@ -1044,7 +1078,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         : {}
                     }
                   >
-                    {renderProfileAvatar(selectedPost.author, 24)}
+                    {renderProfileAvatar(selectedPost.author, selectedPost.author_profile_image, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <span className="course-board__post-author-name">{selectedPost.author}</span>
@@ -1086,7 +1120,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                             : {}
                         }
                       >
-                        {renderProfileAvatar(comment.author, 20)}
+                        {renderProfileAvatar(comment.author, comment.author_profile_image, 20)}
                       </div>
                       <div className="course-board__comment-content">
                         <div className="course-board__comment-header">
@@ -1112,7 +1146,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       : {}
                   }
                 >
-                  {renderProfileAvatar(user?.name || "나", 20)}
+                  {renderProfileAvatar(user?.name || "나", profileImage, 20)}
                 </div>
                 <input
                   type="text"
@@ -1244,7 +1278,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               <div className="course-board__detail-header">
                 <div className="course-board__post-author">
                   <div className="course-board__post-avatar">
-                    {renderProfileAvatar(selectedRecruitment.author, 24)}
+                    {renderProfileAvatar(selectedRecruitment.author, null, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <span className="course-board__post-author-name">{selectedRecruitment.author}</span>
@@ -1269,7 +1303,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   {selectedRecruitment.membersList.map((member, index) => (
                     <div key={index} className="recruitment-detail-member">
                       <div className="recruitment-detail-member__avatar">
-                        {renderProfileAvatar(member, 18)}
+                        {renderProfileAvatar(member, null, 18)}
                       </div>
                       <span className="recruitment-detail-member__name">{member}</span>
                       {index === 0 && <span className="recruitment-detail-member__badge">리더</span>}

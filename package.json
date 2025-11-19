@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "lucide-react": "^0.545.0"
-  },
-  "devDependencies": {
-    "@types/node": "^24.9.1",
-    "@vitejs/plugin-react-swc": "^4.1.0"
-  }
-}

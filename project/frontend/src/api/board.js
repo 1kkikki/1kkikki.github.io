@@ -18,7 +18,7 @@ export async function createBoardPost(course_id, title, content, category) {
 export async function getBoardPosts(course_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/${course_id}`, {
+  const res = await fetch(`${API_URL}/board/course/${course_id}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -29,8 +29,60 @@ export async function getBoardPosts(course_id) {
 export async function deleteBoardPost(post_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/${post_id}`, {
+  const res = await fetch(`${API_URL}/board/post/${post_id}`, {
     method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  return res.json();
+}
+
+// 댓글 목록 조회
+export async function getComments(post_id) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const res = await fetch(`${API_URL}/board/post/${post_id}/comments`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  return res.json();
+}
+
+// 댓글 작성
+export async function createComment(post_id, content) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const res = await fetch(`${API_URL}/board/post/${post_id}/comments`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ content })
+  });
+
+  return res.json();
+}
+
+// 댓글 삭제
+export async function deleteComment(comment_id) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const res = await fetch(`${API_URL}/board/comments/${comment_id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  return res.json();
+}
+
+// 좋아요 토글
+export async function toggleLike(post_id) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const res = await fetch(`${API_URL}/board/post/${post_id}/like`, {
+    method: "POST",
     headers: { Authorization: `Bearer ${token}` }
   });
 

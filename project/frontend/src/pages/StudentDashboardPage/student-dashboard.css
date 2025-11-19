@@ -218,7 +218,10 @@
   opacity: 0.7;
   font-family: monospace;
   font-weight: 400;
-  letter-spacing: 0.3px;
+  letter-spacing: 0px;
+  text-indent: 0;
+  padding-left: 0;
+  margin-left: 0;
 }
 
 .dashboard__course-title {

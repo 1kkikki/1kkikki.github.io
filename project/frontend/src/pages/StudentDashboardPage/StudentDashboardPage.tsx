@@ -3,6 +3,7 @@ import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, Ch
 import CourseBoardPage from "../StudentCourseBoardPage/StudentCourseBoardPage";
 import "./student-dashboard.css";
 import { addAvailableTime, getMyAvailableTimes, deleteAvailableTime } from "../../api/available";
+import { getEnrolledCourses } from "../../api/course";
 import { useAuth } from "../../contexts/AuthContext";
 
 interface MainDashboardPageProps {
@@ -96,15 +97,21 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   }
 
   // 왼쪽 사이드바 강의 목록
-  const courses = [
-    { id: 1, title: "운영체제", code: "CSE301" },
-    { id: 2, title: "웹프로그래밍", code: "CSE303" },
-    { id: 3, title: "인공지능기초", code: "CSE402" },
-    { id: 4, title: "컴퓨터보안", code: "CSE302" }
-  ];
+  const [courses, setCourses] = useState<Course[]>([]);
+
+  // 수강 중인 강의 목록 로드
+  async function loadEnrolledCourses() {
+    try {
+      const data = await getEnrolledCourses();
+      setCourses(data);
+    } catch (err) {
+      console.error("수강 강의 목록 로드 실패:", err);
+    }
+  }
 
   useEffect(() => {
     fetchAvailableTimes();
+    loadEnrolledCourses(); // 강의 목록도 로드
   }, []);
 
   // MyPage에서 돌아온 경우 courseboard 자동 선택
@@ -336,12 +343,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                     className="dashboard__course-button"
                     onClick={() => setSelectedCourse(course)}
                   >
-                    <span className="dashboard__course-code">
-                      {course.code}
-                    </span>
-                    <span className="dashboard__course-title">
-                      {course.title}
-                    </span>
+                    <span className="dashboard__course-code">{course.code}</span>
+                    <span className="dashboard__course-title">{course.title}</span>
                   </button>
                 ))}
               </div>

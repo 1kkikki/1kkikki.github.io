@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
+import { getMyCourses, createCourse, deleteCourse } from "../../api/course";
 import "./professor-dashboard.css";
 
 
@@ -64,13 +65,23 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [newEvent, setNewEvent] = useState({ title: "", month: 1, date: 1, color: "#a8d5e2", category: "" });
   
   // 강의 목록 state로 변경
-  const [courses, setCourses] = useState<Course[]>([
-    { id: 1, title: "운영체제", code: "CSE301" },
-    { id: 2, title: "웹프로그래밍", code: "CSE303" },
-    { id: 3, title: "인공지능기초", code: "CSE402" },
-    { id: 4, title: "컴퓨터보안", code: "CSE302" }
-  ]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [newCourse, setNewCourse] = useState({ title: "", code: "" });
+
+  // 강의 목록 로드
+  async function loadCourses() {
+    try {
+      const data = await getMyCourses();
+      setCourses(data);
+    } catch (err) {
+      console.error("강의 목록 로드 실패:", err);
+    }
+  }
+
+  // 컴포넌트 마운트 시 강의 목록 로드
+  useEffect(() => {
+    loadCourses();
+  }, []);
 
   // MyPage에서 돌아온 경우 courseboard 자동 선택
   useEffect(() => {
@@ -201,21 +212,28 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
-  const handleAddCourse = () => {
+  const handleAddCourse = async () => {
     if (!newCourse.title.trim() || !newCourse.code.trim()) {
       alert("강의명과 강의 코드를 모두 입력해주세요.");
       return;
     }
 
-    const course: Course = {
-      id: Date.now(),
-      title: newCourse.title,
-      code: newCourse.code
-    };
-
-    setCourses([...courses, course]);
-    setNewCourse({ title: "", code: "" });
-    setIsCourseModalOpen(false);
+    try {
+      const res = await createCourse(newCourse.title.trim(), newCourse.code.trim());
+      
+      // 서버에서 생성된 강의를 목록에 추가
+      setCourses((prev) => [...prev, res.course]);
+      setNewCourse({ title: "", code: "" });
+      setIsCourseModalOpen(false);
+      alert("강의가 추가되었습니다!");
+    } catch (err: any) {
+      console.error("강의 추가 실패:", err);
+      if (err.response?.data?.message) {
+        alert(err.response.data.message);
+      } else {
+        alert("강의 추가 중 오류가 발생했습니다.");
+      }
+    }
   };
 
   const predefinedColors = [
@@ -267,12 +285,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               className="dashboard__course-button"
               onClick={() => setSelectedCourse(course)}
             >
-              <span className="dashboard__course-code">
-                {course.code}
-              </span>
-              <span className="dashboard__course-title">
-                {course.title}
-              </span>
+              <span className="dashboard__course-code">{course.code}</span>
+              <span className="dashboard__course-title">{course.title}</span>
             </button>
           ))}
         </div>
