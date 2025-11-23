@@ -478,10 +478,30 @@
   gap: 2px;
 }
 
+.course-board__post-author-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .course-board__post-author-name {
   font-size: 14px;
   font-weight: 500;
   color: #1f2937;
+}
+
+.course-board__post-author-id {
+  min-width: 32px;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  background: #f3f4f6;   /* 더 연한 회색 */
+  color: #9ca3af;        /* 더 연한 회색 */
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .course-board__post-timestamp {
@@ -845,14 +865,38 @@
 .course-board__comment-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   margin-bottom: 6px;
+}
+
+.course-board__comment-author-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .course-board__comment-author {
   font-size: 13px;
   font-weight: 500;
   color: #1f2937;
+}
+
+.course-board__comment-author-badge {
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #f5f3ff;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.course-board__comment-author-id {
+  font-size: 11px;
+  color: #9ca3af;
 }
 
 .course-board__comment-timestamp {
@@ -867,13 +911,133 @@
   line-height: 1.5;
 }
 
-.course-board__comment-write {
+.course-board__comment--reply {
+  margin-left: 40px;
+  margin-top: 8px;
+}
+
+.course-board__comment-actions {
   display: flex;
   align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.course-board__comment-like {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.course-board__comment-like:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.course-board__comment-like.active {
+  color: #ef4444;
+}
+
+.course-board__comment-like span {
+  font-size: 12px;
+}
+
+.course-board__comment-reply-button {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.course-board__comment-reply-button:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.course-board__comment-delete-button {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #ef4444;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.course-board__comment-delete-button:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.course-board__reply-icon {
+  position: absolute;
+  left: -24px;
+  top: 12px;
+  font-size: 18px;
+  color: #9ca3af;
+}
+
+.course-board__reply-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.course-board__reply-cancel {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.course-board__comment-write {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 16px;
   background: #f9fafb;
   border-radius: 12px;
+}
+
+.course-board__comment-write > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.course-board__comment-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.course-board__mention-tag {
+  padding: 4px 10px;
+  background: #ede9fe;
+  color: #7c3aed;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .course-board__comment-input-field {

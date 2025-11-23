@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike } from "../../api/board";
+import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike } from "../../api/board";
+import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment } from "../../api/recruit";
 import { getProfile } from "../../api/profile";
 import {
   Home,
@@ -48,6 +49,7 @@ interface Post {
   title: string;
   content: string;
   author: string;
+  author_student_id?: string | null;
   author_profile_image?: string | null;
   timestamp: string;
   category: string;
@@ -62,9 +64,20 @@ interface Post {
 interface Comment {
   id: number;
   author: string;
+  author_student_id?: string | null;
   author_profile_image?: string | null;
+  parent_comment_id?: number | null;
   content: string;
   timestamp: string;
+  likes?: number;
+  isLiked?: boolean;
+  replies?: Comment[];
+}
+
+interface RecruitmentMember {
+  name: string;
+  student_id?: string | null;
+  profile_image?: string | null;
 }
 
 interface TeamRecruitment {
@@ -72,18 +85,14 @@ interface TeamRecruitment {
   title: string;
   description: string;
   author: string;
+  author_id?: number;
+  author_profile_image?: string | null;
   timestamp: string;
   maxMembers: number;
   currentMembers: number;
   membersList: string[];
+  members?: RecruitmentMember[];
   isJoined: boolean;
-}
-
-interface Comment {
-  id: number;
-  author: string;
-  content: string;
-  timestamp: string;
 }
 
 interface Notification {
@@ -110,6 +119,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostContent, setNewPostContent] = useState("");
   const [newComment, setNewComment] = useState("");
+  const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
   const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
   const [isResultView, setIsResultView] = useState(false);
@@ -131,53 +141,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     maxMembers: 3
   });
 
-  // 모집 데이터
-  const [recruitments, setRecruitments] = useState<TeamRecruitment[]>([
-    {
-      id: 1,
-      title: "알고리즘 스터디 멤버 모집",
-      description: "매주 금요일 저녁 7시에 모여서 알고리즘 문제를 풀이합니다. 백준, 프로그래머스 등의 플랫폼을 활용하며, 함께 성장하실 분들을 모집합니다!",
-      author: "김민수",
-      timestamp: "2025. 10. 24. 16:00",
-      maxMembers: 4,
-      currentMembers: 2,
-      membersList: ["김민수", "이지은"],
-      isJoined: false
-    },
-    {
-      id: 2,
-      title: "프로젝트 팀원 모집 (웹 개발)",
-      description: "웹 프로그래밍 팀 프로젝트를 함께할 팀원을 모집합니다. React, Node.js 경험자 우대하며, 열정적으로 참여해주실 분들을 기다립니다.",
-      author: "박서준",
-      timestamp: "2025. 10. 25. 10:30",
-      maxMembers: 5,
-      currentMembers: 3,
-      membersList: ["박서준", "최수연", "정민호"],
-      isJoined: false
-    },
-    {
-      id: 3,
-      title: "데이터베이스 과제 스터디",
-      description: "데이터베이스 과목 과제를 함께 공부할 팀원을 찾습니다. SQL 쿼리 작성과 ERD 설계를 중점적으로 다룹니다.",
-      author: "이준호",
-      timestamp: "2025. 10. 26. 09:15",
-      maxMembers: 4,
-      currentMembers: 2,
-      membersList: ["이준호", "김지수"],
-      isJoined: false
-    },
-    {
-      id: 4,
-      title: "운영체제 스터디원 모집",
-      description: "운영체제 과목 중간고사 대비 스터디를 진행합니다. 주 2회(화, 목) 만나서 개념 정리 및 문제 풀이를 진행할 예정입니다.",
-      author: "최수연",
-      timestamp: "2025. 10. 26. 14:20",
-      maxMembers: 3,
-      currentMembers: 3,
-      membersList: ["최수연", "강민지", "박민준"],
-      isJoined: false
-    }
-  ]);
+  // 모집 데이터 (서버에서 불러옴)
+  const [recruitments, setRecruitments] = useState<TeamRecruitment[]>([]);
 
   // 상단 탭 메뉴
   const tabs = [
@@ -232,6 +197,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         title: p.title,
         content: p.content,
         author: p.author || "익명",
+        author_student_id: p.author_student_id || null,
         author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
@@ -249,10 +215,42 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     }
   }
 
+  // 서버에서 모집글 목록 가져오기
+  async function loadRecruitments() {
+    try {
+      const data = await getRecruitments(course.code);
+
+      const mapped: TeamRecruitment[] = data.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        author: r.author,
+        author_id: r.author_id,
+        author_student_id: r.author_student_id || null,
+        author_profile_image: r.author_profile_image || null,
+        timestamp: r.created_at,
+        maxMembers: r.max_members,
+        currentMembers: r.current_members,
+        membersList: r.members_list || [],
+        members: r.members || [],
+        isJoined: r.is_joined,
+      }));
+
+      setRecruitments(mapped);
+    } catch (err) {
+      console.error("모집글 불러오기 실패:", err);
+    }
+  }
+
   // 탭이 바뀔 때마다, 처음 렌더링 할 때 서버에서 게시글 다시 불러오기
   useEffect(() => {
     loadPosts();
   }, [activeTab, course.id]);
+
+  // 강의가 바뀔 때 모집글 불러오기
+  useEffect(() => {
+    loadRecruitments();
+  }, [course.id]);
 
   // 프로필 이미지 가져오기
   useEffect(() => {
@@ -399,6 +397,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         title: p.title,
         content: p.content,
         author: p.author || (user?.name || "나"),
+        author_student_id: p.author_student_id || user?.student_id || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
         tags: [],
@@ -453,24 +452,123 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (!newComment.trim() || !selectedPost) return;
 
     try {
-      const res = await createComment(selectedPost.id, newComment);
+      const res = await createComment(selectedPost.id, newComment, replyTo?.id || null);
       const newCommentData: Comment = {
         id: res.comment.id,
         author: res.comment.author,
+        author_student_id: res.comment.author_student_id || user?.student_id || null,
         author_profile_image: res.comment.author_profile_image || null,
+        parent_comment_id: res.comment.parent_comment_id || null,
         content: res.comment.content,
-        timestamp: res.comment.created_at
+        timestamp: res.comment.created_at,
+        likes: res.comment.likes || 0,
+        isLiked: res.comment.is_liked || false,
       };
 
-      // 댓글 목록 업데이트
-      setSelectedPost({
-        ...selectedPost,
-        comments: [...selectedPost.comments, newCommentData]
-      });
+      // 상세 모달 댓글 목록 업데이트 (답글이면 부모 아래에 추가)
+      if (replyTo) {
+        const parentId = replyTo.id;
+        const addReply = (comments: Comment[]): Comment[] =>
+          comments.map(c => {
+            if (c.id === parentId) {
+              return { ...c, replies: [...(c.replies || []), newCommentData] };
+            }
+            return { ...c, replies: c.replies ? addReply(c.replies) : c.replies };
+          });
+
+        setSelectedPost({
+          ...selectedPost,
+          comments: addReply(selectedPost.comments),
+        });
+      } else {
+        setSelectedPost({
+          ...selectedPost,
+          comments: [...selectedPost.comments, newCommentData],
+        });
+      }
+
+      // 목록 댓글 수/목록도 업데이트
+      setPosts(prev =>
+        prev.map(post =>
+          post.id === selectedPost.id
+            ? {
+                ...post,
+                comments: [...post.comments, newCommentData],
+                comments_count: (post.comments_count || 0) + 1,
+              }
+            : post
+        )
+      );
       setNewComment("");
+      setReplyTo(null);
     } catch (err) {
       console.error("댓글 작성 실패:", err);
       alert("댓글 작성 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!selectedPost) return;
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+
+    try {
+      await deleteComment(commentId);
+
+      // 댓글 목록에서 제거 (답글 포함)
+      const removeComment = (comments: Comment[]): Comment[] => {
+        return comments
+          .filter(c => c.id !== commentId)
+          .map(c => ({
+            ...c,
+            replies: c.replies ? removeComment(c.replies) : c.replies
+          }));
+      };
+
+      setSelectedPost({
+        ...selectedPost,
+        comments: removeComment(selectedPost.comments),
+      });
+
+      // 목록의 댓글 수도 업데이트
+      setPosts(prev =>
+        prev.map(post =>
+          post.id === selectedPost.id
+            ? {
+                ...post,
+                comments_count: (post.comments_count || 0) - 1,
+              }
+            : post
+        )
+      );
+    } catch (err) {
+      console.error("댓글 삭제 실패:", err);
+      alert("댓글 삭제 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleCommentLike = async (commentId: number) => {
+    if (!selectedPost) return;
+
+    try {
+      const res = await toggleCommentLike(commentId);
+
+      // 댓글 목록 업데이트
+      const updateCommentLike = (comments: Comment[]): Comment[] => {
+        return comments.map(c => {
+          if (c.id === commentId) {
+            return { ...c, likes: res.likes, isLiked: res.is_liked };
+          }
+          return { ...c, replies: c.replies ? updateCommentLike(c.replies) : c.replies };
+        });
+      };
+
+      setSelectedPost({
+        ...selectedPost,
+        comments: updateCommentLike(selectedPost.comments),
+      });
+    } catch (err) {
+      console.error("댓글 좋아요 실패:", err);
+      alert("댓글 좋아요 중 오류가 발생했습니다.");
     }
   };
 
@@ -478,17 +576,40 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     try {
       // 댓글 불러오기
       const comments = await getComments(post.id);
-      const formattedComments: Comment[] = comments.map((c: any) => ({
+      const flat: Comment[] = comments.map((c: any) => ({
         id: c.id,
         author: c.author,
+        author_student_id: c.author_student_id || null,
         author_profile_image: c.author_profile_image || null,
+        parent_comment_id: c.parent_comment_id || null,
         content: c.content,
-        timestamp: c.created_at
+        timestamp: c.created_at,
+        likes: c.likes || 0,
+        isLiked: c.is_liked || false,
+        replies: [],
       }));
-      
+
+      const byId = new Map<number, Comment>();
+      flat.forEach(c => byId.set(c.id, c));
+
+      const roots: Comment[] = [];
+      flat.forEach(c => {
+        if (c.parent_comment_id) {
+          const parent = byId.get(c.parent_comment_id);
+          if (parent) {
+            parent.replies = parent.replies || [];
+            parent.replies.push(c);
+          } else {
+            roots.push(c);
+          }
+        } else {
+          roots.push(c);
+        }
+      });
+
       setSelectedPost({
         ...post,
-        comments: formattedComments
+        comments: roots
       });
     } catch (err) {
       console.error("댓글 로드 실패:", err);
@@ -644,40 +765,52 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   };
 
   // 모집 참여/취소 핸들러
-  const handleJoinRecruitment = (recruitmentId: number, e?: React.MouseEvent) => {
+  const handleJoinRecruitment = async (recruitmentId: number, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
-    setRecruitments(recruitments.map(recruitment => {
-      if (recruitment.id === recruitmentId) {
-        if (recruitment.isJoined) {
-          // 참여 취소
-          return {
-            ...recruitment,
-            currentMembers: recruitment.currentMembers - 1,
-            membersList: recruitment.membersList.filter(name => name !== user?.name),
-            isJoined: false
-          };
-        } else {
-          // 참여하기
-          if (recruitment.currentMembers >= recruitment.maxMembers) {
-            alert("이미 인원이 가득 찼습니다.");
-            return recruitment;
-          }
-          return {
-            ...recruitment,
-            currentMembers: recruitment.currentMembers + 1,
-            membersList: [...recruitment.membersList, user?.name || "나"],
-            isJoined: true
-          };
-        }
+
+    try {
+      const res = await toggleRecruitmentJoin(recruitmentId);
+      const r = res.recruitment;
+
+      setRecruitments(prev =>
+        prev.map(rec =>
+          rec.id === recruitmentId
+            ? {
+                ...rec,
+                maxMembers: r.max_members,
+                currentMembers: r.current_members,
+                membersList: r.members_list || [],
+                members: r.members || [],
+                isJoined: r.is_joined,
+              }
+            : rec
+        )
+      );
+
+      if (selectedRecruitment && selectedRecruitment.id === recruitmentId) {
+        setSelectedRecruitment(prev =>
+          prev
+            ? {
+                ...prev,
+                maxMembers: r.max_members,
+                currentMembers: r.current_members,
+                membersList: r.members_list || [],
+                members: r.members || [],
+                isJoined: r.is_joined,
+              }
+            : prev
+        );
       }
-      return recruitment;
-    }));
+    } catch (err) {
+      console.error("모집 참여/취소 실패:", err);
+      alert("모집 참여/취소 중 오류가 발생했습니다.");
+    }
   };
 
   // 모집 생성 핸들러
-  const handleCreateRecruitment = () => {
+  const handleCreateRecruitment = async () => {
     if (!newRecruitment.title.trim()) {
       alert("제목을 입력해주세요.");
       return;
@@ -691,28 +824,52 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       return;
     }
 
-    const recruitment: TeamRecruitment = {
-      id: recruitments.length + 1,
-      title: newRecruitment.title,
-      description: newRecruitment.description,
-      author: user?.name || "나",
-      timestamp: formatDateTime(new Date()),
-      maxMembers: newRecruitment.maxMembers,
-      currentMembers: 1,
-      membersList: [user?.name || "나"],
-      isJoined: true
-    };
+    try {
+      const res = await createRecruitment(
+        course.code,
+        newRecruitment.title,
+        newRecruitment.description,
+        newRecruitment.maxMembers
+      );
 
-    setRecruitments([recruitment, ...recruitments]);
-    setNewRecruitment({ title: "", description: "", maxMembers: 3 });
-    setIsCreateRecruitmentOpen(false);
+      const r = res.recruitment;
+
+      const recruitment: TeamRecruitment = {
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        author: r.author,
+        author_id: r.author_id,
+        author_student_id: r.author_student_id || user?.student_id || null,
+        timestamp: r.created_at,
+        maxMembers: r.max_members,
+        currentMembers: r.current_members,
+        membersList: r.members_list || [],
+        members: r.members || [],
+        isJoined: r.is_joined,
+      };
+
+      setRecruitments(prev => [recruitment, ...prev]);
+      setNewRecruitment({ title: "", description: "", maxMembers: 3 });
+      setIsCreateRecruitmentOpen(false);
+    } catch (err) {
+      console.error("모집글 작성 실패:", err);
+      alert("모집글 작성 중 오류가 발생했습니다.");
+    }
   };
 
   // 모집 삭제 핸들러
-  const handleDeleteRecruitment = (recruitmentId: number) => {
-    if (confirm("이 모집글을 삭제하시겠습니까?")) {
-      setRecruitments(recruitments.filter(r => r.id !== recruitmentId));
+  const handleDeleteRecruitment = async (recruitmentId: number) => {
+    const ok = confirm("이 모집글을 삭제하시겠습니까?");
+    if (!ok) return;
+
+    try {
+      await deleteRecruitment(recruitmentId);
+      setRecruitments(prev => prev.filter(r => r.id !== recruitmentId));
       setSelectedRecruitment(null);
+    } catch (err) {
+      console.error("모집글 삭제 실패:", err);
+      alert("모집글 삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -897,9 +1054,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         <h3 className="recruitment-card__title">{recruitment.title}</h3>
                         <div className="recruitment-card__author">
                           <div style={{ width: '16px', height: '16px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {renderProfileAvatar(recruitment.author, null, 16)}
+                            {renderProfileAvatar(recruitment.author, recruitment.author_profile_image ?? null, 16)}
                           </div>
-                          <span>{recruitment.author}</span>
+                          <div className="recruitment-card__author-text">
+                            <span className="recruitment-card__author-name">{recruitment.author}</span>
+                            {recruitment.author_student_id && (
+                              <span className="recruitment-card__author-id">{recruitment.author_student_id}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -959,7 +1121,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         {renderProfileAvatar(post.author, post.author_profile_image, 20)}
                       </div>
                       <div className="course-board__post-meta">
-                        <span className="course-board__post-author-name">{post.author}</span>
+                        <div className="course-board__post-author-row">
+                          <span className="course-board__post-author-name">{post.author}</span>
+                          {post.author_student_id && (
+                            <span className="course-board__post-author-id">{post.author_student_id}</span>
+                          )}
+                        </div>
                         <span className="course-board__post-timestamp">{post.timestamp}</span>
                       </div>
                     </div>
@@ -1081,7 +1248,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     {renderProfileAvatar(selectedPost.author, selectedPost.author_profile_image, 24)}
                   </div>
                   <div className="course-board__post-meta">
-                    <span className="course-board__post-author-name">{selectedPost.author}</span>
+                    <div className="course-board__post-author-row">
+                      <span className="course-board__post-author-name">{selectedPost.author}</span>
+                      {selectedPost.author_student_id && (
+                        <span className="course-board__post-author-id">{selectedPost.author_student_id}</span>
+                      )}
+                    </div>
                     <span className="course-board__post-timestamp">{selectedPost.timestamp}</span>
                   </div>
                 </div>
@@ -1109,63 +1281,168 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 <h3>댓글 {selectedPost.comments.length}개</h3>
                 <div className="course-board__comments-list">
                   {selectedPost.comments.map((comment) => (
-                    <div key={comment.id} className="course-board__comment">
-                      <div 
-                        className="course-board__comment-avatar"
-                        style={
-                          profileImage && (comment.author === user?.name || comment.author === "나")
-                            ? (profileImage.startsWith('color:') 
-                                ? { background: profileImage.replace('color:', '') }
-                                : { background: 'transparent' })
-                            : {}
-                        }
-                      >
-                        {renderProfileAvatar(comment.author, comment.author_profile_image, 20)}
-                      </div>
-                      <div className="course-board__comment-content">
-                        <div className="course-board__comment-header">
-                          <span className="course-board__comment-author">{comment.author}</span>
-                          <span className="course-board__comment-timestamp">{comment.timestamp}</span>
+                    <React.Fragment key={comment.id}>
+                      <div className="course-board__comment">
+                        <div 
+                          className="course-board__comment-avatar"
+                          style={
+                            profileImage && (comment.author === user?.name || comment.author === "나")
+                              ? (profileImage.startsWith('color:') 
+                                  ? { background: profileImage.replace('color:', '') }
+                                  : { background: 'transparent' })
+                              : {}
+                          }
+                        >
+                          {renderProfileAvatar(comment.author, comment.author_profile_image, 20)}
                         </div>
-                        <p className="course-board__comment-text">{comment.content}</p>
+                        <div className="course-board__comment-content">
+                          <div className="course-board__comment-header">
+                            <div className="course-board__comment-author-row">
+                              <span className="course-board__comment-author">{comment.author}</span>
+                              {comment.author === selectedPost.author && (
+                                <span className="course-board__comment-author-badge">작성자</span>
+                              )}
+                              {comment.author_student_id && (
+                                <span className="course-board__comment-author-id">{comment.author_student_id}</span>
+                              )}
+                            </div>
+                            <span className="course-board__comment-timestamp">{comment.timestamp}</span>
+                          </div>
+                          <p className="course-board__comment-text">{comment.content}</p>
+                          <div className="course-board__comment-actions">
+                            <button 
+                              className={`course-board__comment-like ${comment.isLiked ? 'active' : ''}`}
+                              onClick={() => handleCommentLike(comment.id)}
+                            >
+                              <Heart size={14} fill={comment.isLiked ? "currentColor" : "none"} />
+                              <span>{comment.likes || 0}</span>
+                            </button>
+                            <button
+                              className="course-board__comment-reply-button"
+                              onClick={() => {
+                                setReplyTo(comment);
+                                setNewComment("");
+                              }}
+                            >
+                              답글 달기
+                            </button>
+                            {comment.author === user?.name && (
+                              <button
+                                className="course-board__comment-delete-button"
+                                onClick={() => handleDeleteComment(comment.id)}
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+
+                      {comment.replies && comment.replies.map((reply) => (
+                        <React.Fragment key={reply.id}>
+                        <div className="course-board__comment course-board__comment--reply">
+                          <div 
+                            className="course-board__comment-avatar"
+                            style={
+                              profileImage && (reply.author === user?.name || reply.author === "나")
+                                ? (profileImage.startsWith('color:') 
+                                    ? { background: profileImage.replace('color:', '') }
+                                    : { background: 'transparent' })
+                                : {}
+                            }
+                          >
+                            {renderProfileAvatar(reply.author, reply.author_profile_image, 20)}
+                          </div>
+                          <div className="course-board__comment-content">
+                            <div className="course-board__comment-header">
+                              <div className="course-board__comment-author-row">
+                                <span className="course-board__comment-author">{reply.author}</span>
+                                {reply.author === selectedPost.author && (
+                                  <span className="course-board__comment-author-badge">작성자</span>
+                                )}
+                                {reply.author_student_id && (
+                                  <span className="course-board__comment-author-id">{reply.author_student_id}</span>
+                                )}
+                              </div>
+                              <span className="course-board__comment-timestamp">{reply.timestamp}</span>
+                            </div>
+                            <p className="course-board__comment-text">{reply.content}</p>
+                            <div className="course-board__comment-actions">
+                              <button 
+                                className={`course-board__comment-like ${reply.isLiked ? 'active' : ''}`}
+                                onClick={() => handleCommentLike(reply.id)}
+                              >
+                                <Heart size={14} fill={reply.isLiked ? "currentColor" : "none"} />
+                                <span>{reply.likes || 0}</span>
+                              </button>
+                              {reply.author === user?.name && (
+                                <button
+                                  className="course-board__comment-delete-button"
+                                  onClick={() => handleDeleteComment(reply.id)}
+                                >
+                                  삭제
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        </React.Fragment>
+                      ))}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>
 
               {/* 댓글 작성 */}
               <div className="course-board__comment-write">
-                <div 
-                  className="course-board__comment-avatar"
-                  style={
-                    profileImage
-                      ? (profileImage.startsWith('color:') 
-                          ? { background: profileImage.replace('color:', '') }
-                          : { background: 'transparent' })
-                      : {}
-                  }
-                >
-                  {renderProfileAvatar(user?.name || "나", profileImage, 20)}
-                </div>
-                <input
-                  type="text"
-                  placeholder="댓글을 입력하세요"
-                  className="course-board__comment-input-field"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddComment();
+        {replyTo && (
+          <div className="course-board__reply-info">
+            <span>{replyTo.author} 답글</span>
+            <button
+              className="course-board__reply-cancel"
+              onClick={() => setReplyTo(null)}
+            >
+              취소
+            </button>
+          </div>
+        )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                  <div 
+                    className="course-board__comment-avatar"
+                    style={
+                      profileImage
+                        ? (profileImage.startsWith('color:') 
+                            ? { background: profileImage.replace('color:', '') }
+                            : { background: 'transparent' })
+                        : {}
                     }
-                  }}
-                />
-                <button
-                  className="course-board__comment-submit"
-                  onClick={handleAddComment}
-                >
-                  <Send size={18} />
-                </button>
+                  >
+                    {renderProfileAvatar(user?.name || "나", profileImage, 20)}
+                  </div>
+                  <div className="course-board__comment-input-wrapper">
+                    {replyTo && (
+                      <span className="course-board__mention-tag">@{replyTo.author}</span>
+                    )}
+                    <input
+                      type="text"
+                      placeholder="댓글을 입력하세요"
+                      className="course-board__comment-input-field"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddComment();
+                        }
+                      }}
+                    />
+                  </div>
+                  <button
+                    className="course-board__comment-submit"
+                    onClick={handleAddComment}
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
               </div>
 
               {/* 삭제 버튼 (본인 글인 경우만) */}
@@ -1278,10 +1555,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               <div className="course-board__detail-header">
                 <div className="course-board__post-author">
                   <div className="course-board__post-avatar">
-                    {renderProfileAvatar(selectedRecruitment.author, null, 24)}
+                    {renderProfileAvatar(selectedRecruitment.author, selectedRecruitment.author_profile_image ?? null, 24)}
                   </div>
                   <div className="course-board__post-meta">
-                    <span className="course-board__post-author-name">{selectedRecruitment.author}</span>
+                    <div className="course-board__post-author-row">
+                      <span className="course-board__post-author-name">{selectedRecruitment.author}</span>
+                      {selectedRecruitment.author_student_id && (
+                        <span className="course-board__post-author-id">{selectedRecruitment.author_student_id}</span>
+                      )}
+                    </div>
                     <span className="course-board__post-timestamp">{selectedRecruitment.timestamp}</span>
                   </div>
                 </div>
@@ -1300,52 +1582,59 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   <h3>참여 인원 ({selectedRecruitment.currentMembers} / {selectedRecruitment.maxMembers})</h3>
                 </div>
                 <div className="recruitment-detail-members__list">
-                  {selectedRecruitment.membersList.map((member, index) => (
+                  {(selectedRecruitment.members || []).map((member, index) => (
                     <div key={index} className="recruitment-detail-member">
                       <div className="recruitment-detail-member__avatar">
-                        {renderProfileAvatar(member, null, 18)}
+                        {renderProfileAvatar(member.name, member.profile_image ?? null, 18)}
                       </div>
-                      <span className="recruitment-detail-member__name">{member}</span>
+                      <div className="recruitment-detail-member__info">
+                        <span className="recruitment-detail-member__name">{member.name}</span>
+                        {member.student_id && (
+                          <span className="recruitment-detail-member__id">{member.student_id}</span>
+                        )}
+                      </div>
                       {index === 0 && <span className="recruitment-detail-member__badge">리더</span>}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* 참여 버튼 */}
+              {/* 참여 / 삭제 버튼 */}
               <div className="course-board__detail-actions">
-                <button
-                  className={`recruitment-detail-join-button ${selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
-                    } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
-                  onClick={() => {
-                    handleJoinRecruitment(selectedRecruitment.id);
-                    // 상태 업데이트를 반영하기 위해 모달도 업데이트
-                    const updated = recruitments.find(r => r.id === selectedRecruitment.id);
-                    if (updated) setSelectedRecruitment(updated);
-                  }}
-                  disabled={selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined}
-                >
-                  <Users size={20} />
-                  <span>
-                    {selectedRecruitment.isJoined
-                      ? "참여 취소"
-                      : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers
-                        ? "마감"
-                        : "참여하기"}
-                  </span>
-                </button>
-
-                {/* 삭제 버튼 (본인 글인 경우만) */}
-                {selectedRecruitment.author === "나" && (
+                <div className="recruitment-detail-actions">
                   <button
-                    className="recruitment-detail-delete-button"
-                    onClick={() => handleDeleteRecruitment(selectedRecruitment.id)}
-                    title="모집글 삭제"
+                    className={`recruitment-detail-join-button ${selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
+                      } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
+                    onClick={() => {
+                      handleJoinRecruitment(selectedRecruitment.id);
+                      // 상태 업데이트를 반영하기 위해 모달도 업데이트
+                      const updated = recruitments.find(r => r.id === selectedRecruitment.id);
+                      if (updated) setSelectedRecruitment(updated);
+                    }}
+                    disabled={selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined}
                   >
-                    <Trash2 size={18} />
-                    <span>삭제</span>
+                    <Users size={20} />
+                    <span>
+                      {selectedRecruitment.isJoined
+                        ? "참여 취소"
+                        : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers
+                          ? "마감"
+                          : "참여하기"}
+                    </span>
                   </button>
-                )}
+
+                  {/* 삭제 버튼 (본인 글인 경우만) */}
+                  {selectedRecruitment.author_id === user?.id && (
+                    <button
+                      className="recruitment-detail-delete-button"
+                      onClick={() => handleDeleteRecruitment(selectedRecruitment.id)}
+                      title="모집글 삭제"
+                    >
+                      <Trash2 size={18} />
+                      <span>삭제</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

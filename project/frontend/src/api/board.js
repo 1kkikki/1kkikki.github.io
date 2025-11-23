@@ -49,9 +49,14 @@ export async function getComments(post_id) {
   return res.json();
 }
 
-// 댓글 작성
-export async function createComment(post_id, content) {
+// 댓글 작성 (parent_comment_id 가 있으면 답글)
+export async function createComment(post_id, content, parent_comment_id = null) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const body = { content };
+  if (parent_comment_id) {
+    body.parent_comment_id = parent_comment_id;
+  }
 
   const res = await fetch(`${API_URL}/board/post/${post_id}/comments`, {
     method: "POST",
@@ -59,7 +64,7 @@ export async function createComment(post_id, content) {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ content })
+    body: JSON.stringify(body)
   });
 
   return res.json();
@@ -82,6 +87,18 @@ export async function toggleLike(post_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
   const res = await fetch(`${API_URL}/board/post/${post_id}/like`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  return res.json();
+}
+
+// 댓글 좋아요 토글
+export async function toggleCommentLike(comment_id) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const res = await fetch(`${API_URL}/board/comment/${comment_id}/like`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` }
   });

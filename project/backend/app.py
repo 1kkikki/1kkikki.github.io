@@ -7,6 +7,8 @@ from routes.profile import profile_bp
 from routes.available import available_bp
 from routes.board import board_bp
 from routes.course import course_bp
+from routes.recruit import recruit_bp
+from routes.schedule import schedule_bp
 
 def create_app():
     app = Flask(__name__)
@@ -38,10 +40,23 @@ def create_app():
     app.register_blueprint(available_bp, url_prefix="/available")
     app.register_blueprint(board_bp, url_prefix="/board")
     app.register_blueprint(course_bp, url_prefix="/course")
+    app.register_blueprint(recruit_bp, url_prefix="/recruit")
+    app.register_blueprint(schedule_bp, url_prefix="/schedule")
 
 
     with app.app_context():
-        from models import User, Course, Enrollment, CourseBoardComment, CourseBoardLike
+        from models import (
+            User,
+            Course,
+            Enrollment,
+            CourseBoardComment,
+            CourseBoardLike,
+            CourseBoardCommentLike,
+            TeamRecruitment,
+            TeamRecruitmentMember,
+            Schedule,
+        )
+
         db.create_all()
         print("✅ Database initialized successfully!")
 

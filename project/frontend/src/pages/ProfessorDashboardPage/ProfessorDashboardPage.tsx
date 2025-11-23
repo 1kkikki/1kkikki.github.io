@@ -3,6 +3,7 @@ import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, Ch
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
 import { getMyCourses, createCourse, deleteCourse } from "../../api/course";
+import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
 import "./professor-dashboard.css";
 
 
@@ -12,9 +13,11 @@ interface MainDashboardPageProps {
 
 // 캘린더 이벤트 타입
 interface CalendarEvent {
-  id: string;
+  id: number;
   title: string;
   date: number; // 1-31
+  month: number; // 1-12
+  year: number;
   color: string;
   category?: string;
 }
@@ -54,15 +57,14 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [events, setEvents] = useState<CalendarEvent[]>([
-    { id: "1", title: "운영체제 과제", date: 15, color: "#a8d5e2", category: "과제" },
-    { id: "2", title: "웹프로그래밍 과제", date: 15, color: "#d4c5f9", category: "과제" },
-    { id: "3", title: "중간고사", date: 20, color: "#ffb3b3", category: "시험" },
-    { id: "4", title: "팀 프로젝트 발표", date: 22, color: "#c9a9e9", category: "발표" },
-    { id: "5", title: "인공지능 리포트", date: 25, color: "#aedcc0", category: "제출" },
-    { id: "6", title: "기말과제 제출", date: 28, color: "#ffd4a3", category: "제출" }
-  ]);
-  const [newEvent, setNewEvent] = useState({ title: "", month: 1, date: 1, color: "#a8d5e2", category: "" });
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [newEvent, setNewEvent] = useState({ 
+    title: "", 
+    month: today.getMonth() + 1, 
+    date: today.getDate(), 
+    color: "#a8d5e2", 
+    category: "" 
+  });
   
   // 강의 목록 state로 변경
   const [courses, setCourses] = useState<Course[]>([]);
@@ -78,10 +80,26 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   }
 
-  // 컴포넌트 마운트 시 강의 목록 로드
+  // 일정 불러오기
+  const fetchSchedules = async () => {
+    try {
+      const data = await getSchedules(currentYear, currentMonth + 1);
+      setEvents(data);
+    } catch (error) {
+      console.error("일정 불러오기 실패:", error);
+    }
+  }
+
+  // 컴포넌트 마운트 시 강의 목록 및 일정 로드
   useEffect(() => {
     loadCourses();
+    fetchSchedules();
   }, []);
+
+  // 월이 변경되면 일정 다시 로드
+  useEffect(() => {
+    fetchSchedules();
+  }, [currentYear, currentMonth]);
 
   // MyPage에서 돌아온 경우 courseboard 자동 선택
   useEffect(() => {
@@ -156,22 +174,36 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   ];
 
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     if (!newEvent.title.trim()) {
       alert("일정 제목을 입력해주세요.");
       return;
     }
     
-    const event: CalendarEvent = {
-      id: Date.now().toString(),
-      title: newEvent.title,
-      date: newEvent.date,
-      color: newEvent.color,
-      category: newEvent.category
-    };
-    setEvents([...events, event]);
-    setNewEvent({ title: "", month: 1, date: 1, color: "#a8d5e2", category: "" });
-    setIsEventModalOpen(false);
+    try {
+      await createSchedule({
+        title: newEvent.title,
+        date: newEvent.date,
+        month: newEvent.month,
+        year: currentYear,
+        color: newEvent.color,
+        category: newEvent.category
+      });
+
+      await fetchSchedules(); // 일정 다시 로드
+      setIsEventModalOpen(false);
+      const now = new Date();
+      setNewEvent({ 
+        title: "", 
+        month: now.getMonth() + 1, 
+        date: now.getDate(), 
+        color: "#a8d5e2", 
+        category: "" 
+      });
+    } catch (error) {
+      console.error("일정 추가 실패:", error);
+      alert("일정 추가에 실패했습니다.");
+    }
   };
 
   const handleRemoveEvent = (id: string) => {
@@ -179,7 +211,27 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   };
 
   const handleDateClick = (date: number) => {
-    setNewEvent({ ...newEvent, date: date });
+    setNewEvent({ 
+      title: "",
+      date: date,
+      month: currentMonth + 1,
+      year: currentYear,
+      color: "#a8d5e2",
+      category: ""
+    });
+    setIsEventModalOpen(true);
+  };
+
+  const handleOpenEventModal = () => {
+    const now = new Date();
+    setNewEvent({ 
+      title: "",
+      date: now.getDate(),
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+      color: "#a8d5e2",
+      category: ""
+    });
     setIsEventModalOpen(true);
   };
 
@@ -189,7 +241,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     setIsEventDetailModalOpen(true);
   };
 
-  const handleUpdateEvent = () => {
+  const handleUpdateEvent = async () => {
     if (!selectedEvent) return;
     
     if (!selectedEvent.title.trim()) {
@@ -197,18 +249,38 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       return;
     }
     
-    setEvents(events.map(e => e.id === selectedEvent.id ? selectedEvent : e));
-    setIsEventDetailModalOpen(false);
-    setSelectedEvent(null);
+    try {
+      await updateSchedule(selectedEvent.id, {
+        title: selectedEvent.title,
+        date: selectedEvent.date,
+        month: selectedEvent.month,
+        year: selectedEvent.year,
+        color: selectedEvent.color,
+        category: selectedEvent.category
+      });
+
+      await fetchSchedules(); // 일정 다시 로드
+      setIsEventDetailModalOpen(false);
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error("일정 수정 실패:", error);
+      alert("일정 수정에 실패했습니다.");
+    }
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
     
     if (confirm("이 일정을 삭제하시겠습니까?")) {
-      setEvents(events.filter(e => e.id !== selectedEvent.id));
-      setIsEventDetailModalOpen(false);
-      setSelectedEvent(null);
+      try {
+        await deleteSchedule(selectedEvent.id);
+        await fetchSchedules(); // 일정 다시 로드
+        setIsEventDetailModalOpen(false);
+        setSelectedEvent(null);
+      } catch (error) {
+        console.error("일정 삭제 실패:", error);
+        alert("일정 삭제에 실패했습니다.");
+      }
     }
   };
 
@@ -420,7 +492,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             <div className="dashboard__calendar-actions">
               <button 
                 className="dashboard__action-button dashboard__action-button--primary"
-                onClick={() => setIsEventModalOpen(true)}
+                onClick={handleOpenEventModal}
               >
                 <Plus size={16} />
                 일정 추가

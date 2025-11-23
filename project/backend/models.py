@@ -113,10 +113,16 @@ class CourseBoardPost(db.Model):
         # 댓글 개수 계산
         comments_count = CourseBoardComment.query.filter_by(post_id=self.id).count()
         
+        # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+        author_student_id = None
+        if self.author and getattr(self.author, "user_type", None) == "student":
+            author_student_id = self.author.student_id
+
         return {
             "id": self.id,
             "course_id": self.course_id,
             "author": self.author.name,
+            "author_student_id": author_student_id,
             "author_profile_image": self.author.profile_image if self.author else None,
             "title": self.title,
             "content": self.content,
@@ -134,19 +140,37 @@ class CourseBoardComment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey("course_board_posts.id"), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    parent_comment_id = db.Column(db.Integer, db.ForeignKey("course_board_comments.id"), nullable=True)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     author = db.relationship("User")
     post = db.relationship("CourseBoardPost", backref=db.backref("board_comments", lazy=True))
 
-    def to_dict(self):
+    def to_dict(self, user_id=None):
+        # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+        author_student_id = None
+        if self.author and getattr(self.author, "user_type", None) == "student":
+            author_student_id = self.author.student_id
+
+        # 좋아요 수 계산
+        likes_count = len(self.comment_likes) if self.comment_likes else 0
+        
+        # 현재 사용자가 좋아요 눌렀는지 확인
+        is_liked = False
+        if user_id and self.comment_likes:
+            is_liked = any(like.user_id == user_id for like in self.comment_likes)
+
         return {
             "id": self.id,
             "post_id": self.post_id,
             "author": self.author.name if self.author else "익명",
+            "author_student_id": author_student_id,
             "author_profile_image": self.author.profile_image if self.author else None,
+            "parent_comment_id": self.parent_comment_id,
             "content": self.content,
+            "likes": likes_count,
+            "is_liked": is_liked,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M")
         }
 
@@ -161,3 +185,134 @@ class CourseBoardLike(db.Model):
 
     user = db.relationship("User")
     post = db.relationship("CourseBoardPost", backref=db.backref("board_likes", lazy=True))
+
+
+# 댓글 좋아요
+class CourseBoardCommentLike(db.Model):
+    __tablename__ = "course_board_comment_likes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey("course_board_comments.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User")
+    comment = db.relationship("CourseBoardComment", backref=db.backref("comment_likes", lazy=True))
+
+
+# 팀 모집
+class TeamRecruitment(db.Model):
+    __tablename__ = "team_recruitments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    # 강의 코드 사용 (CourseBoardPost.course_id 와 동일한 형태)
+    course_id = db.Column(db.String(20), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    max_members = db.Column(db.Integer, nullable=False, default=3)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    author = db.relationship("User")
+
+    def to_dict(self, user_id=None):
+        # 현재 모집에 참여한 멤버들
+        members = TeamRecruitmentMember.query.filter_by(recruitment_id=self.id).all()
+        members_list = [m.user.name for m in members if m.user]
+        members_data = []
+        for m in members:
+            if m.user:
+                # 교수인 경우에는 학번(student_id) 숨기기
+                student_id = None
+                if getattr(m.user, "user_type", None) == "student":
+                    student_id = m.user.student_id
+
+                members_data.append(
+                    {
+                        "name": m.user.name,
+                        "student_id": student_id,
+                        "profile_image": m.user.profile_image,
+                    }
+                )
+            else:
+                members_data.append(
+                    {
+                        "name": "익명",
+                        "student_id": None,
+                        "profile_image": None,
+                    }
+                )
+
+        # 현재 유저가 참여 중인지 확인
+        is_joined = False
+        if user_id is not None:
+            is_joined = TeamRecruitmentMember.query.filter_by(
+                recruitment_id=self.id, user_id=user_id
+            ).first() is not None
+
+        # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+        author_student_id = None
+        if self.author and getattr(self.author, "user_type", None) == "student":
+            author_student_id = self.author.student_id
+
+        return {
+            "id": self.id,
+            "course_id": self.course_id,
+            "author_id": self.author_id,
+            "author": self.author.name if self.author else "익명",
+            "author_student_id": author_student_id,
+            "author_profile_image": self.author.profile_image if self.author else None,
+            "title": self.title,
+            "description": self.description,
+            "max_members": self.max_members,
+            "current_members": len(members_list),
+            "members_list": members_list,
+            "members": members_data,
+            "is_joined": is_joined,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
+        }
+
+
+# 팀 모집 참여자
+class TeamRecruitmentMember(db.Model):
+    __tablename__ = "team_recruitment_members"
+
+    id = db.Column(db.Integer, primary_key=True)
+    recruitment_id = db.Column(db.Integer, db.ForeignKey("team_recruitments.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User")
+    recruitment = db.relationship(
+        "TeamRecruitment", backref=db.backref("members", lazy=True)
+    )
+
+
+# 개인 일정
+class Schedule(db.Model):
+    __tablename__ = "schedules"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    date = db.Column(db.Integer, nullable=False)  # 1-31
+    month = db.Column(db.Integer, nullable=False)  # 1-12
+    year = db.Column(db.Integer, nullable=False)
+    color = db.Column(db.String(20), nullable=False, default='#a8d5e2')
+    category = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", backref=db.backref("schedules", lazy=True))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "date": self.date,
+            "month": self.month,
+            "year": self.year,
+            "color": self.color,
+            "category": self.category,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M")
+        }
