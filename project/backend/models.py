@@ -121,6 +121,7 @@ class CourseBoardPost(db.Model):
         return {
             "id": self.id,
             "course_id": self.course_id,
+            "author_id": self.author_id,
             "author": self.author.name,
             "author_student_id": author_student_id,
             "author_profile_image": self.author.profile_image if self.author else None,
@@ -164,6 +165,7 @@ class CourseBoardComment(db.Model):
         return {
             "id": self.id,
             "post_id": self.post_id,
+            "author_id": self.author_id,
             "author": self.author.name if self.author else "익명",
             "author_student_id": author_student_id,
             "author_profile_image": self.author.profile_image if self.author else None,
@@ -229,6 +231,7 @@ class TeamRecruitment(db.Model):
 
                 members_data.append(
                     {
+                        "user_id": m.user.id,
                         "name": m.user.name,
                         "student_id": student_id,
                         "profile_image": m.user.profile_image,
@@ -237,6 +240,7 @@ class TeamRecruitment(db.Model):
             else:
                 members_data.append(
                     {
+                        "user_id": None,
                         "name": "익명",
                         "student_id": None,
                         "profile_image": None,

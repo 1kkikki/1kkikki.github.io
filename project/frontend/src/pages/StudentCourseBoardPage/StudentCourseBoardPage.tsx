@@ -49,6 +49,7 @@ interface Post {
   title: string;
   content: string;
   author: string;
+  author_id?: number;
   author_student_id?: string | null;
   author_profile_image?: string | null;
   timestamp: string;
@@ -64,6 +65,7 @@ interface Post {
 interface Comment {
   id: number;
   author: string;
+  author_id?: number;
   author_student_id?: string | null;
   author_profile_image?: string | null;
   parent_comment_id?: number | null;
@@ -75,6 +77,7 @@ interface Comment {
 }
 
 interface RecruitmentMember {
+  user_id?: number | null;
   name: string;
   student_id?: string | null;
   profile_image?: string | null;
@@ -86,6 +89,7 @@ interface TeamRecruitment {
   description: string;
   author: string;
   author_id?: number;
+  author_student_id?: string | null;
   author_profile_image?: string | null;
   timestamp: string;
   maxMembers: number;
@@ -197,6 +201,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         title: p.title,
         content: p.content,
         author: p.author || "익명",
+        author_id: p.author_id,
         author_student_id: p.author_student_id || null,
         author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
@@ -275,8 +280,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   }, []);
 
   // 프로필 아바타 렌더링 함수
-  const renderProfileAvatar = (authorName: string, authorProfileImage: string | null | undefined, size: number = 20, containerClassName?: string) => {
-    const isCurrentUser = authorName === user?.name;
+  const renderProfileAvatar = (authorId: number | undefined, authorProfileImage: string | null | undefined, size: number = 20, containerClassName?: string) => {
+    const isCurrentUser = authorId === user?.id;
     const profile = isCurrentUser ? profileImage : authorProfileImage;
     
     if (profile) {
@@ -397,6 +402,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         title: p.title,
         content: p.content,
         author: p.author || (user?.name || "나"),
+        author_id: p.author_id || user?.id,
         author_student_id: p.author_student_id || user?.student_id || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
@@ -452,10 +458,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (!newComment.trim() || !selectedPost) return;
 
     try {
-      const res = await createComment(selectedPost.id, newComment, replyTo?.id || null);
+      const res = await createComment(selectedPost.id, newComment, replyTo?.id as any);
       const newCommentData: Comment = {
         id: res.comment.id,
         author: res.comment.author,
+        author_id: res.comment.author_id ?? undefined,
         author_student_id: res.comment.author_student_id || user?.student_id || null,
         author_profile_image: res.comment.author_profile_image || null,
         parent_comment_id: res.comment.parent_comment_id || null,
@@ -579,6 +586,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       const flat: Comment[] = comments.map((c: any) => ({
         id: c.id,
         author: c.author,
+        author_id: c.author_id,
         author_student_id: c.author_student_id || null,
         author_profile_image: c.author_profile_image || null,
         parent_comment_id: c.parent_comment_id || null,
@@ -1053,8 +1061,21 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       <div className="recruitment-card__header">
                         <h3 className="recruitment-card__title">{recruitment.title}</h3>
                         <div className="recruitment-card__author">
-                          <div style={{ width: '16px', height: '16px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {renderProfileAvatar(recruitment.author, recruitment.author_profile_image ?? null, 16)}
+                          <div style={{ 
+                            width: '16px', 
+                            height: '16px', 
+                            borderRadius: '50%', 
+                            overflow: 'hidden', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            background: recruitment.author_profile_image && recruitment.author_profile_image.startsWith('color:') 
+                              ? recruitment.author_profile_image.replace('color:', '')
+                              : recruitment.author_profile_image 
+                                ? 'transparent' 
+                                : '#e5e7eb'
+                          }}>
+                            {renderProfileAvatar(recruitment.author_id, recruitment.author_profile_image ?? null, 16)}
                           </div>
                           <div className="recruitment-card__author-text">
                             <span className="recruitment-card__author-name">{recruitment.author}</span>
@@ -1111,14 +1132,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       <div 
                         className="course-board__post-avatar"
                         style={
-                          profileImage && (post.author === user?.name || post.author === "나")
+                          profileImage && post.author_id === user?.id
                             ? (profileImage.startsWith('color:') 
                                 ? { background: profileImage.replace('color:', '') }
                                 : { background: 'transparent' })
-                            : {}
+                            : post.author_profile_image && post.author_profile_image.startsWith('color:')
+                              ? { background: post.author_profile_image.replace('color:', '') }
+                              : post.author_profile_image
+                                ? { background: 'transparent' }
+                                : {}
                         }
                       >
-                        {renderProfileAvatar(post.author, post.author_profile_image, 20)}
+                        {renderProfileAvatar(post.author_id, post.author_profile_image, 20)}
                       </div>
                       <div className="course-board__post-meta">
                         <div className="course-board__post-author-row">
@@ -1238,14 +1263,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   <div 
                     className="course-board__post-avatar"
                     style={
-                      profileImage && (selectedPost.author === user?.name || selectedPost.author === "나")
+                      profileImage && selectedPost.author_id === user?.id
                         ? (profileImage.startsWith('color:') 
                             ? { background: profileImage.replace('color:', '') }
                             : { background: 'transparent' })
-                        : {}
+                        : selectedPost.author_profile_image && selectedPost.author_profile_image.startsWith('color:')
+                          ? { background: selectedPost.author_profile_image.replace('color:', '') }
+                          : selectedPost.author_profile_image
+                            ? { background: 'transparent' }
+                            : {}
                     }
                   >
-                    {renderProfileAvatar(selectedPost.author, selectedPost.author_profile_image, 24)}
+                    {renderProfileAvatar(selectedPost.author_id, selectedPost.author_profile_image, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <div className="course-board__post-author-row">
@@ -1286,14 +1315,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         <div 
                           className="course-board__comment-avatar"
                           style={
-                            profileImage && (comment.author === user?.name || comment.author === "나")
+                            profileImage && comment.author_id === user?.id
                               ? (profileImage.startsWith('color:') 
                                   ? { background: profileImage.replace('color:', '') }
                                   : { background: 'transparent' })
-                              : {}
+                              : comment.author_profile_image && comment.author_profile_image.startsWith('color:')
+                                ? { background: comment.author_profile_image.replace('color:', '') }
+                                : comment.author_profile_image
+                                  ? { background: 'transparent' }
+                                  : {}
                           }
                         >
-                          {renderProfileAvatar(comment.author, comment.author_profile_image, 20)}
+                          {renderProfileAvatar(comment.author_id, comment.author_profile_image, 20)}
                         </div>
                         <div className="course-board__comment-content">
                           <div className="course-board__comment-header">
@@ -1326,7 +1359,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                             >
                               답글 달기
                             </button>
-                            {comment.author === user?.name && (
+                            {comment.author_id === user?.id && (
                               <button
                                 className="course-board__comment-delete-button"
                                 onClick={() => handleDeleteComment(comment.id)}
@@ -1344,14 +1377,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           <div 
                             className="course-board__comment-avatar"
                             style={
-                              profileImage && (reply.author === user?.name || reply.author === "나")
+                              profileImage && reply.author_id === user?.id
                                 ? (profileImage.startsWith('color:') 
                                     ? { background: profileImage.replace('color:', '') }
                                     : { background: 'transparent' })
-                                : {}
+                                : reply.author_profile_image && reply.author_profile_image.startsWith('color:')
+                                  ? { background: reply.author_profile_image.replace('color:', '') }
+                                  : reply.author_profile_image
+                                    ? { background: 'transparent' }
+                                    : {}
                             }
                           >
-                            {renderProfileAvatar(reply.author, reply.author_profile_image, 20)}
+                            {renderProfileAvatar(reply.author_id, reply.author_profile_image, 20)}
                           </div>
                           <div className="course-board__comment-content">
                             <div className="course-board__comment-header">
@@ -1375,7 +1412,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                                 <Heart size={14} fill={reply.isLiked ? "currentColor" : "none"} />
                                 <span>{reply.likes || 0}</span>
                               </button>
-                              {reply.author === user?.name && (
+                              {reply.author_id === user?.id && (
                                 <button
                                   className="course-board__comment-delete-button"
                                   onClick={() => handleDeleteComment(reply.id)}
@@ -1417,7 +1454,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         : {}
                     }
                   >
-                    {renderProfileAvatar(user?.name || "나", profileImage, 20)}
+                    {renderProfileAvatar(user?.id, profileImage, 20)}
                   </div>
                   <div className="course-board__comment-input-wrapper">
                     {replyTo && (
@@ -1446,7 +1483,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               </div>
 
               {/* 삭제 버튼 (본인 글인 경우만) */}
-              {selectedPost.author === user?.name && (
+              {selectedPost.author_id === user?.id && (
                 <div className="post-detail-delete-section">
                   <button
                     className="post-detail-delete-button"
@@ -1554,8 +1591,21 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               {/* 모집 헤더 */}
               <div className="course-board__detail-header">
                 <div className="course-board__post-author">
-                  <div className="course-board__post-avatar">
-                    {renderProfileAvatar(selectedRecruitment.author, selectedRecruitment.author_profile_image ?? null, 24)}
+                  <div 
+                    className="course-board__post-avatar"
+                    style={
+                      profileImage && selectedRecruitment.author_id === user?.id
+                        ? (profileImage.startsWith('color:') 
+                            ? { background: profileImage.replace('color:', '') }
+                            : { background: 'transparent' })
+                        : selectedRecruitment.author_profile_image && selectedRecruitment.author_profile_image.startsWith('color:')
+                          ? { background: selectedRecruitment.author_profile_image.replace('color:', '') }
+                          : selectedRecruitment.author_profile_image
+                            ? { background: 'transparent' }
+                            : {}
+                    }
+                  >
+                    {renderProfileAvatar(selectedRecruitment.author_id, selectedRecruitment.author_profile_image ?? null, 24)}
                   </div>
                   <div className="course-board__post-meta">
                     <div className="course-board__post-author-row">
@@ -1585,7 +1635,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   {(selectedRecruitment.members || []).map((member, index) => (
                     <div key={index} className="recruitment-detail-member">
                       <div className="recruitment-detail-member__avatar">
-                        {renderProfileAvatar(member.name, member.profile_image ?? null, 18)}
+                        {renderProfileAvatar(member.user_id ?? undefined, member.profile_image ?? null, 18)}
                       </div>
                       <div className="recruitment-detail-member__info">
                         <span className="recruitment-detail-member__name">{member.name}</span>

@@ -457,12 +457,12 @@
 .course-board__post-avatar {
   width: 40px;
   height: 40px;
-  background: #a855f7;
+  background: #e5e7eb;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #6b7280;
   flex-shrink: 0;
 }
 
@@ -867,12 +867,12 @@
 .course-board__comment-avatar {
   width: 36px;
   height: 36px;
-  background: #a855f7;
+  background: #e5e7eb;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #6b7280;
   flex-shrink: 0;
 }
 
