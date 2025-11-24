@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User
+from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User, Course, Enrollment, Notification
 
 board_bp = Blueprint("board", __name__)
 
@@ -21,6 +21,26 @@ def create_post():
     )
     db.session.add(post)
     db.session.commit()
+
+    # 🔔 공지사항인 경우 수강생 전원에게 알림
+    if data["category"] == "notice":
+        # 해당 강의를 수강하는 모든 학생 찾기
+        course = Course.query.filter_by(code=data["course_id"]).first()
+        if course:
+            enrollments = Enrollment.query.filter_by(course_id=course.id).all()
+            
+            # 각 학생에게 알림 전송
+            for enrollment in enrollments:
+                notification = Notification(
+                    user_id=enrollment.student_id,
+                    type="notice",
+                    content=f"[{course.title}] 새로운 공지사항이 등록되었습니다: {data['title']}",
+                    related_id=post.id,
+                    course_id=data["course_id"]
+                )
+                db.session.add(notification)
+            
+            db.session.commit()
 
     return jsonify({"msg": "글 작성 완료", "post": post.to_dict()}), 201
 
@@ -78,6 +98,10 @@ def create_comment(post_id):
     
     parent_comment_id = data.get("parent_comment_id")
     
+    post = CourseBoardPost.query.get(post_id)
+    if not post:
+        return jsonify({"error": "게시글을 찾을 수 없습니다"}), 404
+    
     comment = CourseBoardComment(
         post_id=post_id,
         author_id=user_id,
@@ -87,6 +111,49 @@ def create_comment(post_id):
     
     db.session.add(comment)
     db.session.commit()
+    
+    # 🔔 알림 생성
+    current_user = User.query.get(user_id)
+    course = Course.query.filter_by(code=post.course_id).first()
+    course_title = course.title if course else post.course_id
+    
+    # 카테고리 한글 변환
+    category_names = {
+        "notice": "공지사항",
+        "question": "질문게시판",
+        "free": "자유게시판",
+        "team": "팀모집"
+    }
+    category_korean = category_names.get(post.category, post.category)
+    
+    # 댓글 내용 미리보기 (30자 제한)
+    comment_preview = data["content"][:30] + "..." if len(data["content"]) > 30 else data["content"]
+    
+    if parent_comment_id:
+        # 답글인 경우 - 원 댓글 작성자에게 알림 (본인 제외)
+        parent_comment = CourseBoardComment.query.get(parent_comment_id)
+        if parent_comment and parent_comment.author_id != int(user_id):
+            notification = Notification(
+                user_id=parent_comment.author_id,
+                type="reply",
+                content=f"[{course_title}] {category_korean} \"{post.title[:20]}{'...' if len(post.title) > 20 else ''}\" 게시글의 댓글에 답글이 달렸어요: {comment_preview}",
+                related_id=post_id,
+                course_id=post.course_id
+            )
+            db.session.add(notification)
+            db.session.commit()
+    else:
+        # 일반 댓글인 경우 - 게시글 작성자에게 알림 (본인 제외)
+        if post.author_id != int(user_id):
+            notification = Notification(
+                user_id=post.author_id,
+                type="comment",
+                content=f"[{course_title}] {category_korean} \"{post.title[:20]}{'...' if len(post.title) > 20 else ''}\" 게시글에 댓글이 달렸어요: {comment_preview}",
+                related_id=post_id,
+                course_id=post.course_id
+            )
+            db.session.add(notification)
+            db.session.commit()
     
     return jsonify({
         "message": "댓글 작성 완료",
@@ -148,6 +215,7 @@ def toggle_like(post_id):
         new_like = CourseBoardLike(post_id=post_id, user_id=user_id)
         db.session.add(new_like)
         db.session.commit()
+        
         likes_count = CourseBoardLike.query.filter_by(post_id=post_id).count()
         return jsonify({
             "message": "좋아요",

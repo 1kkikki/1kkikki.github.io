@@ -9,6 +9,7 @@ from routes.board import board_bp
 from routes.course import course_bp
 from routes.recruit import recruit_bp
 from routes.schedule import schedule_bp
+from routes.notification import notification_bp
 
 def create_app():
     app = Flask(__name__)
@@ -48,6 +49,7 @@ def create_app():
     app.register_blueprint(course_bp, url_prefix="/course")
     app.register_blueprint(recruit_bp, url_prefix="/recruit")
     app.register_blueprint(schedule_bp, url_prefix="/schedule")
+    app.register_blueprint(notification_bp, url_prefix="/notification")
 
 
     with app.app_context():
@@ -61,6 +63,7 @@ def create_app():
             TeamRecruitment,
             TeamRecruitmentMember,
             Schedule,
+            Notification,
         )
 
         db.create_all()

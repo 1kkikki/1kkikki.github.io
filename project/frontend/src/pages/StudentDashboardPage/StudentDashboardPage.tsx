@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageCircle } from "lucide-react";
 import CourseBoardPage from "../StudentCourseBoardPage/StudentCourseBoardPage";
 import "./student-dashboard.css";
 import { addAvailableTime, getMyAvailableTimes, deleteAvailableTime } from "../../api/available";
 import { getEnrolledCourses } from "../../api/course";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
+import { getNotifications, markAsRead } from "../../api/notification";
 import { useAuth } from "../../contexts/AuthContext";
 
 interface MainDashboardPageProps {
@@ -35,6 +36,17 @@ interface Course {
   id: number;
   title: string;
   code: string;
+}
+
+// 알림 타입
+interface Notification {
+  id: number;
+  type: string;
+  content: string;
+  related_id?: number | null;
+  course_id?: string | null;
+  is_read: boolean;
+  created_at: string;
 }
 
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
@@ -69,6 +81,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
   const [newTime, setNewTime] = useState({
     day: "월요일",
     startHour: "09",
@@ -126,7 +140,25 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     fetchAvailableTimes();
     loadEnrolledCourses(); // 강의 목록도 로드
     fetchSchedules(); // 일정도 로드
+    loadNotifications(); // 알림 로드
+    
+    // 10초마다 알림 자동 새로고침
+    const notificationInterval = setInterval(() => {
+      loadNotifications();
+    }, 10000); // 10초
+    
+    return () => clearInterval(notificationInterval);
   }, []);
+
+  // 알림 로드
+  const loadNotifications = async () => {
+    try {
+      const data = await getNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.error("알림 불러오기 실패:", err);
+    }
+  };
 
   // 월이 변경되면 일정 다시 로드
   useEffect(() => {
@@ -159,41 +191,100 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
 
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
 
-  // 게시판 알림 목록
-  const notifications = [
-    {
-      id: 1,
-      content: "[운영체제] 팀 프로젝트 회의 일정 투표가 시작되었습니다",
-      course: "운영체제",
-      time: "10분 전",
-      type: "urgent",
-      icon: AlertCircle
-    },
-    {
-      id: 2,
-      content: "[웹프로그래밍] 김민수님이 팀 과제 파일을 업로드했습니다",
-      course: "웹프로그래밍",
-      time: "1시간 전",
-      type: "success",
-      icon: CheckCircle
-    },
-    {
-      id: 3,
-      content: "[인공지능기초] 새로운 공지사항: 중간고사 범위 안내",
-      course: "인공지능기초",
-      time: "3시간 전",
-      type: "info",
-      icon: Bell
-    },
-    {
-      id: 4,
-      content: "[컴퓨터보안] 팀 활동 게시판에 새 댓글 5개",
-      course: "컴퓨터보안",
-      time: "5시간 전",
-      type: "info",
-      icon: Bell
+  // 알림 아이콘 매핑
+  const getNotificationIcon = (type: string) => {
+    switch(type) {
+      case 'notice': return AlertCircle;
+      case 'comment': return MessageCircle;
+      case 'reply': return MessageCircle;
+      case 'enrollment': return CheckCircle;
+      case 'recruitment_join': return CheckCircle;
+      default: return Bell;
     }
-  ];
+  };
+
+  // 알림 타입에 따른 배경색 (읽지 않은 경우만)
+  const getNotificationIconBg = (type: string) => {
+    switch(type) {
+      case 'notice': return '#ef4444'; // 빨간색
+      case 'comment': return '#3b82f6'; // 파란색
+      case 'reply': return '#3b82f6'; // 파란색
+      case 'enrollment': return '#10b981'; // 초록색
+      case 'recruitment_join': return '#10b981'; // 초록색
+      default: return '#3b82f6'; // 파란색
+    }
+  };
+
+  // 알림 클릭 핸들러
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.is_read) {
+      try {
+        await markAsRead(notification.id);
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
+        );
+      } catch (err) {
+        console.error("알림 읽음 처리 실패:", err);
+      }
+    }
+  };
+
+  // 알림 내용에서 강의명 추출
+  const extractCourseName = (content: string): string => {
+    // [강의명] 형식에서 추출
+    const match = content.match(/\[([^\]]+)\]/);
+    if (match && match[1]) {
+      return match[1];
+    }
+    
+    // '강의명' 형식에서 추출 (공지사항 등)
+    const quoteMatch = content.match(/'([^']+)'\s*강의/);
+    if (quoteMatch && quoteMatch[1]) {
+      return quoteMatch[1];
+    }
+    
+    return '알림';
+  };
+
+
+  // 상대 시간 계산 (몇분 전, 몇시간 전, 날짜)
+  const getRelativeTime = (dateString: string): string => {
+    try {
+      const now = new Date();
+      // "2025-11-24 12:27" 형식을 파싱
+      let notifDate: Date;
+      
+      if (dateString.includes('T')) {
+        notifDate = new Date(dateString);
+      } else {
+        // "2025-11-24 12:27" -> "2025-11-24T12:27:00"
+        notifDate = new Date(dateString.replace(' ', 'T') + ':00');
+      }
+      
+      const diffMs = now.getTime() - notifDate.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 1) {
+        // 하루 이상 지났으면 날짜, 시간만
+        const month = String(notifDate.getMonth() + 1).padStart(2, '0');
+        const day = String(notifDate.getDate()).padStart(2, '0');
+        const hours = String(notifDate.getHours()).padStart(2, '0');
+        const minutes = String(notifDate.getMinutes()).padStart(2, '0');
+        return `${month}/${day} ${hours}:${minutes}`;
+      } else if (diffHours >= 1) {
+        return `${diffHours}시간 전`;
+      } else if (diffMinutes >= 1) {
+        return `${diffMinutes}분 전`;
+      } else {
+        return '방금 전';
+      }
+    } catch (error) {
+      console.error('날짜 파싱 오류:', error, dateString);
+      return dateString;
+    }
+  };
 
   const checkTimeOverlap = (day: string, startTime: string, endTime: string): boolean => {
     const start = new Date(`2000-01-01 ${startTime}`);
@@ -430,29 +521,65 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                     <Bell size={20} className="dashboard__notifications-icon" />
                     <h3 className="dashboard__notifications-title">new!</h3>
                   </div>
-                  <span className="dashboard__notifications-count">{notifications.length}</span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button 
+                      onClick={() => setShowAllNotifications(!showAllNotifications)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#6b7280',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      {showAllNotifications ? '읽지 않은 알림만' : '모두 보기'}
+                    </button>
+                    <span className="dashboard__notifications-count">
+                      {showAllNotifications ? notifications.length : notifications.filter(n => !n.is_read).length}
+                    </span>
+                  </div>
                 </div>
                 <div className="dashboard__notifications-list">
-                  {notifications.map((notification) => {
-                    const Icon = notification.icon;
-                    return (
-                      <div
-                        key={notification.id}
-                        className={`dashboard__notification-card dashboard__notification-card--${notification.type}`}
-                      >
-                        <div className="dashboard__notification-icon-wrapper">
-                          <Icon size={18} />
-                        </div>
-                        <div className="dashboard__notification-content">
-                          <div className="dashboard__notification-header">
-                            <span className="dashboard__notification-course">{notification.course}</span>
-                            <span className="dashboard__notification-time">{notification.time}</span>
+                  {(showAllNotifications ? notifications : notifications.filter(n => !n.is_read)).length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af' }}>
+                      알림이 없습니다
+                    </div>
+                  ) : (
+                    (showAllNotifications ? notifications : notifications.filter(n => !n.is_read)).map((notification) => {
+                      const Icon = getNotificationIcon(notification.type);
+                      const notificationType = notification.is_read ? 'info' : 'urgent';
+                      
+                      return (
+                        <div
+                          key={notification.id}
+                          className={`dashboard__notification-card dashboard__notification-card--${notificationType}`}
+                          onClick={() => handleNotificationClick(notification)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="dashboard__notification-icon-wrapper">
+                            <Icon 
+                              size={18} 
+                              style={{
+                                color: notification.is_read ? '#9ca3af' : getNotificationIconBg(notification.type)
+                              }}
+                            />
                           </div>
-                          <p className="dashboard__notification-text">{notification.content}</p>
+                          <div className="dashboard__notification-content">
+                            <div className="dashboard__notification-header">
+                              <span className="dashboard__notification-course">{extractCourseName(notification.content)}</span>
+                              <span className="dashboard__notification-time">{getRelativeTime(notification.created_at)}</span>
+                            </div>
+                            <p className="dashboard__notification-text">{notification.content}</p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </section>
             </aside>
