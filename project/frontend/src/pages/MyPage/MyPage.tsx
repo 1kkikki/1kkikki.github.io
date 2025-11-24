@@ -2,6 +2,12 @@ import React, { useState, useEffect } from "react";
 import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Settings, Lock, Palette, Shield, FileText, Eye, EyeOff, UserX, X } from "lucide-react";
 import "./my-page.css";
 import { getProfile, updateProfile, changePassword, deleteAccount } from "../../api/profile";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  writeProfileImageToStorage,
+  readProfileImageFromStorage,
+  notifyProfileImageUpdated,
+} from "../../utils/profileImage";
 
 interface MyPageProps {
   onNavigate: (page: string, type?: 'student' | 'professor') => void;
@@ -10,8 +16,11 @@ interface MyPageProps {
 type MenuSection = 'profile' | 'security' | 'notifications' | 'appearance' | 'legal';
 
 export default function MyPage({ onNavigate }: MyPageProps) {
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<MenuSection>('profile');
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(() =>
+    readProfileImageFromStorage(user?.id)
+  );
   const [profileColor, setProfileColor] = useState("#a855f7");
   const [customColor, setCustomColor] = useState("#a855f7");
   const [name, setName] = useState("홍길동");
@@ -39,6 +48,10 @@ export default function MyPage({ onNavigate }: MyPageProps) {
   const [showDeletePassword, setShowDeletePassword] = useState(false);
 
   useEffect(() => {
+    setProfileImage(readProfileImageFromStorage(user?.id) || null);
+  }, [user?.id]);
+
+  useEffect(() => {
   async function fetchProfile() {
     const token = localStorage.getItem("token");
     
@@ -57,10 +70,14 @@ export default function MyPage({ onNavigate }: MyPageProps) {
       
       if (data.profile.profile_image) {
         setProfileImage(data.profile.profile_image);
-        // localStorage에도 저장
-        localStorage.setItem('userProfileImage', data.profile.profile_image);
+        writeProfileImageToStorage(user?.id, data.profile.profile_image);
+        notifyProfileImageUpdated({
+          userId: user?.id,
+          profileImage: data.profile.profile_image,
+        });
       } else {
-        localStorage.removeItem('userProfileImage');
+        writeProfileImageToStorage(user?.id, null);
+        notifyProfileImageUpdated({ userId: user?.id, profileImage: null });
       }
     } else if (data.error === "UNAUTHORIZED" || data.status === 401) {
       // 인증 실패(401)일 때만 로그인 페이지로 이동
@@ -86,7 +103,7 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     }
   }
   fetchProfile();
-}, []);
+}, [onNavigate, user?.id]);
 
 
   const presetAvatars = [
@@ -176,11 +193,8 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     const res = await updateProfile(updateData);
     if (res.message) {
       // 프로필 저장 후 localStorage에 저장하여 다른 페이지에서 즉시 사용할 수 있도록 함
-      if (profileImage) {
-        localStorage.setItem('userProfileImage', profileImage);
-      } else {
-        localStorage.removeItem('userProfileImage');
-      }
+      writeProfileImageToStorage(user?.id, profileImage);
+      notifyProfileImageUpdated({ userId: user?.id, profileImage });
       alert(res.message);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2000);
@@ -215,7 +229,8 @@ export default function MyPage({ onNavigate }: MyPageProps) {
         // 로그아웃 처리
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        localStorage.removeItem("userProfileImage");
+        writeProfileImageToStorage(user?.id, null);
+        notifyProfileImageUpdated({ userId: user?.id, profileImage: null });
         // 홈페이지로 이동
         onNavigate("home");
       } else {

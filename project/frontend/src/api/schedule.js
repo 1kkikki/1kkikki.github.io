@@ -9,6 +9,10 @@ const getAuthHeader = () => {
 };
 
 // 모든 일정 조회 (년/월 필터링 가능)
+/**
+ * @param {number | null} year
+ * @param {number | null} month
+ */
 export const getSchedules = async (year = null, month = null) => {
   try {
     let url = `${API_BASE_URL}/schedule/`;

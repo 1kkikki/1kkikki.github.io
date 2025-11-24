@@ -32,7 +32,13 @@ def create_app():
     jwt.init_app(app)
 
     # CORS 설정 (React dev 서버 허용)
-    CORS(app, resources={r"/*": {"origins": ["http://127.0.0.1:5173", "http://localhost:5173"]}}, supports_credentials=True)
+    allowed_origins = {
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5175",
+        "http://localhost:5175",
+    }
+    CORS(app, resources={r"/*": {"origins": list(allowed_origins)}}, supports_credentials=True)
 
     # 블루프린트 등록
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -71,7 +77,9 @@ def create_app():
         
     @app.after_request
     def add_cors_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        origin = request.headers.get("Origin")
+        if origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
         response.headers["Access-Control-Allow-Credentials"] = "true"

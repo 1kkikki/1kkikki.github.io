@@ -44,15 +44,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
             <p className="home-page__logo">All Meet</p>
           </div>
           
-          {/* Navigation */}
-          <nav className="home-page__nav">
-            <button onClick={() => onNavigate("login")} className="home-page__nav-link">
-              로그인
-            </button>
-            <button onClick={() => onNavigate("signup")} className="home-page__nav-cta">
-              회원가입
-            </button>
-          </nav>
         </div>
       </header>
       
@@ -74,7 +65,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
             </p>
             <div className="home-page__hero-buttons">
               <button className="home-page__hero-cta" onClick={() => onNavigate("signup")}>
-                시작하기
+                회원가입
                 <ArrowRight size={20} />
               </button>
               <button className="home-page__hero-cta-secondary" onClick={() => onNavigate("login")}>

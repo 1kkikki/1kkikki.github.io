@@ -82,6 +82,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     title: "", 
     month: today.getMonth() + 1, 
     date: today.getDate(), 
+    year: today.getFullYear(),
     color: "#a8d5e2", 
     category: "" 
   });
@@ -101,7 +102,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   // 일정 불러오기
   const fetchSchedules = async () => {
     try {
-      const data = await getSchedules(currentYear, currentMonth + 1);
+      const data = await getSchedules(currentYear as any, (currentMonth + 1) as any);
       setEvents(data);
     } catch (error) {
       console.error("일정 불러오기 실패:", error);
@@ -276,6 +277,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         title: "", 
         month: now.getMonth() + 1, 
         date: now.getDate(), 
+        year: now.getFullYear(),
         color: "#a8d5e2", 
         category: "" 
       });
@@ -285,7 +287,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
-  const handleRemoveEvent = (id: string) => {
+  const handleRemoveEvent = (id: number) => {
     setEvents(events.filter(e => e.id !== id));
   };
 
@@ -307,7 +309,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       title: "",
       date: now.getDate(),
       month: now.getMonth() + 1,
-      year: now.getFullYear(),
+      year: currentYear,
       color: "#a8d5e2",
       category: ""
     });

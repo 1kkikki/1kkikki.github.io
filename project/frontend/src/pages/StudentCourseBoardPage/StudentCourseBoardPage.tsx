@@ -25,6 +25,12 @@ import {
   Trash2
 } from "lucide-react";
 import "./student-courseboard.css";
+import {
+  readProfileImageFromStorage,
+  writeProfileImageToStorage,
+  PROFILE_IMAGE_UPDATED_EVENT,
+  ProfileImageEventDetail,
+} from "../../utils/profileImage";
 
 interface CourseBoardPageProps {
   course: {
@@ -109,11 +115,9 @@ interface Notification {
 
 export default function CourseBoardPage({ course, onBack, onNavigate, availableTimes = [] }: CourseBoardPageProps) {
   const { user } = useAuth();
-  // localStorage에서 프로필을 먼저 확인하여 초기값 설정
-  const [profileImage, setProfileImage] = useState<string | null>(() => {
-    const cached = localStorage.getItem('userProfileImage');
-    return cached || null;
-  });
+  const [profileImage, setProfileImage] = useState<string | null>(() =>
+    readProfileImageFromStorage(user?.id)
+  );
 
   const [activeTab, setActiveTab] = useState("공지");
   const [searchQuery, setSearchQuery] = useState("");
@@ -259,25 +263,39 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 프로필 이미지 가져오기
   useEffect(() => {
-    // 먼저 localStorage에서 프로필 확인 (즉시 표시)
-    const cachedProfile = localStorage.getItem('userProfileImage');
-    if (cachedProfile) {
-      setProfileImage(cachedProfile);
-    }
+    setProfileImage(readProfileImageFromStorage(user?.id) || null);
+  }, [user?.id]);
 
-    // 그 다음 서버에서 최신 프로필 가져오기
+  useEffect(() => {
     async function fetchProfile() {
       const data = await getProfile();
       if (data.profile && data.profile.profile_image) {
         setProfileImage(data.profile.profile_image);
-        localStorage.setItem('userProfileImage', data.profile.profile_image);
+        writeProfileImageToStorage(user?.id, data.profile.profile_image);
       } else if (data.profile && !data.profile.profile_image) {
         setProfileImage(null);
-        localStorage.removeItem('userProfileImage');
+        writeProfileImageToStorage(user?.id, null);
       }
     }
+
     fetchProfile();
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleProfileChange = (event: Event) => {
+      const { detail } = event as CustomEvent<ProfileImageEventDetail>;
+      if (!detail) return;
+
+      if (!user?.id || detail.userId === user.id) {
+        setProfileImage(detail.profileImage ?? null);
+      }
+    };
+
+    window.addEventListener(PROFILE_IMAGE_UPDATED_EVENT, handleProfileChange);
+    return () => {
+      window.removeEventListener(PROFILE_IMAGE_UPDATED_EVENT, handleProfileChange);
+    };
+  }, [user?.id]);
 
   // 프로필 아바타 렌더링 함수
   const renderProfileAvatar = (authorId: number | undefined, authorProfileImage: string | null | undefined, size: number = 20, containerClassName?: string) => {
