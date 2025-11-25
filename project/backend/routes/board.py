@@ -1,9 +1,101 @@
-from flask import Blueprint, request, jsonify
+import os
+import json
+from werkzeug.utils import secure_filename
+from flask import Blueprint, request, jsonify, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User
 
 board_bp = Blueprint("board", __name__)
+
+# 파일 업로드 설정
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+ALLOWED_EXTENSIONS = {
+    'image': {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'},
+    'video': {'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'},
+    'file': {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', 'hwp'}
+}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# 업로드 폴더 생성
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename, file_type='file'):
+    """파일 확장자 확인"""
+    if '.' not in filename:
+        return False
+    ext = filename.rsplit('.', 1)[1].lower()
+    # 모든 허용된 확장자 확인
+    all_allowed = set()
+    for extensions in ALLOWED_EXTENSIONS.values():
+        all_allowed.update(extensions)
+    return ext in all_allowed
+
+def get_file_type(filename):
+    """파일 타입 확인 (image, video, file)"""
+    if '.' not in filename:
+        return 'file'
+    ext = filename.rsplit('.', 1)[1].lower()
+    if ext in ALLOWED_EXTENSIONS['image']:
+        return 'image'
+    elif ext in ALLOWED_EXTENSIONS['video']:
+        return 'video'
+    else:
+        return 'file'
+
+# 파일 업로드
+@board_bp.route("/upload", methods=["POST"])
+@jwt_required()
+def upload_file():
+    """파일 업로드 엔드포인트"""
+    if 'file' not in request.files:
+        return jsonify({"message": "파일이 없습니다."}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"message": "파일이 선택되지 않았습니다."}), 400
+    
+    # 파일 크기 확인
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({"message": "파일 크기는 50MB를 초과할 수 없습니다."}), 400
+    
+    # 파일 타입 확인
+    file_type = get_file_type(file.filename)
+    if not allowed_file(file.filename):
+        return jsonify({"message": "허용되지 않는 파일 형식입니다."}), 400
+    
+    # 안전한 파일명 생성
+    filename = secure_filename(file.filename)
+    # 중복 방지를 위해 타임스탬프 추가
+    import time
+    timestamp = int(time.time() * 1000)
+    name, ext = os.path.splitext(filename)
+    filename = f"{name}_{timestamp}{ext}"
+    
+    # 파일 저장
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(file_path)
+    
+    return jsonify({
+        "message": "파일 업로드 완료",
+        "file": {
+            "filename": filename,
+            "original_name": file.filename,
+            "type": file_type,
+            "size": file_size,
+            "url": f"/board/files/{filename}"
+        }
+    }), 201
+
+# 파일 다운로드
+@board_bp.route("/files/<filename>", methods=["GET"])
+def download_file(filename):
+    """파일 다운로드 엔드포인트"""
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 # 글 작성
 @board_bp.route("/", methods=["POST"])
@@ -12,12 +104,17 @@ def create_post():
     user_id = get_jwt_identity()
     data = request.get_json()
 
+    # 파일 정보 처리
+    files_data = data.get("files", [])
+    files_json = json.dumps(files_data) if files_data else None
+
     post = CourseBoardPost(
         course_id=data["course_id"],
         author_id=user_id,
         title=data["title"],
         content=data["content"],
-        category=data["category"]
+        category=data["category"],
+        files=files_json
     )
     db.session.add(post)
     db.session.commit()

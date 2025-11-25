@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike } from "../../api/board";
+import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment } from "../../api/recruit";
 import { getProfile } from "../../api/profile";
 import {
@@ -22,7 +22,11 @@ import {
   X,
   Plus,
   Clock,
-  Trash2
+  Trash2,
+  Image,
+  Video,
+  File,
+  Upload
 } from "lucide-react";
 import "./student-courseboard.css";
 import {
@@ -66,6 +70,13 @@ interface Post {
   comments_count?: number;
   isPinned?: boolean;
   isLiked?: boolean;
+  files?: Array<{
+    filename: string;
+    original_name: string;
+    type: 'image' | 'video' | 'file';
+    size: number;
+    url: string;
+  }>;
 }
 
 interface Comment {
@@ -127,6 +138,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostContent, setNewPostContent] = useState("");
   const [newComment, setNewComment] = useState("");
+  const [postFiles, setPostFiles] = useState<Array<{
+    filename: string;
+    original_name: string;
+    type: 'image' | 'video' | 'file';
+    size: number;
+    url: string;
+    preview?: string;
+  }>>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
   const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
@@ -155,8 +175,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 상단 탭 메뉴
   const tabs = [
     { id: "notice", name: "공지", icon: Bell },
-    { id: "recruit", name: "모집", icon: Users },
     { id: "community", name: "커뮤니티", icon: MessageCircle },
+    { id: "recruit", name: "모집", icon: Users },
     { id: "team", name: "팀 게시판", icon: Hash },
   ];
 
@@ -216,6 +236,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         comments_count: p.comments_count || 0,
         isPinned: false,
         isLiked: p.is_liked || false,
+        files: p.files || [],
       }));
 
       setPosts(mapped);
@@ -394,6 +415,94 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
   };
 
+  // 파일 타입 확인
+  const getFileType = (filename: string): 'image' | 'video' | 'file' => {
+    const ext = filename.split('.').pop()?.toLowerCase() || '';
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return 'image';
+    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(ext)) return 'video';
+    return 'file';
+  };
+
+  // 파일 업로드 핸들러
+  const handleFileUpload = async (file: File, fileType: 'image' | 'video' | 'file') => {
+    try {
+      const res = await uploadFile(file);
+      if (res.file) {
+        const fileData = {
+          ...res.file,
+          preview: fileType === 'image' ? URL.createObjectURL(file) : undefined
+        };
+        setPostFiles(prev => [...prev, fileData]);
+      } else {
+        alert(res.message || "파일 업로드에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error("파일 업로드 실패:", err);
+      alert("파일 업로드 중 오류가 발생했습니다.");
+    }
+  };
+
+  // 파일 선택 핸들러
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, fileType: 'image' | 'video' | 'file') => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      // 파일 크기 확인 (50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        alert(`${file.name} 파일 크기는 50MB를 초과할 수 없습니다.`);
+        return;
+      }
+      handleFileUpload(file, fileType);
+    });
+
+    // 같은 파일을 다시 선택할 수 있도록 input 초기화
+    e.target.value = '';
+  };
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (!files.length) return;
+
+    Array.from(files).forEach(file => {
+      if (file.size > 50 * 1024 * 1024) {
+        alert(`${file.name} 파일 크기는 50MB를 초과할 수 없습니다.`);
+        return;
+      }
+      const fileType = getFileType(file.name);
+      handleFileUpload(file, fileType);
+    });
+  };
+
+  // 파일 삭제 핸들러
+  const handleRemoveFile = (index: number) => {
+    setPostFiles(prev => {
+      const newFiles = [...prev];
+      if (newFiles[index].preview) {
+        URL.revokeObjectURL(newFiles[index].preview!);
+      }
+      newFiles.splice(index, 1);
+      return newFiles;
+    });
+  };
+
   const handleCreatePost = async () => {
     if (!newPostTitle.trim() || !newPostContent.trim()) {
       alert("제목과 내용을 입력해주세요.");
@@ -404,12 +513,22 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       // 탭(공지/모집/커뮤니티/팀 게시판)을 백엔드 category 값으로 변환
       const categoryForApi = tabNameToCategory(activeTab);
 
+      // 파일 정보 준비
+      const filesData = postFiles.map(f => ({
+        filename: f.filename,
+        original_name: f.original_name,
+        type: f.type,
+        size: f.size,
+        url: f.url
+      }));
+
       // 서버에 글 생성 요청 보내기
       const res = await createBoardPost(
         course.code,
         newPostTitle,    
         newPostContent,  
-        categoryForApi
+        categoryForApi,
+        filesData
       );
 
       const p = res.post;
@@ -437,6 +556,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       // 폼 초기화 & 모달 닫기
       setNewPostTitle("");
       setNewPostContent("");
+      setPostFiles([]);
       setIsCreatePostOpen(false);
     } catch (err) {
       console.error("게시글 작성 실패:", err);
@@ -1212,21 +1332,29 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       </div>
 
       {/* 플로팅 게시글 작성 버튼 */}
-      <button
-        className="course-board__floating-add-button"
-        onClick={() => activeTab === "모집" ? setIsCreateRecruitmentOpen(true) : setIsCreatePostOpen(true)}
-        aria-label={activeTab === "모집" ? "모집 작성" : "게시글 작성"}
-      >
-        <Plus size={24} />
-      </button>
+      {!(activeTab === "공지" && user?.user_type === "student") && (
+        <button
+          className="course-board__floating-add-button"
+          onClick={() => activeTab === "모집" ? setIsCreateRecruitmentOpen(true) : setIsCreatePostOpen(true)}
+          aria-label={activeTab === "모집" ? "모집 작성" : "게시글 작성"}
+        >
+          <Plus size={24} />
+        </button>
+      )}
 
       {/* 게시글 작성 모달 */}
       {isCreatePostOpen && (
-        <div className="course-board__modal-overlay" onClick={() => setIsCreatePostOpen(false)}>
+        <div className="course-board__modal-overlay" onClick={() => {
+          setPostFiles([]);
+          setIsCreatePostOpen(false);
+        }}>
           <div className="course-board__modal" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>게시글 작성</h2>
-              <button onClick={() => setIsCreatePostOpen(false)}>
+              <button onClick={() => {
+                setPostFiles([]);
+                setIsCreatePostOpen(false);
+              }}>
                 <X size={20} />
               </button>
             </div>
@@ -1245,11 +1373,120 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 onChange={(e) => setNewPostContent(e.target.value)}
                 rows={10}
               />
+              
+              {/* 파일 업로드 영역 */}
+              <div 
+                className={`course-board__file-upload-area ${isDragging ? 'course-board__file-upload-area--dragging' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="course-board__file-upload-buttons">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e, 'image')}
+                    multiple
+                  />
+                  <input
+                    type="file"
+                    id="video-upload"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e, 'video')}
+                    multiple
+                  />
+                  <input
+                    type="file"
+                    id="file-upload"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e, 'file')}
+                    multiple
+                  />
+                  
+                  <button
+                    type="button"
+                    className="course-board__file-upload-button"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    title="사진 추가"
+                  >
+                    <Image size={20} />
+                    <span>사진</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="course-board__file-upload-button"
+                    onClick={() => document.getElementById('video-upload')?.click()}
+                    title="동영상 추가"
+                  >
+                    <Video size={20} />
+                    <span>동영상</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="course-board__file-upload-button"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    title="파일 추가"
+                  >
+                    <File size={20} />
+                    <span>파일</span>
+                  </button>
+                </div>
+                <p className="course-board__file-upload-hint">
+                  또는 파일을 여기에 드래그하세요
+                </p>
+              </div>
+
+              {/* 업로드된 파일 미리보기 */}
+              {postFiles.length > 0 && (
+                <div className="course-board__file-preview-list">
+                  {postFiles.map((file, index) => (
+                    <div key={index} className="course-board__file-preview-item">
+                      {file.type === 'image' && file.preview && (
+                        <img 
+                          src={file.preview} 
+                          alt={file.original_name}
+                          className="course-board__file-preview-image"
+                        />
+                      )}
+                      {file.type === 'video' && (
+                        <div className="course-board__file-preview-video">
+                          <Video size={24} />
+                        </div>
+                      )}
+                      {file.type === 'file' && (
+                        <div className="course-board__file-preview-file">
+                          <File size={24} />
+                        </div>
+                      )}
+                      <div className="course-board__file-preview-info">
+                        <span className="course-board__file-preview-name">{file.original_name}</span>
+                        <span className="course-board__file-preview-size">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="course-board__file-preview-remove"
+                        onClick={() => handleRemoveFile(index)}
+                        title="삭제"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="course-board__modal-footer">
               <button
                 className="course-board__modal-button course-board__modal-button--cancel"
-                onClick={() => setIsCreatePostOpen(false)}
+                onClick={() => {
+                  setPostFiles([]);
+                  setIsCreatePostOpen(false);
+                }}
               >
                 취소
               </button>
@@ -1310,6 +1547,58 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               <div className="course-board__detail-content">
                 <h2>{selectedPost.title}</h2>
                 <p>{selectedPost.content}</p>
+                
+                {/* 첨부 파일 표시 */}
+                {selectedPost.files && selectedPost.files.length > 0 && (
+                  <div className="course-board__post-files">
+                    <h4 className="course-board__post-files-title">첨부 파일</h4>
+                    <div className="course-board__post-files-list">
+                      {selectedPost.files.map((file, index) => (
+                        <div key={index} className="course-board__post-file-item">
+                          {file.type === 'image' && (
+                            <a 
+                              href={`http://127.0.0.1:5000${file.url}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="course-board__post-file-link"
+                            >
+                              <img 
+                                src={`http://127.0.0.1:5000${file.url}`} 
+                                alt={file.original_name}
+                                className="course-board__post-file-image"
+                              />
+                            </a>
+                          )}
+                          {file.type === 'video' && (
+                            <div className="course-board__post-file-video-wrapper">
+                              <video 
+                                src={`http://127.0.0.1:5000${file.url}`}
+                                controls
+                                className="course-board__post-file-video"
+                              />
+                            </div>
+                          )}
+                          {file.type === 'file' && (
+                            <a 
+                              href={`http://127.0.0.1:5000${file.url}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="course-board__post-file-link"
+                            >
+                              <div className="course-board__post-file-download">
+                                <File size={24} />
+                                <span>{file.original_name}</span>
+                                <span className="course-board__post-file-size">
+                                  ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                                </span>
+                              </div>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 좋아요 버튼 */}

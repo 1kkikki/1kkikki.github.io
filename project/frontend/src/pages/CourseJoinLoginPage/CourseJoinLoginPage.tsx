@@ -4,6 +4,7 @@ import { login } from "../../api/auth";
 import { enrollCourse } from "../../api/course";
 import { useAuth } from "../../contexts/AuthContext";
 import "./course-join-login-page.css";
+import AlertDialog from "../Alert/AlertDialog";
 
 interface CourseJoinLoginPageProps {
   onNavigate: (page: string, type?: 'student' | 'professor') => void;
@@ -22,6 +23,8 @@ export default function CourseJoinLoginPage({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,14 +45,20 @@ export default function CourseJoinLoginPage({
           // 강의 참여 시도
           try {
             await enrollCourse(parseInt(courseId));
-            alert(`${courseName} 강의에 참여했습니다!`);
-            onNavigate('student-dashboard', 'student');
+            setAlertMessage(`${courseName} 강의에 참여했습니다!`);
+            setShowAlert(true);
+            setTimeout(() => {
+              onNavigate('student-dashboard', 'student');
+            }, 1500);
           } catch (err: any) {
             if (err.response?.data?.message) {
               // 이미 수강 중인 경우
               if (err.response.data.message.includes("이미 수강")) {
-                alert(`이미 수강 중인 강의입니다.`);
-                onNavigate('student-dashboard', 'student');
+                setAlertMessage(`이미 수강 중인 강의입니다.`);
+                setShowAlert(true);
+                setTimeout(() => {
+                  onNavigate('student-dashboard', 'student');
+                }, 1500);
               } else {
                 setError(err.response.data.message);
               }
@@ -138,6 +147,13 @@ export default function CourseJoinLoginPage({
           </div>
         </form>
       </div>
+
+      {/* 안내창 */}
+      <AlertDialog
+        message={alertMessage}
+        show={showAlert}
+        onClose={() => setShowAlert(false)}
+      />
     </div>
   );
 }

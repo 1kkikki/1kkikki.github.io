@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import "./signup-page.css";
 import { register } from "../../api/auth";
+import AlertDialog from "../Alert/AlertDialog";
 
 interface SignUpPageProps {
   onNavigate: (page: string) => void;
@@ -18,6 +19,8 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
     password: "",
     confirmPassword: ""
   });
+  const [alertMessage, setAlertMessage] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -30,7 +33,8 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      alert("비밀번호가 일치하지 않습니다.");
+      setAlertMessage("비밀번호가 일치하지 않습니다.");
+      setShowAlert(true);
       return;
     }
     try {
@@ -44,19 +48,24 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
     });
 
     if (response.status === 201) {
-      alert("회원가입이 완료되었습니다!");
+      setAlertMessage("회원가입이 완료되었습니다!");
+      setShowAlert(true);
       // 강의 참여 중이었다면 강의 참여 로그인 페이지로, 아니면 일반 로그인으로
-      if (returnToCourseJoin) {
-        onNavigate("course-join-login");
-      } else {
-        onNavigate("login");
-      }
+      setTimeout(() => {
+        if (returnToCourseJoin) {
+          onNavigate("course-join-login");
+        } else {
+          onNavigate("login");
+        }
+      }, 1500);
     } else {
-      alert(`회원가입 실패: ${response.message || "다시 시도해주세요."}`);
+      setAlertMessage(`회원가입 실패: ${response.message || "다시 시도해주세요."}`);
+      setShowAlert(true);
     }
   } catch (error) {
     console.error("회원가입 중 오류:", error);
-    alert("서버 오류가 발생했습니다.");
+    setAlertMessage("서버 오류가 발생했습니다.");
+    setShowAlert(true);
   }
   };
 
@@ -186,6 +195,13 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
           </div>
         </form>
       </div>
+
+      {/* 안내창 */}
+      <AlertDialog
+        message={alertMessage}
+        show={showAlert}
+        onClose={() => setShowAlert(false)}
+      />
     </div>
   );
 }

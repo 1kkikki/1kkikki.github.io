@@ -2223,3 +2223,228 @@
   min-width: 40px;
   text-align: center;
 }
+
+/* ===================================
+   FILE UPLOAD STYLES
+   =================================== */
+
+.course-board__file-upload-area {
+  margin-top: 16px;
+  padding: 20px;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  background: #f9fafb;
+  transition: all 0.3s ease;
+}
+
+.course-board__file-upload-area--dragging {
+  border-color: #8b5cf6;
+  background: #f3f4f6;
+  border-style: solid;
+}
+
+.course-board__file-upload-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.course-board__file-upload-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.course-board__file-upload-button:hover {
+  background: #f3f4f6;
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+  transform: translateY(-1px);
+}
+
+.course-board__file-upload-button svg {
+  flex-shrink: 0;
+}
+
+.course-board__file-upload-hint {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.course-board__file-preview-list {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.course-board__file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.course-board__file-preview-item:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.course-board__file-preview-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.course-board__file-preview-video,
+.course-board__file-preview-file {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 6px;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.course-board__file-preview-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.course-board__file-preview-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-board__file-preview-size {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.course-board__file-preview-remove {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.course-board__file-preview-remove:hover {
+  background: #fecaca;
+  transform: scale(1.1);
+}
+
+/* 게시글 상세보기 파일 표시 */
+.course-board__post-files {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.course-board__post-files-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 16px 0;
+}
+
+.course-board__post-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.course-board__post-file-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.course-board__post-file-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.course-board__post-file-image {
+  max-width: 100%;
+  max-height: 500px;
+  border-radius: 8px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+}
+
+.course-board__post-file-video-wrapper {
+  width: 100%;
+  max-width: 800px;
+}
+
+.course-board__post-file-video {
+  width: 100%;
+  max-height: 500px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.course-board__post-file-download {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s;
+  color: #374151;
+}
+
+.course-board__post-file-download:hover {
+  background: #f3f4f6;
+  border-color: #8b5cf6;
+}
+
+.course-board__post-file-download svg {
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+.course-board__post-file-size {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-left: auto;
+}

@@ -3,6 +3,8 @@ import { User, Lock, ArrowLeft, X, Mail, Search } from "lucide-react";
 import { login } from "../../api/auth";   // 로그인 API 불러오기
 import "./login-page.css";
 import { useAuth } from "../../contexts/AuthContext";
+import SuccessAlert from "../Alert/SuccessAlert";
+import AlertDialog from "../Alert/AlertDialog";
 
 interface LoginPageProps {
   onNavigate: (page: string, type?: 'student' | 'professor') => void;
@@ -27,6 +29,13 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
   const [findPasswordEmail, setFindPasswordEmail] = useState("");
   const [findPasswordError, setFindPasswordError] = useState("");
   const [findPasswordSuccess, setFindPasswordSuccess] = useState(false);
+  
+  // 환영 메시지 안내창 상태
+  const [showWelcomeAlert, setShowWelcomeAlert] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+  const [pendingUserType, setPendingUserType] = useState<'student' | 'professor' | null>(null);
 
   const { login: saveLogin } = useAuth();
 
@@ -61,17 +70,12 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
         localStorage.removeItem("rememberMe");
       }
       
-      alert(`환영합니다, ${data.user.name}님!`);
-      
-      // 사용자 타입에 따라 적절한 대시보드로 이동
+      // 환영 메시지 표시
       const userType = data.user.user_type;
-      if (userType === 'student') {
-        onNavigate('student-dashboard', 'student');
-      } else if (userType === 'professor') {
-        onNavigate('professor-dashboard', 'professor');
-      } else {
-        setError("알 수 없는 사용자 유형입니다.");
-      }
+      const title = userType === 'professor' ? '교수님' : '님';
+      setWelcomeMessage(`환영합니다, ${data.user.name}${title}!`);
+      setPendingUserType(userType === 'student' ? 'student' : userType === 'professor' ? 'professor' : null);
+      setShowWelcomeAlert(true);
     } else {
       console.error("❌ 로그인 실패:", data.message);
       setError(data.message || "로그인 실패. 다시 시도해주세요.");
@@ -90,7 +94,8 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
     
     // TODO: 백엔드 API 연결
     // 현재는 UI만 구현
-    alert("아이디 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n이름: " + findIdName + "\n이메일: " + findIdEmail);
+    setAlertMessage("아이디 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n이름: " + findIdName + "\n이메일: " + findIdEmail);
+    setShowAlert(true);
     
     // 예시: 찾은 아이디 표시 (실제로는 API 응답에서 받아옴)
     // setFoundId("example_user");
@@ -108,7 +113,8 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
     
     // TODO: 백엔드 API 연결
     // 현재는 UI만 구현
-    alert("비밀번호 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n아이디: " + findPasswordId + "\n이메일: " + findPasswordEmail);
+    setAlertMessage("비밀번호 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n아이디: " + findPasswordId + "\n이메일: " + findPasswordEmail);
+    setShowAlert(true);
     
     // 예시: 성공 메시지 표시 (실제로는 API 응답에서 받아옴)
     // setFindPasswordSuccess(true);
@@ -347,6 +353,32 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
           </div>
         </div>
       )}
+
+      {/* 환영 안내창 */}
+      <SuccessAlert
+        message={welcomeMessage}
+        show={showWelcomeAlert}
+        onClose={() => {
+          setShowWelcomeAlert(false);
+          if (pendingUserType === 'student') {
+            onNavigate('student-dashboard', 'student');
+          } else if (pendingUserType === 'professor') {
+            onNavigate('professor-dashboard', 'professor');
+          } else {
+            setError("알 수 없는 사용자 유형입니다.");
+          }
+        }}
+        autoCloseDelay={1500}
+      />
+
+      {/* 일반 안내창 */}
+      <AlertDialog
+        message={alertMessage}
+        show={showAlert}
+        onClose={() => setShowAlert(false)}
+      />
     </div>
   );
 }
+
+

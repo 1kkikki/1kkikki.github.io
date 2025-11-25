@@ -98,6 +98,7 @@ class CourseBoardPost(db.Model):
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(50), nullable=False)
+    files = db.Column(db.Text, nullable=True)  # JSON 문자열로 파일 정보 저장
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     author = db.relationship("User")
@@ -118,6 +119,14 @@ class CourseBoardPost(db.Model):
         if self.author and getattr(self.author, "user_type", None) == "student":
             author_student_id = self.author.student_id
 
+        import json
+        files_data = []
+        if self.files:
+            try:
+                files_data = json.loads(self.files)
+            except:
+                files_data = []
+        
         return {
             "id": self.id,
             "course_id": self.course_id,
@@ -128,6 +137,7 @@ class CourseBoardPost(db.Model):
             "title": self.title,
             "content": self.content,
             "category": self.category,
+            "files": files_data,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
             "likes": likes_count,
             "is_liked": is_liked,

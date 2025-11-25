@@ -3,6 +3,7 @@ import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Settings, Lock, Palet
 import "./my-page.css";
 import { getProfile, updateProfile, changePassword, deleteAccount } from "../../api/profile";
 import { useAuth } from "../../contexts/AuthContext";
+import AlertDialog from "../Alert/AlertDialog";
 import {
   writeProfileImageToStorage,
   readProfileImageFromStorage,
@@ -57,8 +58,9 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     
     // 토큰이 없으면 로그인 페이지로 이동
     if (!token) {
-      alert("로그인이 필요합니다.");
-      onNavigate("login");
+      setAlertMessage("로그인이 필요합니다.");
+      setShowAlert(true);
+      setTimeout(() => onNavigate("login"), 1500);
       return;
     }
 
@@ -83,8 +85,9 @@ export default function MyPage({ onNavigate }: MyPageProps) {
       // 인증 실패(401)일 때만 로그인 페이지로 이동
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      alert("로그인이 필요합니다.");
-      onNavigate("login");
+      setAlertMessage("로그인이 필요합니다.");
+      setShowAlert(true);
+      setTimeout(() => onNavigate("login"), 1500);
     } else if (data.error) {
       // 기타 에러(네트워크 에러 등)는 콘솔에만 출력하고 페이지는 유지
       console.error("프로필을 불러오는 중 오류가 발생했습니다:", data.error);
@@ -154,25 +157,30 @@ export default function MyPage({ onNavigate }: MyPageProps) {
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
-      alert("새 비밀번호가 일치하지 않습니다.");
+      setAlertMessage("새 비밀번호가 일치하지 않습니다.");
+      setShowAlert(true);
       return;
     }
     if (newPassword.length < 8) {
-      alert("비밀번호는 8자 이상이어야 합니다.");
+      setAlertMessage("비밀번호는 8자 이상이어야 합니다.");
+      setShowAlert(true);
       return;
     }
     try {
     const res = await changePassword(currentPassword, newPassword);
     if (res.message) {
-      alert(res.message);
+      setAlertMessage(res.message);
+      setShowAlert(true);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } else {
-      alert(res.error || "비밀번호 변경 실패");
+      setAlertMessage(res.error || "비밀번호 변경 실패");
+      setShowAlert(true);
     }
   } catch (error) {
-    alert("서버 오류가 발생했습니다.");
+    setAlertMessage("서버 오류가 발생했습니다.");
+    setShowAlert(true);
     console.error(error);
   }
   };
@@ -195,25 +203,30 @@ export default function MyPage({ onNavigate }: MyPageProps) {
       // 프로필 저장 후 localStorage에 저장하여 다른 페이지에서 즉시 사용할 수 있도록 함
       writeProfileImageToStorage(user?.id, profileImage);
       notifyProfileImageUpdated({ userId: user?.id, profileImage });
-      alert(res.message);
+      setAlertMessage(res.message);
+      setShowAlert(true);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2000);
     } else {
-      alert("프로필 저장 실패");
+      setAlertMessage("프로필 저장 실패");
+      setShowAlert(true);
     }
   } catch (error) {
     console.error("프로필 업데이트 오류:", error);
-    alert("서버 오류가 발생했습니다.");
+    setAlertMessage("서버 오류가 발생했습니다.");
+    setShowAlert(true);
   }
   };
 
   const handleDeleteAccount = async () => {
     if (!deleteIdentifier.trim()) {
-      alert("아이디 또는 이메일을 입력해주세요.");
+      setAlertMessage("아이디 또는 이메일을 입력해주세요.");
+      setShowAlert(true);
       return;
     }
     if (!deletePassword.trim()) {
-      alert("비밀번호를 입력해주세요.");
+      setAlertMessage("비밀번호를 입력해주세요.");
+      setShowAlert(true);
       return;
     }
 
@@ -225,19 +238,22 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     try {
       const res = await deleteAccount(deleteIdentifier, deletePassword);
       if (res.message) {
-        alert(res.message);
+        setAlertMessage(res.message);
+        setShowAlert(true);
         // 로그아웃 처리
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         writeProfileImageToStorage(user?.id, null);
         notifyProfileImageUpdated({ userId: user?.id, profileImage: null });
         // 홈페이지로 이동
-        onNavigate("home");
+        setTimeout(() => onNavigate("home"), 1500);
       } else {
-        alert(res.error || "회원탈퇴 실패");
+        setAlertMessage(res.error || "회원탈퇴 실패");
+        setShowAlert(true);
       }
     } catch (error) {
-      alert("서버 오류가 발생했습니다.");
+      setAlertMessage("서버 오류가 발생했습니다.");
+      setShowAlert(true);
       console.error(error);
     }
   };
@@ -829,6 +845,13 @@ export default function MyPage({ onNavigate }: MyPageProps) {
           </div>
         </div>
       )}
+
+      {/* 안내창 */}
+      <AlertDialog
+        message={alertMessage}
+        show={showAlert}
+        onClose={() => setShowAlert(false)}
+      />
     </div>
   );
 }

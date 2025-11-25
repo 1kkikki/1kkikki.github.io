@@ -207,7 +207,8 @@
   flex-direction: column;
   gap: 4px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  width: 100%;
 }
 
 .dark .dashboard__course-button {
@@ -243,6 +244,42 @@
 .dashboard__course-title {
   font-size: 14px;
   font-weight: 400;
+}
+
+.dashboard__course-delete-button {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(239, 68, 68, 0.1);
+  border: none;
+  border-radius: 6px;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0.7;
+  z-index: 10;
+}
+
+.dashboard__course-delete-button:hover {
+  background: rgba(239, 68, 68, 0.2);
+  opacity: 1;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.dark .dashboard__course-delete-button {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.dark .dashboard__course-delete-button:hover {
+  background: rgba(248, 113, 113, 0.25);
 }
 
 /* ===================================

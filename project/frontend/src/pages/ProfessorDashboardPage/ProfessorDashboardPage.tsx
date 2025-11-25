@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, Trash2 } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
 import { getMyCourses, createCourse, deleteCourse } from "../../api/course";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
 import "./professor-dashboard.css";
+import AlertDialog from "../Alert/AlertDialog";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 
 interface MainDashboardPageProps {
@@ -58,6 +60,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
   const [newEvent, setNewEvent] = useState({ 
     title: "", 
     month: today.getMonth() + 1, 
@@ -176,7 +183,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
 
   const handleAddEvent = async () => {
     if (!newEvent.title.trim()) {
-      alert("일정 제목을 입력해주세요.");
+      setAlertMessage("일정 제목을 입력해주세요.");
+      setShowAlert(true);
       return;
     }
     
@@ -202,7 +210,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       });
     } catch (error) {
       console.error("일정 추가 실패:", error);
-      alert("일정 추가에 실패했습니다.");
+      setAlertMessage("일정 추가에 실패했습니다.");
+      setShowAlert(true);
     }
   };
 
@@ -245,7 +254,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     if (!selectedEvent) return;
     
     if (!selectedEvent.title.trim()) {
-      alert("일정 제목을 입력해주세요.");
+      setAlertMessage("일정 제목을 입력해주세요.");
+      setShowAlert(true);
       return;
     }
     
@@ -264,14 +274,16 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       setSelectedEvent(null);
     } catch (error) {
       console.error("일정 수정 실패:", error);
-      alert("일정 수정에 실패했습니다.");
+      setAlertMessage("일정 수정에 실패했습니다.");
+      setShowAlert(true);
     }
   };
 
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
     
-    if (confirm("이 일정을 삭제하시겠습니까?")) {
+    setConfirmMessage("이 일정을 삭제하시겠습니까?");
+    setConfirmCallback(() => async () => {
       try {
         await deleteSchedule(selectedEvent.id);
         await fetchSchedules(); // 일정 다시 로드
@@ -279,14 +291,17 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         setSelectedEvent(null);
       } catch (error) {
         console.error("일정 삭제 실패:", error);
-        alert("일정 삭제에 실패했습니다.");
+        setAlertMessage("일정 삭제에 실패했습니다.");
+        setShowAlert(true);
       }
-    }
+    });
+    setShowConfirm(true);
   };
 
   const handleAddCourse = async () => {
     if (!newCourse.title.trim() || !newCourse.code.trim()) {
-      alert("강의명과 강의 코드를 모두 입력해주세요.");
+      setAlertMessage("강의명과 강의 코드를 모두 입력해주세요.");
+      setShowAlert(true);
       return;
     }
 
@@ -297,15 +312,45 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       setCourses((prev) => [...prev, res.course]);
       setNewCourse({ title: "", code: "" });
       setIsCourseModalOpen(false);
-      alert("강의가 추가되었습니다!");
+      setAlertMessage("강의가 추가되었습니다!");
+      setShowAlert(true);
     } catch (err: any) {
       console.error("강의 추가 실패:", err);
       if (err.response?.data?.message) {
-        alert(err.response.data.message);
+        setAlertMessage(err.response.data.message);
       } else {
-        alert("강의 추가 중 오류가 발생했습니다.");
+        setAlertMessage("강의 추가 중 오류가 발생했습니다.");
       }
+      setShowAlert(true);
     }
+  };
+
+  const handleDeleteCourse = async (courseId: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // 강의 선택 이벤트 방지
+    
+    setConfirmMessage("이 강의를 삭제하시겠습니까? 삭제된 강의는 복구할 수 없습니다.");
+    setConfirmCallback(() => async () => {
+      try {
+      await deleteCourse(courseId);
+      // 목록에서 제거
+      setCourses((prev) => prev.filter((c) => c.id !== courseId));
+      // 현재 선택된 강의가 삭제된 강의라면 선택 해제
+      if (selectedCourse && selectedCourse.id === courseId) {
+        setSelectedCourse(null);
+      }
+      setAlertMessage("강의가 삭제되었습니다.");
+      setShowAlert(true);
+    } catch (err: any) {
+      console.error("강의 삭제 실패:", err);
+      if (err.response?.data?.message) {
+        setAlertMessage(err.response.data.message);
+      } else {
+        setAlertMessage("강의 삭제 중 오류가 발생했습니다.");
+      }
+      setShowAlert(true);
+    }
+    });
+    setShowConfirm(true);
   };
 
   const predefinedColors = [
@@ -359,6 +404,13 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             >
               <span className="dashboard__course-code">{course.code}</span>
               <span className="dashboard__course-title">{course.title}</span>
+              <button
+                className="dashboard__course-delete-button"
+                onClick={(e) => handleDeleteCourse(course.id, e)}
+                title="강의 삭제"
+              >
+                <Trash2 size={16} />
+              </button>
             </button>
           ))}
         </div>
@@ -778,6 +830,26 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
           </div>
         </div>
       )}
+
+      {/* 안내창 */}
+      <AlertDialog
+        message={alertMessage}
+        show={showAlert}
+        onClose={() => setShowAlert(false)}
+      />
+
+      {/* 확인 다이얼로그 */}
+      <ConfirmDialog
+        message={confirmMessage}
+        show={showConfirm}
+        onConfirm={() => {
+          setShowConfirm(false);
+          if (confirmCallback) {
+            confirmCallback();
+          }
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 }

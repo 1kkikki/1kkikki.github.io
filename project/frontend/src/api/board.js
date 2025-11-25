@@ -1,6 +1,24 @@
 const API_URL = "http://127.0.0.1:5000";
 
-export async function createBoardPost(course_id, title, content, category) {
+// 파일 업로드
+export async function uploadFile(file) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_URL}/board/upload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  return res.json();
+}
+
+export async function createBoardPost(course_id, title, content, category, files = []) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
   const res = await fetch(`${API_URL}/board/`, {
@@ -9,7 +27,7 @@ export async function createBoardPost(course_id, title, content, category) {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ course_id, title, content, category })
+    body: JSON.stringify({ course_id, title, content, category, files })
   });
 
   return res.json();

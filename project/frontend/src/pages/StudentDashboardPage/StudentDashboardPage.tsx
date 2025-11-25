@@ -6,6 +6,8 @@ import { addAvailableTime, getMyAvailableTimes, deleteAvailableTime } from "../.
 import { getEnrolledCourses } from "../../api/course";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
 import { useAuth } from "../../contexts/AuthContext";
+import AlertDialog from "../Alert/AlertDialog";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 interface MainDashboardPageProps {
   onNavigate: (page: string) => void;
@@ -69,6 +71,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
   const [newTime, setNewTime] = useState({
     day: "월요일",
     startHour: "09",
@@ -256,7 +263,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
 
   const handleAddEvent = async () => {
     if (!newEvent.title.trim()) {
-      alert("일정 제목을 입력해주세요.");
+      setAlertMessage("일정 제목을 입력해주세요.");
+      setShowAlert(true);
       return;
     }
 
@@ -283,7 +291,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       });
     } catch (error) {
       console.error("일정 추가 실패:", error);
-      alert("일정 추가에 실패했습니다.");
+      setAlertMessage("일정 추가에 실패했습니다.");
+      setShowAlert(true);
     }
   };
 
@@ -326,7 +335,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     if (!selectedEvent) return;
 
     if (!selectedEvent.title.trim()) {
-      alert("일정 제목을 입력해주세요.");
+      setAlertMessage("일정 제목을 입력해주세요.");
+      setShowAlert(true);
       return;
     }
 
@@ -345,14 +355,16 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       setSelectedEvent(null);
     } catch (error) {
       console.error("일정 수정 실패:", error);
-      alert("일정 수정에 실패했습니다.");
+      setAlertMessage("일정 수정에 실패했습니다.");
+      setShowAlert(true);
     }
   };
 
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
 
-    if (confirm("이 일정을 삭제하시겠습니까?")) {
+    setConfirmMessage("이 일정을 삭제하시겠습니까?");
+    setConfirmCallback(() => async () => {
       try {
         await deleteSchedule(selectedEvent.id);
         await fetchSchedules(); // 일정 다시 로드
@@ -360,9 +372,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         setSelectedEvent(null);
       } catch (error) {
         console.error("일정 삭제 실패:", error);
-        alert("일정 삭제에 실패했습니다.");
+        setAlertMessage("일정 삭제에 실패했습니다.");
+        setShowAlert(true);
       }
-    }
+    });
+    setShowConfirm(true);
   };
 
 
@@ -788,7 +802,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                         }
                       }
                       await fetchAvailableTimes();
-                      alert("가능한 시간이 서버에 저장되었습니다 ✅");
+                      setAlertMessage("가능한 시간이 서버에 저장되었습니다");
+                      setShowAlert(true);
                       setIsTimeModalOpen(false);
                     }}
                   >
@@ -1052,6 +1067,26 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
           )}
         </>
       )}
+
+      {/* 안내창 */}
+      <AlertDialog
+        message={alertMessage}
+        show={showAlert}
+        onClose={() => setShowAlert(false)}
+      />
+
+      {/* 확인 다이얼로그 */}
+      <ConfirmDialog
+        message={confirmMessage}
+        show={showConfirm}
+        onConfirm={() => {
+          setShowConfirm(false);
+          if (confirmCallback) {
+            confirmCallback();
+          }
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   )
 }

@@ -1,0 +1,156 @@
+.confirm-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.confirm-dialog-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  animation: slide-up 0.3s ease-out;
+  width: auto;
+  min-width: 320px;
+  max-width: 480px;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.confirm-dialog-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  border: 2.5px solid #a855f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.confirm-dialog-icon {
+  color: #a855f7;
+  stroke-width: 3;
+}
+
+.confirm-dialog-message {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 16px;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.confirm-dialog-message strong {
+  font-weight: 600;
+}
+
+.confirm-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.confirm-dialog-button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 70px;
+}
+
+.confirm-dialog-button--cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.confirm-dialog-button--cancel:hover {
+  background: #e5e7eb;
+}
+
+.confirm-dialog-button--confirm {
+  background: #a855f7;
+  color: white;
+  border: 1px solid #9333ea;
+}
+
+.confirm-dialog-button--confirm:hover {
+  background: #9333ea;
+  border-color: #7e22ce;
+}
+
+.confirm-dialog-button:active {
+  transform: scale(0.98);
+}
+
+/* 반응형 */
+@media (max-width: 640px) {
+  .confirm-dialog-container {
+    min-width: 280px;
+    max-width: 90%;
+    padding: 18px 20px;
+    gap: 14px;
+  }
+
+  .confirm-dialog-icon-wrapper {
+    width: 44px;
+    height: 44px;
+  }
+
+  .confirm-dialog-icon {
+    size: 20;
+  }
+
+  .confirm-dialog-message {
+    font-size: 15px;
+  }
+
+  .confirm-dialog-footer {
+    gap: 10px;
+  }
+
+  .confirm-dialog-button {
+    padding: 9px 18px;
+    font-size: 13px;
+    min-width: 65px;
+  }
+}
+
