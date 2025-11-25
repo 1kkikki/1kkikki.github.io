@@ -54,6 +54,33 @@ export async function getCourses() {
   }
 }
 
+// 본인 강의 목록 조회 (교수)
+export async function getMyCourses() {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  try {
+    const res = await fetch(`${API_URL}/course/my`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        return { error: "UNAUTHORIZED", status: 401 };
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data; // 강의 목록 배열
+  } catch (error) {
+    console.error("강의 목록 조회 실패:", error);
+    return [];
+  }
+}
+
 // 강의 삭제
 export async function deleteCourse(courseId: number) {
   const token = localStorage.getItem("token");
