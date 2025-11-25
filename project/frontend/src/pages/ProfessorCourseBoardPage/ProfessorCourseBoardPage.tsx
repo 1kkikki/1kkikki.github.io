@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment } from "../../api/recruit";
+import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import { 
   Home, 
   Bell, 
@@ -18,6 +19,8 @@ import {
   Pin,
   Heart,
   MessageCircle,
+  MessageSquare,
+  AlertCircle,
   X,
   Plus,
   Link,
@@ -89,9 +92,12 @@ interface Comment {
 
 interface Notification {
   id: number;
+  type: string;
   content: string;
-  course: string;
-  time: string;
+  related_id?: number | null;
+  course_id?: string | null;
+  is_read: boolean;
+  created_at: string;
   isRead: boolean;
 }
 
@@ -263,11 +269,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   }, [course.id]);
 
   // 알림 데이터
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: 1, content: "새로운 공지사항이 등록되었습니다", course: course.title, time: "5분 전", isRead: false },
-    { id: 2, content: "댓글이 달렸습니다", course: course.title, time: "1시간 전", isRead: false },
-    { id: 3, content: "팀 프로젝트 회의 일정이 확정되었습니다", course: course.title, time: "3시간 전", isRead: true },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // 필터링된 게시글
   const filteredPosts = posts.filter(post => {
@@ -291,7 +293,113 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     return b.id - a.id;
   });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  // 알림 클릭 핸들러
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.is_read) {
+      try {
+        await markAsRead(notification.id);
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
+        );
+      } catch (err) {
+        console.error("알림 읽음 처리 실패:", err);
+      }
+    }
+    
+    // 알림 종류에 따라 다른 동작 수행 (선택사항)
+    if (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply' || notification.type === 'like') {
+      // 게시글 상세로 이동할 수 있도록 (나중에 구현 가능)
+      console.log("관련 게시글 ID:", notification.related_id);
+    }
+    
+    // 알림 패널 닫기
+    setIsNotificationOpen(false);
+  };
+
+  // 알림 아이콘 가져오기
+  const getNotificationIcon = (type: string) => {
+    switch(type) {
+      case 'notice': return AlertCircle;
+      case 'comment': return MessageSquare;
+      case 'reply': return MessageSquare;
+      case 'enrollment': return Users;
+      case 'recruitment_join': return Users;
+      default: return Bell;
+    }
+  };
+
+  // 상대 시간 계산 (몇분 전, 몇시간 전, 날짜)
+  const getRelativeTime = (dateString: string): string => {
+    try {
+      const now = new Date();
+      // "2025-11-24 12:27" 형식을 파싱
+      let notifDate: Date;
+      
+      if (dateString.includes('T')) {
+        notifDate = new Date(dateString);
+      } else {
+        // "2025-11-24 12:27" -> "2025-11-24T12:27:00"
+        notifDate = new Date(dateString.replace(' ', 'T') + ':00');
+      }
+      
+      const diffMs = now.getTime() - notifDate.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 1) {
+        // 하루 이상 지났으면 날짜, 시간만
+        const month = String(notifDate.getMonth() + 1).padStart(2, '0');
+        const day = String(notifDate.getDate()).padStart(2, '0');
+        const hours = String(notifDate.getHours()).padStart(2, '0');
+        const minutes = String(notifDate.getMinutes()).padStart(2, '0');
+        return `${month}/${day} ${hours}:${minutes}`;
+      } else if (diffHours >= 1) {
+        return `${diffHours}시간 전`;
+      } else if (diffMinutes >= 1) {
+        return `${diffMinutes}분 전`;
+      } else {
+        return '방금 전';
+      }
+    } catch (error) {
+      console.error('날짜 파싱 오류:', error, dateString);
+      return dateString;
+    }
+  };
+
+  // 알림 내용 포맷팅 (강의명과 탭을 굵게 표시)
+  const formatNotificationContent = (content: string) => {
+    // [강의명] 탭 "제목" ... 형식을 파싱 (> 없이)
+    const match = content.match(/\[([^\]]+)\]\s+([^\s"]+)\s+(.+)/);
+    
+    if (match) {
+      const [, courseName, tabName, rest] = match;
+      // 탭 이름이 있는 경우 (공지사항, 질문게시판 등)
+      if (['공지사항', '질문게시판', '자유게시판', '팀모집'].includes(tabName)) {
+        return (
+          <>
+            <strong>[{courseName}]</strong> <strong>{tabName}</strong> {rest}
+          </>
+        );
+      }
+    }
+    
+    // [강의명] 나머지 내용 (강의 참여 알림 등)
+    const simpleMatch = content.match(/\[([^\]]+)\]\s+(.+)/);
+    if (simpleMatch) {
+      const [, courseName, rest] = simpleMatch;
+      return (
+        <>
+          <strong>[{courseName}]</strong> {rest}
+        </>
+      );
+    }
+    
+    // 매칭되지 않으면 원본 그대로 반환
+    return content;
+  };
 
   // 프로필 이미지 가져오기
   useEffect(() => {
@@ -327,6 +435,23 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       window.removeEventListener(PROFILE_IMAGE_UPDATED_EVENT, handleProfileChange);
     };
   }, [user?.id]);
+
+  // 알림 데이터 로드
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const data = await getNotifications();
+        setNotifications(data);
+      } catch (err) {
+        console.error("알림 불러오기 실패:", err);
+      }
+    }
+    loadNotifications();
+    
+    // 10초마다 알림 자동 새로고침
+    const interval = setInterval(loadNotifications, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 프로필 아바타 렌더링 함수
   const renderProfileAvatar = (authorId: number | undefined, authorProfileImage: string | null | undefined, size: number = 20) => {
@@ -940,17 +1065,39 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                     </button>
                   </div>
                   <div className="course-board__notification-list">
-                    {notifications.map(notif => (
-                      <div 
-                        key={notif.id} 
-                        className={`course-board__notification-item ${!notif.isRead ? 'course-board__notification-item--unread' : ''}`}
-                      >
-                        <div className="course-board__notification-content">
-                          <p>{notif.content}</p>
-                          <span className="course-board__notification-time">{notif.time}</span>
-                        </div>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af' }}>
+                        알림이 없습니다
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map(notif => {
+                        const Icon = getNotificationIcon(notif.type);
+                        return (
+                          <div 
+                            key={notif.id} 
+                            className={`course-board__notification-item ${!notif.is_read ? 'course-board__notification-item--unread' : ''}`}
+                            onClick={() => handleNotificationClick(notif)}
+                            style={{ cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'flex-start' }}
+                          >
+                            <div style={{ 
+                              background: !notif.is_read ? '#f3f4f6' : '#fff',
+                              borderRadius: '50%',
+                              padding: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              <Icon size={18} style={{ color: !notif.is_read ? '#a855f7' : '#9ca3af' }} />
+                            </div>
+                            <div className="course-board__notification-content" style={{ flex: 1 }}>
+                              <p>{formatNotificationContent(notif.content)}</p>
+                              <span className="course-board__notification-time">{getRelativeTime(notif.created_at)}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </>

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import Course, User, Enrollment
+from models import Course, User, Enrollment, Notification
 
 course_bp = Blueprint("course", __name__)
 
@@ -107,6 +107,17 @@ def enroll_course(course_id):
     # 수강 신청
     enrollment = Enrollment(student_id=user_id, course_id=course_id)
     db.session.add(enrollment)
+    db.session.commit()
+    
+    # 🔔 교수에게 알림 전송
+    notification = Notification(
+        user_id=course.professor_id,
+        type="enrollment",
+        content=f"[{course.title}] {user.name}({user.student_id})님이 강의에 참여했습니다.",
+        related_id=course_id,
+        course_id=course.code
+    )
+    db.session.add(notification)
     db.session.commit()
     
     return jsonify({

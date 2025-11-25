@@ -330,3 +330,30 @@ class Schedule(db.Model):
             "category": self.category,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M")
         }
+
+
+# 알림
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)  # 알림 받는 사람
+    type = db.Column(db.String(50), nullable=False)  # 'comment', 'reply', 'like', 'notice', 'enrollment', 'recruitment_join'
+    content = db.Column(db.String(500), nullable=False)  # 알림 내용
+    related_id = db.Column(db.Integer, nullable=True)  # 관련 게시글/댓글/모집 ID
+    course_id = db.Column(db.String(20), nullable=True)  # 관련 강의 코드
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", backref=db.backref("notifications", lazy=True))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "content": self.content,
+            "related_id": self.related_id,
+            "course_id": self.course_id,
+            "is_read": self.is_read,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
+        }

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import TeamRecruitment, TeamRecruitmentMember
+from models import TeamRecruitment, TeamRecruitmentMember, User, Notification, Course
 
 recruit_bp = Blueprint("recruit", __name__)
 
@@ -122,6 +122,22 @@ def toggle_join(recruitment_id):
         )
         db.session.add(new_member)
         db.session.commit()
+        
+        # 🔔 모집 작성자에게 알림 (본인이 아닌 경우에만)
+        if recruitment.author_id != int(user_id):
+            joiner = User.query.get(user_id)
+            course = Course.query.filter_by(code=recruitment.course_id).first()
+            course_title = course.title if course else recruitment.course_id
+            
+            notification = Notification(
+                user_id=recruitment.author_id,
+                type="recruitment_join",
+                content=f"[{course_title}] 팀모집 \"{recruitment.title[:20]}{'...' if len(recruitment.title) > 20 else ''}\" 모집에 {joiner.name}님이 참여했습니다.",
+                related_id=recruitment_id,
+                course_id=recruitment.course_id
+            )
+            db.session.add(notification)
+            db.session.commit()
 
     # 최신 상태 다시 계산해서 내려주기
     updated = TeamRecruitment.query.get(recruitment_id)
