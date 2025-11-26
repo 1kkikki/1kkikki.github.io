@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User, Course, Enrollment, Notification
 
-board_bp = Blueprint("board", __name__)
+board_bp = Blueprint("board", __name__, url_prefix="/board")
 
 # 파일 업로드 설정
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")

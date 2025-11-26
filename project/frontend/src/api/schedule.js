@@ -1,6 +1,7 @@
 import axios from "axios";
+import { BASE_URL } from "./config";
 
-const API_BASE_URL = "http://127.0.0.1:5000";
+const SCHEDULE_URL = `${BASE_URL}/schedule`;
 
 // 토큰 가져오기
 const getAuthHeader = () => {
@@ -9,13 +10,9 @@ const getAuthHeader = () => {
 };
 
 // 모든 일정 조회 (년/월 필터링 가능)
-/**
- * @param {number | null} year
- * @param {number | null} month
- */
 export const getSchedules = async (year = null, month = null) => {
   try {
-    let url = `${API_BASE_URL}/schedule/`;
+    let url = `${SCHEDULE_URL}/`;
     if (year && month) {
       url += `?year=${year}&month=${month}`;
     }
@@ -32,13 +29,9 @@ export const getSchedules = async (year = null, month = null) => {
 // 일정 생성
 export const createSchedule = async (scheduleData) => {
   try {
-    const response = await axios.post(
-      `${API_BASE_URL}/schedule/`,
-      scheduleData,
-      {
-        headers: getAuthHeader(),
-      }
-    );
+    const response = await axios.post(`${SCHEDULE_URL}/`, scheduleData, {
+      headers: getAuthHeader(),
+    });
     return response.data;
   } catch (error) {
     console.error("일정 생성 실패:", error);
@@ -50,7 +43,7 @@ export const createSchedule = async (scheduleData) => {
 export const updateSchedule = async (scheduleId, scheduleData) => {
   try {
     const response = await axios.put(
-      `${API_BASE_URL}/schedule/${scheduleId}`,
+      `${SCHEDULE_URL}/${scheduleId}`,
       scheduleData,
       {
         headers: getAuthHeader(),
@@ -66,16 +59,12 @@ export const updateSchedule = async (scheduleId, scheduleData) => {
 // 일정 삭제
 export const deleteSchedule = async (scheduleId) => {
   try {
-    const response = await axios.delete(
-      `${API_BASE_URL}/schedule/${scheduleId}`,
-      {
-        headers: getAuthHeader(),
-      }
-    );
+    const response = await axios.delete(`${SCHEDULE_URL}/${scheduleId}`, {
+      headers: getAuthHeader(),
+    });
     return response.data;
   } catch (error) {
     console.error("일정 삭제 실패:", error);
     throw error;
   }
 };
-

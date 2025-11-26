@@ -1,9 +1,10 @@
-const API_URL = "http://127.0.0.1:5000";
+import { BASE_URL } from "./config";
+const NOTIFICATION_URL = `${BASE_URL}/notification`;
 
 export async function getNotifications(limit = 30) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   
-  const res = await fetch(`${API_URL}/notification/?limit=${limit}`, {
+  const res = await fetch(`${NOTIFICATION_URL}/?limit=${limit}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -14,7 +15,7 @@ export async function getNotifications(limit = 30) {
 export async function markAsRead(notificationId) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   
-  const res = await fetch(`${API_URL}/notification/${notificationId}/read`, {
+  const res = await fetch(`${NOTIFICATION_URL}/${notificationId}/read`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -25,7 +26,7 @@ export async function markAsRead(notificationId) {
 export async function markAllAsRead() {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   
-  const res = await fetch(`${API_URL}/notification/read-all`, {
+  const res = await fetch(`${NOTIFICATION_URL}/read-all`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -36,7 +37,7 @@ export async function markAllAsRead() {
 export async function deleteNotification(notificationId) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   
-  const res = await fetch(`${API_URL}/notification/${notificationId}`, {
+  const res = await fetch(`${NOTIFICATION_URL}/${notificationId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` }
   });

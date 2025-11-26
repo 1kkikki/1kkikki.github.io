@@ -1,4 +1,6 @@
-const API_URL = "/auth";
+// 백엔드 주소 가져오기 (없으면 기본값 5000 사용)
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+const API_URL = `${BASE_URL}/auth`;
 
 // ✅ 회원가입
 export async function register(userData) {
@@ -23,7 +25,6 @@ export async function register(userData) {
 // ✅ 로그인
 export async function login(credentials) {
   try {
-    // ✅ 여기도 `/auth/login` → `/login`
     const res = await fetch(`${API_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -34,6 +35,7 @@ export async function login(credentials) {
 
     if (data.access_token) {
       localStorage.setItem("token", data.access_token);
+      localStorage.setItem("accessToken", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
     }
 

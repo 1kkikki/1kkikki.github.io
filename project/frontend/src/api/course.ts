@@ -1,11 +1,11 @@
-// 강의 관련 API 함수
-const API_URL = "http://127.0.0.1:5000";
+import { BASE_URL } from "./config";
+const COURSE_URL = `${BASE_URL}/course`;
 
 // 강의 추가
 export async function createCourse(title: string, code: string) {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/course/`, {
+    const res = await fetch(`${COURSE_URL}/`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -31,7 +31,7 @@ export async function createCourse(title: string, code: string) {
 export async function getCourses() {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/course/`, {
+    const res = await fetch(`${COURSE_URL}/`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -58,7 +58,7 @@ export async function getCourses() {
 export async function getMyCourses() {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/course/my`, {
+    const res = await fetch(`${COURSE_URL}/my`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -85,7 +85,7 @@ export async function getMyCourses() {
 export async function deleteCourse(courseId: number) {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/course/${courseId}`, {
+    const res = await fetch(`${COURSE_URL}/${courseId}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -109,7 +109,7 @@ export async function deleteCourse(courseId: number) {
 // 강의 참여 코드로 강의 정보 조회
 export async function getCourseByJoinCode(joinCode: string): Promise<Course> {
   try {
-    const res = await fetch(`${API_URL}/course/join/${joinCode}`, {
+    const res = await fetch(`${COURSE_URL}/join/${joinCode}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -134,7 +134,7 @@ export async function getCourseByJoinCode(joinCode: string): Promise<Course> {
 export async function joinCourse(joinCode: string): Promise<Course> {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/course/join`, {
+    const res = await fetch(`${COURSE_URL}/join`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -161,7 +161,7 @@ export async function joinCourse(joinCode: string): Promise<Course> {
 export async function getEnrolledCourses() {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/course/enrolled`, {
+    const res = await fetch(`${COURSE_URL}/enrolled`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

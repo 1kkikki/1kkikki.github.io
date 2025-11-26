@@ -4,7 +4,7 @@ from extensions import db
 from models import AvailableTime, User
 from datetime import datetime
 
-available_bp = Blueprint("available", __name__)
+available_bp = Blueprint("available", __name__, url_prefix="/available")
 
 # 공통 시간 파싱 함수
 def parse_time_str(time_str):

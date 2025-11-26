@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import Course, User, Enrollment, Notification
 
-course_bp = Blueprint("course", __name__)
+course_bp = Blueprint("course", __name__, url_prefix="/course")
 
 # 강의 목록 조회 (교수 본인의 강의)
 @course_bp.route("/my", methods=["GET"])

@@ -1,4 +1,6 @@
-const API_URL = "http://127.0.0.1:5000";
+import { BASE_URL } from "./config";
+
+const BOARD_URL = `${BASE_URL}/board`;
 
 // 파일 업로드
 export async function uploadFile(file) {
@@ -7,7 +9,7 @@ export async function uploadFile(file) {
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`${API_URL}/board/upload`, {
+  const res = await fetch(`${BOARD_URL}/upload`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`
@@ -21,7 +23,7 @@ export async function uploadFile(file) {
 export async function createBoardPost(course_id, title, content, category, files = []) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/`, {
+  const res = await fetch(`${BOARD_URL}/`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -36,7 +38,7 @@ export async function createBoardPost(course_id, title, content, category, files
 export async function getBoardPosts(course_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/course/${course_id}`, {
+  const res = await fetch(`${BOARD_URL}/course/${course_id}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -47,7 +49,7 @@ export async function getBoardPosts(course_id) {
 export async function deleteBoardPost(post_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/post/${post_id}`, {
+  const res = await fetch(`${BOARD_URL}/post/${post_id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -59,7 +61,7 @@ export async function deleteBoardPost(post_id) {
 export async function getComments(post_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/post/${post_id}/comments`, {
+  const res = await fetch(`${BOARD_URL}/post/${post_id}/comments`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -67,7 +69,7 @@ export async function getComments(post_id) {
   return res.json();
 }
 
-// 댓글 작성 (parent_comment_id 가 있으면 답글)
+// 댓글 작성
 export async function createComment(post_id, content, parent_comment_id = null) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
@@ -76,7 +78,7 @@ export async function createComment(post_id, content, parent_comment_id = null) 
     body.parent_comment_id = parent_comment_id;
   }
 
-  const res = await fetch(`${API_URL}/board/post/${post_id}/comments`, {
+  const res = await fetch(`${BOARD_URL}/post/${post_id}/comments`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -92,7 +94,7 @@ export async function createComment(post_id, content, parent_comment_id = null) 
 export async function deleteComment(comment_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/comments/${comment_id}`, {
+  const res = await fetch(`${BOARD_URL}/comments/${comment_id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -104,7 +106,7 @@ export async function deleteComment(comment_id) {
 export async function toggleLike(post_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/post/${post_id}/like`, {
+  const res = await fetch(`${BOARD_URL}/post/${post_id}/like`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -116,7 +118,7 @@ export async function toggleLike(post_id) {
 export async function toggleCommentLike(comment_id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-  const res = await fetch(`${API_URL}/board/comment/${comment_id}/like`, {
+  const res = await fetch(`${BOARD_URL}/comment/${comment_id}/like`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` }
   });

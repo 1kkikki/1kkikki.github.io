@@ -1,11 +1,12 @@
-// backend와 통신할 API 함수 모음
-const API_URL = "http://127.0.0.1:5000";
+import { BASE_URL } from "./config"; 
+
+const PROFILE_URL = `${BASE_URL}/profile`;        
 
 // 프로필 불러오기
 export async function getProfile() {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/profile/`, {
+    const res = await fetch(`${PROFILE_URL}/`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -33,7 +34,7 @@ export async function getProfile() {
 export async function updateProfile(updateData: { name: string; email: string; profileImage?: string | null;}) {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/profile/`, {
+    const res = await fetch(`${PROFILE_URL}/`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -55,7 +56,7 @@ export async function updateProfile(updateData: { name: string; email: string; p
 export async function changePassword(currentPassword: string, newPassword: string) {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch("http://127.0.0.1:5000/profile/password", {
+    const res = await fetch(`${PROFILE_URL}/password`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -76,7 +77,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
 export async function deleteAccount(identifier: string, password: string) {
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/profile/delete`, {
+    const res = await fetch(`${PROFILE_URL}/delete`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,

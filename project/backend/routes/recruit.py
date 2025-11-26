@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import TeamRecruitment, TeamRecruitmentMember, User, Notification, Course, CourseBoardPost
 
-recruit_bp = Blueprint("recruit", __name__)
+recruit_bp = Blueprint("recruit", __name__, url_prefix="/recruit")
 
 
 # 모집 글 목록 조회

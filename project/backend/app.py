@@ -41,16 +41,15 @@ def create_app():
     }
     CORS(app, resources={r"/*": {"origins": list(allowed_origins)}}, supports_credentials=True)
 
-    # 블루프린트 등록
-    app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(profile_bp, url_prefix="/profile")
-    app.register_blueprint(available_bp, url_prefix="/available")
-    app.register_blueprint(board_bp, url_prefix="/board")
-    app.register_blueprint(course_bp, url_prefix="/course")
-    app.register_blueprint(recruit_bp, url_prefix="/recruit")
-    app.register_blueprint(schedule_bp, url_prefix="/schedule")
-    app.register_blueprint(notification_bp, url_prefix="/notification")
-
+    # 🔥 블루프린트 등록 (prefix는 각 파일에서 설정)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(profile_bp)
+    app.register_blueprint(available_bp)
+    app.register_blueprint(board_bp)
+    app.register_blueprint(course_bp)
+    app.register_blueprint(recruit_bp)
+    app.register_blueprint(schedule_bp)
+    app.register_blueprint(notification_bp)
 
     with app.app_context():
         from models import (

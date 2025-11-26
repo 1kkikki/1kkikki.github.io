@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import Notification
 
-notification_bp = Blueprint("notification", __name__)
+notification_bp = Blueprint("notification", __name__, url_prefix="/notification")
 
 # 내 알림 목록 조회
 @notification_bp.route("/", methods=["GET"])

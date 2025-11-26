@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db, bcrypt
 from models import User
 
-profile_bp = Blueprint("profile", __name__)
+profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
 
 # -------------------------------
 # 프로필 조회

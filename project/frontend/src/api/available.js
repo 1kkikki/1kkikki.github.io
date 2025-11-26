@@ -1,20 +1,19 @@
-const API_URL = "http://127.0.0.1:5000"; 
+import { BASE_URL } from "./config";
+
+// /available prefix
+const AVAILABLE_URL = `${BASE_URL}/available`;
 
 // 가능한 시간 추가
 export async function addAvailableTime(day_of_week, start_time, end_time) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/available/`, {
+    const res = await fetch(`${AVAILABLE_URL}/`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        day_of_week,
-        start_time,
-        end_time,
-      }),
+      body: JSON.stringify({ day_of_week, start_time, end_time }),
     });
 
     const data = await res.json();
@@ -29,7 +28,7 @@ export async function addAvailableTime(day_of_week, start_time, end_time) {
 export async function getMyAvailableTimes() {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/available/`, {
+    const res = await fetch(`${AVAILABLE_URL}/`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -38,8 +37,7 @@ export async function getMyAvailableTimes() {
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return data; // [{id, day_of_week, start_time, end_time}, ...]
+    return await res.json();
   } catch (error) {
     console.error("가능한 시간 목록 조회 오류:", error);
     return { error };
@@ -50,7 +48,7 @@ export async function getMyAvailableTimes() {
 export async function deleteAvailableTime(id) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
-    const res = await fetch(`${API_URL}/available/${id}`, {
+    const res = await fetch(`${AVAILABLE_URL}/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });

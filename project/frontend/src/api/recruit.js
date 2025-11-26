@@ -1,4 +1,6 @@
-const API_URL = "http://127.0.0.1:5000";
+import { BASE_URL } from "./config";
+
+const RECRUIT_URL = `${BASE_URL}/recruit`;
 
 function getToken() {
   return localStorage.getItem("accessToken") || localStorage.getItem("token");
@@ -8,7 +10,7 @@ function getToken() {
 export async function getRecruitments(course_id) {
   const token = getToken();
 
-  const res = await fetch(`${API_URL}/recruit/${course_id}`, {
+  const res = await fetch(`${RECRUIT_URL}/${course_id}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -22,7 +24,7 @@ export async function getRecruitments(course_id) {
 export async function createRecruitment(course_id, title, description, team_board_name, max_members) {
   const token = getToken();
 
-  const res = await fetch(`${API_URL}/recruit/`, {
+  const res = await fetch(`${RECRUIT_URL}/`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -38,7 +40,7 @@ export async function createRecruitment(course_id, title, description, team_boar
 export async function toggleRecruitmentJoin(recruitment_id) {
   const token = getToken();
 
-  const res = await fetch(`${API_URL}/recruit/${recruitment_id}/join`, {
+  const res = await fetch(`${RECRUIT_URL}/${recruitment_id}/join`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -52,7 +54,7 @@ export async function toggleRecruitmentJoin(recruitment_id) {
 export async function deleteRecruitment(recruitment_id) {
   const token = getToken();
 
-  const res = await fetch(`${API_URL}/recruit/${recruitment_id}`, {
+  const res = await fetch(`${RECRUIT_URL}/${recruitment_id}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -66,7 +68,7 @@ export async function deleteRecruitment(recruitment_id) {
 export async function activateTeamBoard(recruitment_id) {
   const token = getToken();
 
-  const res = await fetch(`${API_URL}/recruit/${recruitment_id}/activate-team-board`, {
+  const res = await fetch(`${RECRUIT_URL}/${recruitment_id}/activate-team-board`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -75,5 +77,3 @@ export async function activateTeamBoard(recruitment_id) {
 
   return res.json();
 }
-
-
