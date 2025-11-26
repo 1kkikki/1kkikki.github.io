@@ -47,6 +47,8 @@ export default function MyPage({ onNavigate }: MyPageProps) {
   const [deleteIdentifier, setDeleteIdentifier] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
   const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   useEffect(() => {
     setProfileImage(readProfileImageFromStorage(user?.id) || null);
