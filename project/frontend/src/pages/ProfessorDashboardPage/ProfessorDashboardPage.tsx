@@ -196,14 +196,23 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const getRelativeTime = (dateString: string): string => {
     try {
       const now = new Date();
-      // "2025-11-24 12:27" 형식을 파싱
       let notifDate: Date;
       
       if (dateString.includes('T')) {
+        // ISO 형식
         notifDate = new Date(dateString);
       } else {
-        // "2025-11-24 12:27" -> "2025-11-24T12:27:00"
-        notifDate = new Date(dateString.replace(' ', 'T') + ':00');
+        // "2025-11-24 12:27" 형식을 로컬 시간으로 정확히 파싱
+        const [datePart, timePart] = dateString.split(' ');
+        const [year, month, day] = datePart.split('-');
+        const [hour, minute] = timePart.split(':');
+        notifDate = new Date(
+          parseInt(year), 
+          parseInt(month) - 1, 
+          parseInt(day), 
+          parseInt(hour), 
+          parseInt(minute)
+        );
       }
       
       const diffMs = now.getTime() - notifDate.getTime();
@@ -212,12 +221,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
       if (diffDays >= 1) {
-        // 하루 이상 지났으면 날짜, 시간만
-        const month = String(notifDate.getMonth() + 1).padStart(2, '0');
-        const day = String(notifDate.getDate()).padStart(2, '0');
-        const hours = String(notifDate.getHours()).padStart(2, '0');
-        const minutes = String(notifDate.getMinutes()).padStart(2, '0');
-        return `${month}/${day} ${hours}:${minutes}`;
+        return `${diffDays}일 전`;
       } else if (diffHours >= 1) {
         return `${diffHours}시간 전`;
       } else if (diffMinutes >= 1) {

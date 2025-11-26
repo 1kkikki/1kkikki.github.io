@@ -451,7 +451,7 @@
 .course-board__post-author {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .course-board__post-avatar {
@@ -2473,4 +2473,40 @@
   font-size: 13px;
   color: #9ca3af;
   margin-left: auto;
+}
+
+/* 교수 뱃지 스타일 - 학생 뱃지와 동일한 디자인 */
+.course-board__post-author-professor,
+.recruitment-card__author-professor {
+  min-width: 32px;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.course-board__comment-author-professor {
+  min-width: 32px;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 팀모집 상세 참여 인원 목록의 교수 뱃지 - 학생 ID와 동일한 스타일 */
+.recruitment-detail-member__professor {
+  font-size: 12px;
+  color: #9ca3af;
 }

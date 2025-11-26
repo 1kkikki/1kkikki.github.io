@@ -10,7 +10,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     user_type = db.Column(db.String(20), nullable=False, default='student')  # 'student' or 'professor'
     profile_image = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
         return {
@@ -53,7 +53,7 @@ class Course(db.Model):
     title = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20), nullable=False, unique=True)
     professor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     professor = db.relationship("User", backref=db.backref("courses", lazy=True))
 
@@ -99,7 +99,7 @@ class CourseBoardPost(db.Model):
     content = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(50), nullable=False)
     files = db.Column(db.Text, nullable=True)  # JSON 문자열로 파일 정보 저장
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     author = db.relationship("User")
 
@@ -119,6 +119,11 @@ class CourseBoardPost(db.Model):
         if self.author and getattr(self.author, "user_type", None) == "student":
             author_student_id = self.author.student_id
 
+        # 교수 여부 확인
+        is_professor = False
+        if self.author and getattr(self.author, "user_type", None) == "professor":
+            is_professor = True
+
         import json
         files_data = []
         if self.files:
@@ -133,6 +138,7 @@ class CourseBoardPost(db.Model):
             "author_id": self.author_id,
             "author": self.author.name,
             "author_student_id": author_student_id,
+            "is_professor": is_professor,
             "author_profile_image": self.author.profile_image if self.author else None,
             "title": self.title,
             "content": self.content,
@@ -153,7 +159,7 @@ class CourseBoardComment(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     parent_comment_id = db.Column(db.Integer, db.ForeignKey("course_board_comments.id"), nullable=True)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     author = db.relationship("User")
     post = db.relationship("CourseBoardPost", backref=db.backref("board_comments", lazy=True))
@@ -163,6 +169,11 @@ class CourseBoardComment(db.Model):
         author_student_id = None
         if self.author and getattr(self.author, "user_type", None) == "student":
             author_student_id = self.author.student_id
+        
+        # 교수 여부 확인
+        is_professor = False
+        if self.author and getattr(self.author, "user_type", None) == "professor":
+            is_professor = True
 
         # 좋아요 수 계산
         likes_count = len(self.comment_likes) if self.comment_likes else 0
@@ -178,6 +189,7 @@ class CourseBoardComment(db.Model):
             "author_id": self.author_id,
             "author": self.author.name if self.author else "익명",
             "author_student_id": author_student_id,
+            "is_professor": is_professor,
             "author_profile_image": self.author.profile_image if self.author else None,
             "parent_comment_id": self.parent_comment_id,
             "content": self.content,
@@ -193,7 +205,7 @@ class CourseBoardLike(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey("course_board_posts.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     user = db.relationship("User")
     post = db.relationship("CourseBoardPost", backref=db.backref("board_likes", lazy=True))
@@ -206,7 +218,7 @@ class CourseBoardCommentLike(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     comment_id = db.Column(db.Integer, db.ForeignKey("course_board_comments.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     user = db.relationship("User")
     comment = db.relationship("CourseBoardComment", backref=db.backref("comment_likes", lazy=True))
@@ -224,7 +236,7 @@ class TeamRecruitment(db.Model):
     description = db.Column(db.Text, nullable=False)
     team_board_name = db.Column(db.String(100), nullable=True)
     max_members = db.Column(db.Integer, nullable=False, default=3)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     author = db.relationship("User")
 
@@ -239,12 +251,18 @@ class TeamRecruitment(db.Model):
                 student_id = None
                 if getattr(m.user, "user_type", None) == "student":
                     student_id = m.user.student_id
+                
+                # 교수 여부 확인
+                is_professor_member = False
+                if getattr(m.user, "user_type", None) == "professor":
+                    is_professor_member = True
 
                 members_data.append(
                     {
                         "user_id": m.user.id,
                         "name": m.user.name,
                         "student_id": student_id,
+                        "is_professor": is_professor_member,
                         "profile_image": m.user.profile_image,
                     }
                 )
@@ -254,6 +272,7 @@ class TeamRecruitment(db.Model):
                         "user_id": None,
                         "name": "익명",
                         "student_id": None,
+                        "is_professor": False,
                         "profile_image": None,
                     }
                 )
@@ -269,6 +288,11 @@ class TeamRecruitment(db.Model):
         author_student_id = None
         if self.author and getattr(self.author, "user_type", None) == "student":
             author_student_id = self.author.student_id
+        
+        # 교수 여부 확인
+        is_professor = False
+        if self.author and getattr(self.author, "user_type", None) == "professor":
+            is_professor = True
 
         return {
             "id": self.id,
@@ -276,6 +300,7 @@ class TeamRecruitment(db.Model):
             "author_id": self.author_id,
             "author": self.author.name if self.author else "익명",
             "author_student_id": author_student_id,
+            "is_professor": is_professor,
             "author_profile_image": self.author.profile_image if self.author else None,
             "title": self.title,
             "description": self.description,
@@ -316,7 +341,7 @@ class Schedule(db.Model):
     year = db.Column(db.Integer, nullable=False)
     color = db.Column(db.String(20), nullable=False, default='#a8d5e2')
     category = db.Column(db.String(50), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     user = db.relationship("User", backref=db.backref("schedules", lazy=True))
 
@@ -345,7 +370,7 @@ class Notification(db.Model):
     related_id = db.Column(db.Integer, nullable=True)  # 관련 게시글/댓글/모집 ID
     course_id = db.Column(db.String(20), nullable=True)  # 관련 강의 코드
     is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     user = db.relationship("User", backref=db.backref("notifications", lazy=True))
 

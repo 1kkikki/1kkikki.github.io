@@ -65,6 +65,7 @@ interface Post {
   author: string;
   author_id?: number;
   author_student_id?: string | null;
+  is_professor?: boolean;
   author_profile_image?: string | null;
   timestamp: string;
   category: string;
@@ -88,6 +89,7 @@ interface Comment {
   author: string;
   author_id?: number;
   author_student_id?: string | null;
+  is_professor?: boolean;
   author_profile_image?: string | null;
   parent_comment_id?: number | null;
   content: string;
@@ -101,6 +103,7 @@ interface RecruitmentMember {
   user_id?: number | null;
   name: string;
   student_id?: string | null;
+  is_professor?: boolean;
   profile_image?: string | null;
 }
 
@@ -112,6 +115,7 @@ interface TeamRecruitment {
   author: string;
   author_id?: number;
   author_student_id?: string | null;
+  is_professor?: boolean;
   author_profile_image?: string | null;
   timestamp: string;
   maxMembers: number;
@@ -240,6 +244,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         author: p.author || "익명",
         author_id: p.author_id,
         author_student_id: p.author_student_id || null,
+        is_professor: p.is_professor || false,
         author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
@@ -271,6 +276,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         author: r.author,
         author_id: r.author_id,
         author_student_id: r.author_student_id || null,
+        is_professor: r.is_professor || false,
         author_profile_image: r.author_profile_image || null,
         timestamp: r.created_at,
         maxMembers: r.max_members,
@@ -472,14 +478,23 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const getRelativeTime = (dateString: string): string => {
     try {
       const now = new Date();
-      // "2025-11-24 12:27" 형식을 파싱
       let notifDate: Date;
       
       if (dateString.includes('T')) {
+        // ISO 형식
         notifDate = new Date(dateString);
       } else {
-        // "2025-11-24 12:27" -> "2025-11-24T12:27:00"
-        notifDate = new Date(dateString.replace(' ', 'T') + ':00');
+        // "2025-11-24 12:27" 형식을 로컬 시간으로 정확히 파싱
+        const [datePart, timePart] = dateString.split(' ');
+        const [year, month, day] = datePart.split('-');
+        const [hour, minute] = timePart.split(':');
+        notifDate = new Date(
+          parseInt(year), 
+          parseInt(month) - 1, 
+          parseInt(day), 
+          parseInt(hour), 
+          parseInt(minute)
+        );
       }
       
       const diffMs = now.getTime() - notifDate.getTime();
@@ -488,12 +503,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
       if (diffDays >= 1) {
-        // 하루 이상 지났으면 날짜, 시간만
-        const month = String(notifDate.getMonth() + 1).padStart(2, '0');
-        const day = String(notifDate.getDate()).padStart(2, '0');
-        const hours = String(notifDate.getHours()).padStart(2, '0');
-        const minutes = String(notifDate.getMinutes()).padStart(2, '0');
-        return `${month}/${day} ${hours}:${minutes}`;
+        return `${diffDays}일 전`;
       } else if (diffHours >= 1) {
         return `${diffHours}시간 전`;
       } else if (diffMinutes >= 1) {
@@ -673,7 +683,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         content: p.content,
         author: p.author || (user?.name || "나"),
         author_id: p.author_id || user?.id,
-        author_student_id: p.author_student_id || user?.student_id || null,
+        author_student_id: (user?.role === 'professor') ? null : (p.author_student_id || user?.student_id || null),
+        is_professor: p.is_professor || (user?.role === 'professor') || false,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
         tags: [],
@@ -734,7 +745,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         id: res.comment.id,
         author: res.comment.author,
         author_id: res.comment.author_id ?? undefined,
-        author_student_id: res.comment.author_student_id || user?.student_id || null,
+        author_student_id: (user?.role === 'professor') ? null : (res.comment.author_student_id || user?.student_id || null),
+        is_professor: res.comment.is_professor || (user?.role === 'professor') || false,
         author_profile_image: res.comment.author_profile_image || null,
         parent_comment_id: res.comment.parent_comment_id || null,
         content: res.comment.content,
@@ -859,6 +871,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         author: c.author,
         author_id: c.author_id,
         author_student_id: c.author_student_id || null,
+        is_professor: c.is_professor || false,
         author_profile_image: c.author_profile_image || null,
         parent_comment_id: c.parent_comment_id || null,
         content: c.content,
@@ -1175,7 +1188,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         team_board_name: r.team_board_name || null,
         author: r.author,
         author_id: r.author_id,
-        author_student_id: r.author_student_id || user?.student_id || null,
+        author_student_id: (user?.role === 'professor') ? null : (r.author_student_id || user?.student_id || null),
+        is_professor: r.is_professor || (user?.role === 'professor') || false,
         timestamp: r.created_at,
         maxMembers: r.max_members,
         currentMembers: r.current_members,
@@ -1451,6 +1465,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                             {recruitment.author_student_id && (
                               <span className="recruitment-card__author-id">{recruitment.author_student_id}</span>
                             )}
+                            {recruitment.is_professor && (
+                              <span className="recruitment-card__author-professor">교수</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1523,6 +1540,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           <span className="course-board__post-author-name">{post.author}</span>
                           {post.author_student_id && (
                             <span className="course-board__post-author-id">{post.author_student_id}</span>
+                          )}
+                          {post.is_professor && (
+                            <span className="course-board__post-author-professor">교수</span>
                           )}
                         </div>
                         <span className="course-board__post-timestamp">{post.timestamp}</span>
@@ -1772,6 +1792,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       {selectedPost.author_student_id && (
                         <span className="course-board__post-author-id">{selectedPost.author_student_id}</span>
                       )}
+                      {selectedPost.is_professor && (
+                        <span className="course-board__post-author-professor">교수</span>
+                      )}
                     </div>
                     <span className="course-board__post-timestamp">{selectedPost.timestamp}</span>
                   </div>
@@ -1880,6 +1903,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                               {comment.author_student_id && (
                                 <span className="course-board__comment-author-id">{comment.author_student_id}</span>
                               )}
+                              {comment.is_professor && (
+                                <span className="course-board__comment-author-professor">교수</span>
+                              )}
                             </div>
                             <span className="course-board__comment-timestamp">{comment.timestamp}</span>
                           </div>
@@ -1941,6 +1967,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                                 )}
                                 {reply.author_student_id && (
                                   <span className="course-board__comment-author-id">{reply.author_student_id}</span>
+                                )}
+                                {reply.is_professor && (
+                                  <span className="course-board__comment-author-professor">교수</span>
                                 )}
                               </div>
                               <span className="course-board__comment-timestamp">{reply.timestamp}</span>
@@ -2162,6 +2191,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       {selectedRecruitment.author_student_id && (
                         <span className="course-board__post-author-id">{selectedRecruitment.author_student_id}</span>
                       )}
+                      {selectedRecruitment.is_professor && (
+                        <span className="course-board__post-author-professor">교수</span>
+                      )}
                     </div>
                     <span className="course-board__post-timestamp">{selectedRecruitment.timestamp}</span>
                   </div>
@@ -2190,6 +2222,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                         <span className="recruitment-detail-member__name">{member.name}</span>
                         {member.student_id && (
                           <span className="recruitment-detail-member__id">{member.student_id}</span>
+                        )}
+                        {member.is_professor && (
+                          <span className="recruitment-detail-member__professor">교수</span>
                         )}
                       </div>
                       {index === 0 && <span className="recruitment-detail-member__badge">리더</span>}
