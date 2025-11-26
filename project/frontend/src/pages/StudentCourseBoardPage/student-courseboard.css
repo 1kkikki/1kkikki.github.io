@@ -1885,6 +1885,7 @@
   gap: 12px;
   padding-top: 12px;
   border-top: 1px solid #f3f4f6;
+  min-height: 40px;
 }
 
 .recruitment-card__members {
@@ -1925,6 +1926,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  min-width: 100px;
+  flex-shrink: 0;
 }
 
 .recruitment-card__join-button:hover {
@@ -2095,6 +2098,29 @@
   transform: none;
   background: #f3f4f6;
   box-shadow: none;
+}
+
+.recruitment-detail-activate-button {
+  padding: 14px 20px;
+  background: transparent;
+  color: #8b5cf6;
+  border: 2px solid #e9d5ff;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.recruitment-detail-activate-button:hover {
+  background: #faf5ff;
+  border-color: #c084fc;
+  transform: translateY(-1px);
 }
 
 .recruitment-detail-delete-button {

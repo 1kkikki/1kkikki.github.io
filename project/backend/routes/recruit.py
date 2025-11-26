@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import TeamRecruitment, TeamRecruitmentMember, User, Notification, Course
+from models import TeamRecruitment, TeamRecruitmentMember, User, Notification, Course, CourseBoardPost
 
 recruit_bp = Blueprint("recruit", __name__)
 
@@ -29,6 +29,7 @@ def create_recruitment():
     course_id = data.get("course_id")
     title = data.get("title")
     description = data.get("description")
+    team_board_name = data.get("team_board_name")
     max_members = data.get("max_members")
 
     if not course_id or not title or not description:
@@ -47,6 +48,7 @@ def create_recruitment():
         author_id=user_id,
         title=title,
         description=description,
+        team_board_name=team_board_name,
         max_members=max_members,
     )
     db.session.add(recruitment)
@@ -149,6 +151,54 @@ def toggle_join(recruitment_id):
             }
         ),
         200,
+    )
+
+
+# 팀 게시판 활성화
+@recruit_bp.route("/<int:recruitment_id>/activate-team-board", methods=["POST"])
+@jwt_required()
+def activate_team_board(recruitment_id):
+    user_id = int(get_jwt_identity())
+    recruitment = TeamRecruitment.query.get(recruitment_id)
+
+    if not recruitment:
+        return jsonify({"message": "존재하지 않는 모집글입니다."}), 404
+
+    if recruitment.author_id != user_id:
+        return jsonify({"message": "본인의 모집글만 활성화할 수 있습니다."}), 403
+
+    if not recruitment.team_board_name:
+        return jsonify({"message": "팀게시판 이름이 설정되지 않았습니다."}), 400
+
+    # 이미 활성화된 팀 게시판이 있는지 확인 (같은 이름의 팀 게시판 게시글이 있는지)
+    existing_post = CourseBoardPost.query.filter_by(
+        course_id=recruitment.course_id,
+        category="team",
+        title=recruitment.team_board_name
+    ).first()
+
+    if existing_post:
+        return jsonify({"message": "이미 활성화된 팀 게시판입니다."}), 400
+
+    # 팀 게시판 첫 게시글 생성
+    team_post = CourseBoardPost(
+        course_id=recruitment.course_id,
+        author_id=user_id,
+        title=recruitment.team_board_name,
+        content=f"팀 게시판이 활성화되었습니다.\n\n모집 제목: {recruitment.title}\n모집 내용: {recruitment.description}",
+        category="team"
+    )
+    db.session.add(team_post)
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                "message": "팀 게시판이 활성화되었습니다.",
+                "post": team_post.to_dict(user_id=user_id),
+            }
+        ),
+        201,
     )
 
 

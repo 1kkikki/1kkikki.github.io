@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile } from "../../api/board";
-import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment } from "../../api/recruit";
+import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard } from "../../api/recruit";
 import { getProfile } from "../../api/profile";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import {
@@ -38,6 +38,7 @@ import {
   PROFILE_IMAGE_UPDATED_EVENT,
   ProfileImageEventDetail,
 } from "../../utils/profileImage";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 interface CourseBoardPageProps {
   course: {
@@ -107,6 +108,7 @@ interface TeamRecruitment {
   id: number;
   title: string;
   description: string;
+  team_board_name?: string | null;
   author: string;
   author_id?: number;
   author_student_id?: string | null;
@@ -169,10 +171,16 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [selectedRecruitment, setSelectedRecruitment] = useState<TeamRecruitment | null>(null);
   const [isCreateRecruitmentOpen, setIsCreateRecruitmentOpen] = useState(false);
   const [newRecruitment, setNewRecruitment] = useState({
+    team_board_name: "",
     title: "",
     description: "",
     maxMembers: 3
   });
+  
+  // 확인 다이얼로그 상태
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
 
   // 모집 데이터 (서버에서 불러옴)
   const [recruitments, setRecruitments] = useState<TeamRecruitment[]>([]);
@@ -259,6 +267,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         id: r.id,
         title: r.title,
         description: r.description,
+        team_board_name: r.team_board_name || null,
         author: r.author,
         author_id: r.author_id,
         author_student_id: r.author_student_id || null,
@@ -1040,6 +1049,56 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       e.stopPropagation();
     }
 
+    const recruitment = recruitments.find(r => r.id === recruitmentId);
+    const isCurrentlyJoined = recruitment?.isJoined;
+
+    // 참여 취소인 경우 확인 다이얼로그 표시
+    if (isCurrentlyJoined) {
+      setConfirmMessage("참여를 취소하시겠습니까?");
+      setConfirmCallback(() => async () => {
+        try {
+          const res = await toggleRecruitmentJoin(recruitmentId);
+          const r = res.recruitment;
+
+          setRecruitments(prev =>
+            prev.map(rec =>
+              rec.id === recruitmentId
+                ? {
+                    ...rec,
+                    maxMembers: r.max_members,
+                    currentMembers: r.current_members,
+                    membersList: r.members_list || [],
+                    members: r.members || [],
+                    isJoined: r.is_joined,
+                  }
+                : rec
+            )
+          );
+
+          if (selectedRecruitment && selectedRecruitment.id === recruitmentId) {
+            setSelectedRecruitment(prev =>
+              prev
+                ? {
+                    ...prev,
+                    maxMembers: r.max_members,
+                    currentMembers: r.current_members,
+                    membersList: r.members_list || [],
+                    members: r.members || [],
+                    isJoined: r.is_joined,
+                  }
+                : prev
+            );
+          }
+        } catch (err) {
+          console.error("모집 참여/취소 실패:", err);
+          alert("모집 참여/취소 중 오류가 발생했습니다.");
+        }
+      });
+      setShowConfirm(true);
+      return;
+    }
+
+    // 참여하는 경우는 바로 실행
     try {
       const res = await toggleRecruitmentJoin(recruitmentId);
       const r = res.recruitment;
@@ -1081,6 +1140,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 모집 생성 핸들러
   const handleCreateRecruitment = async () => {
+    if (!newRecruitment.team_board_name?.trim()) {
+      alert("팀게시판 이름을 입력해주세요.");
+      return;
+    }
     if (!newRecruitment.title.trim()) {
       alert("제목을 입력해주세요.");
       return;
@@ -1099,6 +1162,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         course.code,
         newRecruitment.title,
         newRecruitment.description,
+        newRecruitment.team_board_name,
         newRecruitment.maxMembers
       );
 
@@ -1108,6 +1172,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         id: r.id,
         title: r.title,
         description: r.description,
+        team_board_name: r.team_board_name || null,
         author: r.author,
         author_id: r.author_id,
         author_student_id: r.author_student_id || user?.student_id || null,
@@ -1120,7 +1185,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       };
 
       setRecruitments(prev => [recruitment, ...prev]);
-      setNewRecruitment({ title: "", description: "", maxMembers: 3 });
+      setNewRecruitment({ team_board_name: "", title: "", description: "", maxMembers: 3 });
       setIsCreateRecruitmentOpen(false);
     } catch (err) {
       console.error("모집글 작성 실패:", err);
@@ -1130,17 +1195,37 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 모집 삭제 핸들러
   const handleDeleteRecruitment = async (recruitmentId: number) => {
-    const ok = confirm("이 모집글을 삭제하시겠습니까?");
-    if (!ok) return;
+    setConfirmMessage("이 모집글을 삭제하시겠습니까?");
+    setConfirmCallback(() => async () => {
+      try {
+        await deleteRecruitment(recruitmentId);
+        setRecruitments(prev => prev.filter(r => r.id !== recruitmentId));
+        setSelectedRecruitment(null);
+      } catch (err) {
+        console.error("모집글 삭제 실패:", err);
+        alert("모집글 삭제 중 오류가 발생했습니다.");
+      }
+    });
+    setShowConfirm(true);
+  };
 
-    try {
-      await deleteRecruitment(recruitmentId);
-      setRecruitments(prev => prev.filter(r => r.id !== recruitmentId));
-      setSelectedRecruitment(null);
-    } catch (err) {
-      console.error("모집글 삭제 실패:", err);
-      alert("모집글 삭제 중 오류가 발생했습니다.");
-    }
+  // 팀 게시판 활성화 핸들러
+  const handleActivateTeamBoard = async (recruitmentId: number) => {
+    setConfirmMessage("팀 게시판을 활성화하시겠습니까?");
+    setConfirmCallback(() => async () => {
+      try {
+        const res = await activateTeamBoard(recruitmentId);
+        if (res.message) {
+          alert(res.message);
+          // 게시글 목록 새로고침
+          loadPosts();
+        }
+      } catch (err: any) {
+        console.error("팀 게시판 활성화 실패:", err);
+        alert(err.message || "팀 게시판 활성화 중 오류가 발생했습니다.");
+      }
+    });
+    setShowConfirm(true);
   };
 
   // 게시글 삭제 핸들러
@@ -1383,14 +1468,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           {isFull && <span className="recruitment-card__full-badge">마감</span>}
                         </div>
 
-                        <button
-                          className={`recruitment-card__join-button ${recruitment.isJoined ? "recruitment-card__join-button--joined" : ""
-                            } ${isFull && !recruitment.isJoined ? "recruitment-card__join-button--disabled" : ""}`}
-                          onClick={(e) => handleJoinRecruitment(recruitment.id, e)}
-                          disabled={isFull && !recruitment.isJoined}
-                        >
-                          {recruitment.isJoined ? "참여 취소" : isFull ? "마감" : "참여하기"}
-                        </button>
+                        {recruitment.author_id !== user?.id ? (
+                          <button
+                            className={`recruitment-card__join-button ${recruitment.isJoined ? "recruitment-card__join-button--joined" : ""
+                              } ${isFull && !recruitment.isJoined ? "recruitment-card__join-button--disabled" : ""}`}
+                            onClick={(e) => handleJoinRecruitment(recruitment.id, e)}
+                            disabled={isFull && !recruitment.isJoined}
+                          >
+                            {recruitment.isJoined ? "참여 취소" : isFull ? "마감" : "참여하기"}
+                          </button>
+                        ) : (
+                          <div style={{ minWidth: '100px', flexShrink: 0 }}></div>
+                        )}
                       </div>
 
                       <div className="recruitment-card__timestamp">{recruitment.timestamp}</div>
@@ -1966,6 +2055,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
             <div className="course-board__modal-body">
               <input
                 type="text"
+                placeholder="팀 게시판 이름 (예: 알고리즘 스터디)"
+                className="course-board__modal-input"
+                value={newRecruitment.team_board_name}
+                onChange={(e) => setNewRecruitment({ ...newRecruitment, team_board_name: e.target.value })}
+              />
+              <input
+                type="text"
                 placeholder="모집 제목 (예: 알고리즘 스터디 멤버 모집)"
                 className="course-board__modal-input"
                 value={newRecruitment.title}
@@ -2105,37 +2201,48 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               {/* 참여 / 삭제 버튼 */}
               <div className="course-board__detail-actions">
                 <div className="recruitment-detail-actions">
-                  <button
-                    className={`recruitment-detail-join-button ${selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
-                      } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
-                    onClick={() => {
-                      handleJoinRecruitment(selectedRecruitment.id);
-                      // 상태 업데이트를 반영하기 위해 모달도 업데이트
-                      const updated = recruitments.find(r => r.id === selectedRecruitment.id);
-                      if (updated) setSelectedRecruitment(updated);
-                    }}
-                    disabled={selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined}
-                  >
-                    <Users size={20} />
-                    <span>
-                      {selectedRecruitment.isJoined
-                        ? "참여 취소"
-                        : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers
-                          ? "마감"
-                          : "참여하기"}
-                    </span>
-                  </button>
-
-                  {/* 삭제 버튼 (본인 글인 경우만) */}
-                  {selectedRecruitment.author_id === user?.id && (
+                  {selectedRecruitment.author_id !== user?.id && (
                     <button
-                      className="recruitment-detail-delete-button"
-                      onClick={() => handleDeleteRecruitment(selectedRecruitment.id)}
-                      title="모집글 삭제"
+                      className={`recruitment-detail-join-button ${selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
+                        } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
+                      onClick={() => {
+                        handleJoinRecruitment(selectedRecruitment.id);
+                        // 상태 업데이트를 반영하기 위해 모달도 업데이트
+                        const updated = recruitments.find(r => r.id === selectedRecruitment.id);
+                        if (updated) setSelectedRecruitment(updated);
+                      }}
+                      disabled={selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined}
                     >
-                      <Trash2 size={18} />
-                      <span>삭제</span>
+                      <Users size={20} />
+                      <span>
+                        {selectedRecruitment.isJoined
+                          ? "참여 취소"
+                          : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers
+                            ? "마감"
+                            : "참여하기"}
+                      </span>
                     </button>
+                  )}
+
+                  {/* 삭제 버튼 및 팀 게시판 활성화 버튼 (본인 글인 경우만) */}
+                  {selectedRecruitment.author_id === user?.id && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="recruitment-detail-activate-button"
+                        onClick={() => handleActivateTeamBoard(selectedRecruitment.id)}
+                        title="팀 게시판 활성화"
+                      >
+                        <span>팀 게시판 활성화</span>
+                      </button>
+                      <button
+                        className="recruitment-detail-delete-button"
+                        onClick={() => handleDeleteRecruitment(selectedRecruitment.id)}
+                        title="모집글 삭제"
+                      >
+                        <Trash2 size={18} />
+                        <span>삭제</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2165,7 +2272,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   <div className="available-time-info">
                     <p className="available-time-description">
                       팀원들과 만날 수 있는 시간을 선택해주세요.
-                      Dashboard에서 입력한 시간이 자동으로 불러와지며, 추가로 시간을 더 입력할 수 있습니다.
+                      미리 입력한 시간이 자동으로 불러와지며, 추가로 시간을 더 입력할 수 있습니다.
                     </p>
                   </div>
 
@@ -2406,6 +2513,19 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
           </div>
         </div>
       )}
+
+      {/* 확인 다이얼로그 */}
+      <ConfirmDialog
+        message={confirmMessage}
+        show={showConfirm}
+        onConfirm={() => {
+          setShowConfirm(false);
+          if (confirmCallback) {
+            confirmCallback();
+          }
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 }

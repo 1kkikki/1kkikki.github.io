@@ -222,6 +222,7 @@ class TeamRecruitment(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
+    team_board_name = db.Column(db.String(100), nullable=True)
     max_members = db.Column(db.Integer, nullable=False, default=3)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -278,6 +279,7 @@ class TeamRecruitment(db.Model):
             "author_profile_image": self.author.profile_image if self.author else None,
             "title": self.title,
             "description": self.description,
+            "team_board_name": self.team_board_name,
             "max_members": self.max_members,
             "current_members": len(members_list),
             "members_list": members_list,
