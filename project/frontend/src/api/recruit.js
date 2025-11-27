@@ -77,3 +77,17 @@ export async function activateTeamBoard(recruitment_id) {
 
   return res.json();
 }
+
+// 활성화된 팀 게시판 목록 조회
+export async function getTeamBoards(course_id) {
+  const token = getToken();
+
+  const res = await fetch(`${RECRUIT_URL}/${course_id}/team-boards`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return res.json();
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile } from "../../api/board";
-import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard } from "../../api/recruit";
+import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { 
@@ -41,6 +41,7 @@ import {
   PROFILE_IMAGE_UPDATED_EVENT,
   ProfileImageEventDetail,
 } from "../../utils/profileImage";
+import SuccessAlert from "../Alert/SuccessAlert";
 
 interface CourseBoardPageProps {
   course: {
@@ -128,6 +129,7 @@ interface TeamRecruitment {
   membersList: string[];
   members?: RecruitmentMember[];
   isJoined: boolean;
+  is_board_activated?: boolean;
 }
 
 export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBoardPageProps) {
@@ -169,14 +171,24 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   const [confirmMessage, setConfirmMessage] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
+  
+  // 성공 알림 상태
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // 강의 초대 링크 생성
   const inviteLink = `${window.location.origin}/#/course/${course.id}/${encodeURIComponent(course.title)}/${encodeURIComponent(course.code)}`;
   
   // 모집 데이터 (서버에서 불러옴)
   const [recruitments, setRecruitments] = useState<TeamRecruitment[]>([]);
+  
+  // 팀 게시판 목록 (활성화된 팀 게시판들)
+  const [teamBoards, setTeamBoards] = useState<TeamRecruitment[]>([]);
+  
+  // 선택된 팀 게시판 (팀 게시판 내부로 들어갔을 때)
+  const [selectedTeamBoard, setSelectedTeamBoard] = useState<TeamRecruitment | null>(null);
 
-  // 상단 탭 메뉴
+  // 상단 탭 메뉴 (교수는 팀 게시판 탭 없음)
   const tabs = [
     { id: "notice", name: "공지", icon: Bell },
     { id: "community", name: "커뮤니티", icon: MessageCircle },
@@ -265,6 +277,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         membersList: r.members_list || [],
         members: r.members || [],
         isJoined: r.is_joined,
+        is_board_activated: r.is_board_activated || false,
       }));
 
       setRecruitments(mapped);
@@ -1033,6 +1046,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         membersList: r.members_list || [],
         members: r.members || [],
         isJoined: r.is_joined,
+        is_board_activated: r.is_board_activated || false,
       };
 
       setRecruitments(prev => [recruitment, ...prev]);
@@ -1066,8 +1080,35 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     setConfirmCallback(() => async () => {
       try {
         const res = await activateTeamBoard(recruitmentId);
-        if (res.message) {
-          alert(res.message);
+        if (res.message && res.recruitment) {
+          // SuccessAlert로 표시
+          setSuccessMessage("프로필이 수정되었습니다.");
+          setShowSuccess(true);
+          
+          // 모집글 목록 업데이트
+          setRecruitments(prev =>
+            prev.map(rec =>
+              rec.id === recruitmentId
+                ? {
+                    ...rec,
+                    is_board_activated: true,
+                  }
+                : rec
+            )
+          );
+          
+          // 상세 모달이 열려있으면 즉시 업데이트
+          if (selectedRecruitment && selectedRecruitment.id === recruitmentId) {
+            setSelectedRecruitment(prev =>
+              prev
+                ? {
+                    ...prev,
+                    is_board_activated: true,
+                  }
+                : prev
+            );
+          }
+          
           // 게시글 목록 새로고침
           loadPosts();
         }
@@ -1282,7 +1323,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
             </div>
           </div>
 
-          {/* 게시글 목록 또는 모집 카드 */}
+          {/* 게시글 목록 또는 모집 카드 또는 팀 게시판 목록 */}
           {activeTab === "모집" ? (
             /* 모집 카드 */
             <div className="recruitment-cards">
@@ -2043,7 +2084,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                   </div>
                   <div className="course-board__post-meta">
                     <div className="course-board__post-author-row">
-                      <span className="course-board__post-author-name">{selectedRecruitment.author}</span>
+                    <span className="course-board__post-author-name">{selectedRecruitment.author}</span>
                       {selectedRecruitment.author_student_id && (
                         <span className="course-board__post-author-id">{selectedRecruitment.author_student_id}</span>
                       )}
@@ -2120,11 +2161,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                   {selectedRecruitment.author_id === user?.id && (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
-                        className="recruitment-detail-activate-button"
-                        onClick={() => handleActivateTeamBoard(selectedRecruitment.id)}
-                        title="팀 게시판 활성화"
+                        className={`recruitment-detail-activate-button ${selectedRecruitment.is_board_activated ? 'recruitment-detail-activate-button--completed' : ''}`}
+                        onClick={() => !selectedRecruitment.is_board_activated && handleActivateTeamBoard(selectedRecruitment.id)}
+                        title={selectedRecruitment.is_board_activated ? "팀 게시판 활성화 완료" : "팀 게시판 활성화"}
+                        disabled={selectedRecruitment.is_board_activated}
                       >
-                        <span>팀 게시판 활성화</span>
+                        <span>{selectedRecruitment.is_board_activated ? '✓ 팀 게시판 활성화 완료' : '팀 게시판 활성화'}</span>
                       </button>
                       <button 
                         className="recruitment-detail-delete-button"
@@ -2154,6 +2196,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
           }
         }}
         onCancel={() => setShowConfirm(false)}
+      />
+      
+      {/* 성공 알림 */}
+      <SuccessAlert
+        message={successMessage}
+        show={showSuccess}
+        onClose={() => setShowSuccess(false)}
+        autoCloseDelay={1500}
       />
     </div>
   );

@@ -933,7 +933,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                         }
                       }
                       await fetchAvailableTimes();
-                      setAlertMessage("가능한 시간이 서버에 저장되었습니다");
+                      setAlertMessage("시간이 저장되었습니다.");
                       setShowAlert(true);
                       setIsTimeModalOpen(false);
                     }}

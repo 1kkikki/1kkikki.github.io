@@ -134,7 +134,7 @@ def toggle_join(recruitment_id):
             notification = Notification(
                 user_id=recruitment.author_id,
                 type="recruitment_join",
-                content=f"[{course_title}] 팀모집 \"{recruitment.title[:20]}{'...' if len(recruitment.title) > 20 else ''}\" 모집에 {joiner.name}님이 참여했습니다.",
+                content=f"[{course_title}] 모집 \"{recruitment.title[:20]}{'...' if len(recruitment.title) > 20 else ''}\" 에 {joiner.name}님이 참여했습니다.",
                 related_id=recruitment_id,
                 course_id=recruitment.course_id
             )
@@ -154,6 +154,35 @@ def toggle_join(recruitment_id):
     )
 
 
+# 활성화된 팀 게시판 목록 조회 (참여한 팀만)
+@recruit_bp.route("/<string:course_id>/team-boards", methods=["GET"])
+@jwt_required()
+def list_team_boards(course_id):
+    """현재 사용자가 참여한 활성화된 팀 게시판 목록 반환"""
+    user_id = int(get_jwt_identity())
+    
+    # 사용자가 참여한 모집글의 ID들 가져오기
+    member_recruitments = (
+        TeamRecruitmentMember.query.filter_by(user_id=user_id)
+        .with_entities(TeamRecruitmentMember.recruitment_id)
+        .all()
+    )
+    recruitment_ids = [m.recruitment_id for m in member_recruitments]
+    
+    # 활성화되고 사용자가 참여한 팀 게시판만 조회
+    team_boards = (
+        TeamRecruitment.query.filter(
+            TeamRecruitment.course_id == course_id,
+            TeamRecruitment.is_board_activated == True,
+            TeamRecruitment.id.in_(recruitment_ids)
+        )
+        .order_by(TeamRecruitment.id.desc())
+        .all()
+    )
+    
+    return jsonify([tb.to_dict(user_id=user_id) for tb in team_boards]), 200
+
+
 # 팀 게시판 활성화
 @recruit_bp.route("/<int:recruitment_id>/activate-team-board", methods=["POST"])
 @jwt_required()
@@ -170,32 +199,20 @@ def activate_team_board(recruitment_id):
     if not recruitment.team_board_name:
         return jsonify({"message": "팀게시판 이름이 설정되지 않았습니다."}), 400
 
-    # 이미 활성화된 팀 게시판이 있는지 확인 (같은 이름의 팀 게시판 게시글이 있는지)
-    existing_post = CourseBoardPost.query.filter_by(
-        course_id=recruitment.course_id,
-        category="team",
-        title=recruitment.team_board_name
-    ).first()
-
-    if existing_post:
+    # 이미 활성화된 팀 게시판인지 확인
+    if recruitment.is_board_activated:
         return jsonify({"message": "이미 활성화된 팀 게시판입니다."}), 400
 
-    # 팀 게시판 첫 게시글 생성
-    team_post = CourseBoardPost(
-        course_id=recruitment.course_id,
-        author_id=user_id,
-        title=recruitment.team_board_name,
-        content=f"팀 게시판이 활성화되었습니다.\n\n모집 제목: {recruitment.title}\n모집 내용: {recruitment.description}",
-        category="team"
-    )
-    db.session.add(team_post)
+    # 모집글의 활성화 상태 업데이트
+    recruitment.is_board_activated = True
+    
     db.session.commit()
 
     return (
         jsonify(
             {
                 "message": "팀 게시판이 활성화되었습니다.",
-                "post": team_post.to_dict(user_id=user_id),
+                "recruitment": recruitment.to_dict(user_id=user_id),
             }
         ),
         201,

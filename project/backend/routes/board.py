@@ -114,6 +114,7 @@ def create_post():
         title=data["title"],
         content=data["content"],
         category=data["category"],
+        team_board_name=data.get("team_board_name"),  # 팀 게시판 이름 (team 카테고리인 경우)
         files=files_json
     )
     db.session.add(post)

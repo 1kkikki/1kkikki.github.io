@@ -98,6 +98,7 @@ class CourseBoardPost(db.Model):
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(50), nullable=False)
+    team_board_name = db.Column(db.String(100), nullable=True)  # 팀 게시판 이름 (team 카테고리인 경우)
     files = db.Column(db.Text, nullable=True)  # JSON 문자열로 파일 정보 저장
     created_at = db.Column(db.DateTime, default=datetime.now)
 
@@ -143,6 +144,7 @@ class CourseBoardPost(db.Model):
             "title": self.title,
             "content": self.content,
             "category": self.category,
+            "team_board_name": self.team_board_name,
             "files": files_data,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
             "likes": likes_count,
@@ -236,6 +238,7 @@ class TeamRecruitment(db.Model):
     description = db.Column(db.Text, nullable=False)
     team_board_name = db.Column(db.String(100), nullable=True)
     max_members = db.Column(db.Integer, nullable=False, default=3)
+    is_board_activated = db.Column(db.Boolean, default=False)  # 팀 게시판 활성화 여부
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     author = db.relationship("User")
@@ -310,6 +313,7 @@ class TeamRecruitment(db.Model):
             "members_list": members_list,
             "members": members_data,
             "is_joined": is_joined,
+            "is_board_activated": self.is_board_activated,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
         }
 

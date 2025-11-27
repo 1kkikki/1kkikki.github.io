@@ -20,7 +20,7 @@ export async function uploadFile(file) {
   return res.json();
 }
 
-export async function createBoardPost(course_id, title, content, category, files = []) {
+export async function createBoardPost(course_id, title, content, category, files = [], team_board_name = null) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
   const res = await fetch(`${BOARD_URL}/`, {
@@ -29,7 +29,7 @@ export async function createBoardPost(course_id, title, content, category, files
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ course_id, title, content, category, files })
+    body: JSON.stringify({ course_id, title, content, category, files, team_board_name })
   });
 
   return res.json();

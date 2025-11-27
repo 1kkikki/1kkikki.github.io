@@ -339,6 +339,27 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
+.course-board__back-to-list-button {
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.course-board__back-to-list-button:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
 .course-board__search {
   flex: 1;
   display: flex;
@@ -2121,6 +2142,20 @@
   background: #faf5ff;
   border-color: #c084fc;
   transform: translateY(-1px);
+}
+
+.recruitment-detail-activate-button--completed {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #86efac;
+  cursor: default;
+  pointer-events: none;
+}
+
+.recruitment-detail-activate-button--completed:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  transform: none;
 }
 
 .recruitment-detail-delete-button {

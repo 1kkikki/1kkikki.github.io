@@ -70,6 +70,9 @@ def delete_course(course_id):
     if course.professor_id != int(user_id):
         return jsonify({"message": "본인의 강의만 삭제할 수 있습니다."}), 403
     
+    # 강의에 연결된 수강 신청 데이터를 먼저 삭제
+    Enrollment.query.filter_by(course_id=course_id).delete()
+    
     db.session.delete(course)
     db.session.commit()
     
