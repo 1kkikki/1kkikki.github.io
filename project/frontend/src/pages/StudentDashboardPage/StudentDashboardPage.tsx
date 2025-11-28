@@ -335,7 +335,6 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     return '알림';
   };
 
-
   // 상대 시간 계산 (몇분 전, 몇시간 전, 날짜)
   const getRelativeTime = (dateString: string): string => {
     try {

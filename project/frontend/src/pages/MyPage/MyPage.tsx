@@ -232,11 +232,6 @@ export default function MyPage({ onNavigate }: MyPageProps) {
       return;
     }
 
-    const confirmMessage = "정말로 회원탈퇴를 하시겠습니까?\n이 작업은 되돌릴 수 없습니다.";
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-
     try {
       const res = await deleteAccount(deleteIdentifier, deletePassword);
       if (res.message) {

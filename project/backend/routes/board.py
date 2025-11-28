@@ -95,7 +95,30 @@ def upload_file():
 @board_bp.route("/files/<filename>", methods=["GET"])
 def download_file(filename):
     """파일 다운로드 엔드포인트"""
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    # 원본 파일명 찾기
+    original_name = None
+    
+    # 모든 게시글에서 해당 파일명을 가진 파일 찾기
+    posts = CourseBoardPost.query.all()
+    for post in posts:
+        if post.files:
+            try:
+                files_data = json.loads(post.files)
+                for file_info in files_data:
+                    if file_info.get('filename') == filename:
+                        original_name = file_info.get('original_name')
+                        break
+                if original_name:
+                    break
+            except:
+                continue
+    
+    # 원본 파일명이 있으면 그걸로, 없으면 서버 파일명으로 다운로드
+    download_name = original_name if original_name else filename
+    
+    # 브라우저에서 바로 열 수 있는 타입(PDF, 이미지 등)이라도
+    # 항상 다운로드가 되도록 as_attachment 옵션을 사용
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True, download_name=download_name)
 
 # 글 작성
 @board_bp.route("/", methods=["POST"])
@@ -164,6 +187,21 @@ def delete_post(post_id):
     # 본인이 작성한 글만 삭제 가능
     if post.author_id != int(user_id):
         return jsonify({"msg": "본인의 글만 삭제할 수 있습니다."}), 403
+
+    # 첨부파일 삭제
+    if post.files:
+        try:
+            files_data = json.loads(post.files)
+            for file_info in files_data:
+                filename = file_info.get('filename')
+                if filename:
+                    file_path = os.path.join(UPLOAD_FOLDER, filename)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        print(f"파일 삭제됨: {filename}")
+        except Exception as e:
+            print(f"파일 삭제 중 오류: {e}")
+            # 파일 삭제 실패해도 게시글은 삭제 진행
 
     # 관련된 댓글과 좋아요 먼저 삭제
     CourseBoardComment.query.filter_by(post_id=post_id).delete()

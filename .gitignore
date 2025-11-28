@@ -34,6 +34,10 @@ logs/
 .env.*
 *.env
 
+# 사용자 업로드 파일 (이미지, 동영상, 문서 등)
+project/backend/uploads/*
+!project/backend/uploads/.gitkeep
+
 
 # ============================
 # ⚛️ Frontend (React / Node.js)

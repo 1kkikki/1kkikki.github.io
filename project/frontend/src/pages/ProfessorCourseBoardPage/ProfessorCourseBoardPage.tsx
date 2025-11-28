@@ -626,6 +626,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
   // 알림 내용 포맷팅 (강의명과 탭을 굵게 표시)
   const formatNotificationContent = (content: string) => {
+    // [강의명] 모집 "제목" ... 패턴 (팀모집 참여 알림)
+    const recruitmentMatch = content.match(/^(\[[^\]]+\]\s+)(모집)(\s+.+)$/);
+    if (recruitmentMatch) {
+      const [, prefix, keyword, rest] = recruitmentMatch;
+      return (
+        <>
+          <strong>{prefix.trim()}</strong> <strong>{keyword}</strong>{rest}
+        </>
+      );
+    }
+
     // [강의명] 탭 "제목" ... 형식을 파싱 (> 없이)
     const match = content.match(/\[([^\]]+)\]\s+([^\s"]+)\s+(.+)/);
     
