@@ -770,7 +770,7 @@ export default function MyPage({ onNavigate }: MyPageProps) {
 
       {/* 회원탈퇴 모달 */}
       {showDeleteModal && (
-        <div className="mypage__modal-overlay" onClick={() => setShowDeleteModal(false)}>
+        <div className="mypage__modal-overlay">
           <div className="mypage__modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="mypage__modal-header">
               <h3>회원탈퇴</h3>

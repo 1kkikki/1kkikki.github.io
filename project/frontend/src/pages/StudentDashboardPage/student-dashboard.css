@@ -1102,7 +1102,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  /* 화면 전체를 어둡게(게시글 작성 모달과 동일한 스타일) */
+  background: rgba(0, 0, 0, 0.6) !important;
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;

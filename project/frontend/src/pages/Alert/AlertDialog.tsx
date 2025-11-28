@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import "./AlertDialog.css";
 
@@ -22,7 +23,8 @@ export default function AlertDialog({ message, onClose, show = true, autoCloseDe
 
   if (!show) return null;
 
-  return (
+  // 항상 최상위(body)에 포탈로 띄워서 대시보드 레이아웃 여백을 무시하고 전체 화면을 덮도록 처리
+  return createPortal(
     <div className="alert-dialog-overlay" onClick={onClose}>
       <div className="alert-dialog-container" onClick={(e) => e.stopPropagation()}>
         <div className="alert-dialog-icon-wrapper">
@@ -30,7 +32,8 @@ export default function AlertDialog({ message, onClose, show = true, autoCloseDe
         </div>
         <p className="alert-dialog-message">{message}</p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

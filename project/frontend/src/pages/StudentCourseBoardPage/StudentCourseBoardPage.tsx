@@ -367,6 +367,23 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     }
   }, [tabs, activeTab]);
 
+  // 대시보드/다른 화면에서 온 알림 타겟 처리
+  useEffect(() => {
+    const stored = localStorage.getItem("notificationTarget");
+    if (!stored) return;
+
+    try {
+      const target = JSON.parse(stored);
+      if (target.courseCode === course.code && typeof target.postId === "number") {
+        setNotificationTargetPostId(target.postId);
+      }
+    } catch (err) {
+      console.error("알림 타겟 파싱 실패:", err);
+    } finally {
+      localStorage.removeItem("notificationTarget");
+    }
+  }, [course.code]);
+
   // 프로필 이미지 가져오기
   useEffect(() => {
     setProfileImage(readProfileImageFromStorage(user?.id) || null);
@@ -479,6 +496,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 알림 데이터
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationTargetPostId, setNotificationTargetPostId] = useState<number | null>(null);
 
   // 필터링된 게시글
   const filteredPosts = posts.filter(post => {
@@ -510,6 +528,20 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
+  // 알림으로 지정된 게시글 자동 열기
+  useEffect(() => {
+    if (!notificationTargetPostId) return;
+    if (!posts || posts.length === 0) return;
+
+    const targetPost = posts.find((p) => p.id === notificationTargetPostId);
+    if (!targetPost) return;
+
+    // 해당 게시글이 있는 탭으로 전환 후 상세 모달 열기
+    setActiveTab(targetPost.category);
+    handlePostClick(targetPost);
+    setNotificationTargetPostId(null);
+  }, [notificationTargetPostId, posts]);
+
   // 알림 클릭 핸들러
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
@@ -522,13 +554,34 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         console.error("알림 읽음 처리 실패:", err);
       }
     }
-    
-    // 알림 종류에 따라 다른 동작 수행 (선택사항)
-    if (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply' || notification.type === 'like') {
-      // 게시글 상세로 이동할 수 있도록 (나중에 구현 가능)
-      console.log("관련 게시글 ID:", notification.related_id);
+
+    // 게시판 관련 알림이면 해당 게시글로 이동
+    if (
+      (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply') &&
+      notification.related_id
+    ) {
+      // 현재 강의에 대한 알림이면 바로 게시글 열기
+      if (notification.course_id === course.code) {
+        setNotificationTargetPostId(notification.related_id);
+      } else if (notification.course_id) {
+        // 다른 강의 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
+        try {
+          localStorage.setItem(
+            "notificationTarget",
+            JSON.stringify({
+              courseCode: notification.course_id,
+              postId: notification.related_id,
+            })
+          );
+        } catch (e) {
+          console.error("알림 타겟 저장 실패:", e);
+        }
+
+        // 대시보드(강의 목록 화면)로 이동
+        onBack();
+      }
     }
-    
+
     // 알림 패널 닫기
     setIsNotificationOpen(false);
   };
@@ -596,7 +649,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (match) {
       const [, courseName, tabName, rest] = match;
       // 탭 이름이 있는 경우 (공지사항, 질문게시판 등)
-      if (['공지사항', '질문게시판', '자유게시판', '팀모집'].includes(tabName)) {
+      if (
+        ['공지사항', '질문게시판', '자유게시판', '커뮤니티'].includes(tabName) ||
+        tabName.startsWith('팀게시판')
+      ) {
         return (
           <>
             <strong>[{courseName}]</strong> <strong>{tabName}</strong> {rest}
@@ -738,7 +794,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
       // 팀 게시판인 경우 team_board_name 추가
       const teamBoardName = activeTab === "팀 게시판" && selectedTeamBoard ? selectedTeamBoard.team_board_name : null;
-      
+
       // 서버에 글 생성 요청 보내기
       const res = await createBoardPost(
         course.code,
@@ -758,8 +814,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         content: p.content,
         author: p.author || (user?.name || "나"),
         author_id: p.author_id || user?.id,
-        author_student_id: (user?.role === 'professor') ? null : (p.author_student_id || user?.student_id || null),
-        is_professor: p.is_professor || (user?.role === 'professor') || false,
+        author_student_id: (user?.user_type === 'professor') ? null : (p.author_student_id || user?.student_id || null),
+        is_professor: p.is_professor || (user?.user_type === 'professor') || false,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
         tags: [],
@@ -768,6 +824,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         isPinned: false,
         isLiked: false,
         team_board_name: p.team_board_name || null,
+        files: p.files || filesData || [],
       };
 
       // 맨 앞에 추가
@@ -821,8 +878,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         id: res.comment.id,
         author: res.comment.author,
         author_id: res.comment.author_id ?? undefined,
-        author_student_id: (user?.role === 'professor') ? null : (res.comment.author_student_id || user?.student_id || null),
-        is_professor: res.comment.is_professor || (user?.role === 'professor') || false,
+        author_student_id: (user?.user_type === 'professor') ? null : (res.comment.author_student_id || user?.student_id || null),
+        is_professor: res.comment.is_professor || (user?.user_type === 'professor') || false,
         author_profile_image: res.comment.author_profile_image || null,
         parent_comment_id: res.comment.parent_comment_id || null,
         content: res.comment.content,
@@ -1178,6 +1235,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 : prev
             );
           }
+
+          // 팀 게시판 목록도 최신 상태로 갱신 (참여 취소 시 팀 게시판 숨김)
+          loadTeamBoards();
         } catch (err) {
           console.error("모집 참여/취소 실패:", err);
           alert("모집 참여/취소 중 오류가 발생했습니다.");
@@ -1221,6 +1281,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
             : prev
         );
       }
+
+      // 팀 게시판 목록도 최신 상태로 갱신 (참여 시 팀 게시판 즉시 노출)
+      loadTeamBoards();
     } catch (err) {
       console.error("모집 참여/취소 실패:", err);
       alert("모집 참여/취소 중 오류가 발생했습니다.");
@@ -1264,8 +1327,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         team_board_name: r.team_board_name || null,
         author: r.author,
         author_id: r.author_id,
-        author_student_id: (user?.role === 'professor') ? null : (r.author_student_id || user?.student_id || null),
-        is_professor: r.is_professor || (user?.role === 'professor') || false,
+        author_student_id: (user?.user_type === 'professor') ? null : (r.author_student_id || user?.student_id || null),
+        is_professor: r.is_professor || (user?.user_type === 'professor') || false,
         timestamp: r.created_at,
         maxMembers: r.max_members,
         currentMembers: r.current_members,
@@ -1295,6 +1358,27 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       } catch (err) {
         console.error("모집글 삭제 실패:", err);
         alert("모집글 삭제 중 오류가 발생했습니다.");
+      }
+    });
+    setShowConfirm(true);
+  };
+
+  // 팀 게시판 삭제 핸들러
+  const handleDeleteTeamBoard = async (e: React.MouseEvent, boardId: number) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+    setConfirmMessage("이 팀 게시판을 삭제하시겠습니까? (관련 게시글도 모두 삭제됩니다)");
+    setConfirmCallback(() => async () => {
+      try {
+        await deleteRecruitment(boardId);
+        setTeamBoards(prev => prev.filter(b => b.id !== boardId));
+        if (selectedTeamBoard?.id === boardId) {
+          setSelectedTeamBoard(null);
+        }
+        // 목록도 갱신
+        await loadRecruitments();
+      } catch (err) {
+        console.error("팀 게시판 삭제 실패:", err);
+        alert("팀 게시판 삭제 중 오류가 발생했습니다.");
       }
     });
     setShowConfirm(true);
@@ -1637,7 +1721,32 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     onClick={() => setSelectedTeamBoard(board)}
                   >
                     <div className="recruitment-card__header">
-                      <h3 className="recruitment-card__title">{board.team_board_name}</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <h3 className="recruitment-card__title">{board.team_board_name}</h3>
+                        {board.author_id === user?.id && (
+                          <button
+                            className="team-board-delete-button"
+                            onClick={(e) => handleDeleteTeamBoard(e, board.id)}
+                            title="팀 게시판 삭제"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ef4444',
+                              borderRadius: '4px',
+                              transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#fee2e2'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                       <div className="recruitment-card__author">
                         <div style={{ 
                           width: '16px', 
@@ -1766,10 +1875,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
       {/* 게시글 작성 모달 */}
       {isCreatePostOpen && (
-        <div className="course-board__modal-overlay" onClick={() => {
-          setPostFiles([]);
-          setIsCreatePostOpen(false);
-        }}>
+        <div className="course-board__modal-overlay">
           <div className="course-board__modal" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>게시글 작성</h2>
@@ -1925,7 +2031,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
       {/* 게시글 상세보기 모달 */}
       {selectedPost && (
-        <div className="course-board__modal-overlay" onClick={() => setSelectedPost(null)}>
+        <div className="course-board__modal-overlay">
           <div className="course-board__modal course-board__modal--large" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>게시글</h2>
@@ -2240,7 +2346,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
       {/* 모집 생성 모달 */}
       {isCreateRecruitmentOpen && (
-        <div className="course-board__modal-overlay" onClick={() => setIsCreateRecruitmentOpen(false)}>
+        <div className="course-board__modal-overlay">
           <div className="course-board__modal" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>팀원 모집</h2>
@@ -2324,7 +2430,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
       {/* 모집 상세보기 모달 */}
       {selectedRecruitment && (
-        <div className="course-board__modal-overlay" onClick={() => setSelectedRecruitment(null)}>
+        <div className="course-board__modal-overlay">
           <div className="course-board__modal course-board__modal--large" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>모집 상세</h2>
@@ -2456,7 +2562,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
       {/* 가능한 시간 모달 */}
       {isAvailableTimeModalOpen && (
-        <div className="course-board__modal-overlay" onClick={() => setIsAvailableTimeModalOpen(false)}>
+        <div className="course-board__modal-overlay">
           <div className="course-board__modal course-board__modal--available-time" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>

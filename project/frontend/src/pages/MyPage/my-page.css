@@ -614,6 +614,12 @@
   padding-right: 3rem;
 }
 
+/* Edge/IE 기본 비밀번호 표시 아이콘 숨기기 (커스텀 토글 버튼만 사용) */
+.mypage__input::-ms-reveal,
+.mypage__input::-ms-clear {
+  display: none;
+}
+
 .mypage__password-toggle {
   position: absolute;
   right: 0.75rem;

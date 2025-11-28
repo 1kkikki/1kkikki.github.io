@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
@@ -172,6 +173,29 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         console.error("알림 읽음 처리 실패:", err);
       }
     }
+
+    // 게시판 관련 알림이면 해당 강의의 게시판으로 이동
+    if (
+      (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply') &&
+      notification.course_id &&
+      notification.related_id
+    ) {
+      const targetCourse = courses.find((c) => c.code === notification.course_id);
+      if (targetCourse) {
+        try {
+          localStorage.setItem(
+            "notificationTarget",
+            JSON.stringify({
+              courseCode: notification.course_id,
+              postId: notification.related_id,
+            })
+          );
+        } catch (e) {
+          console.error("알림 타겟 저장 실패:", e);
+        }
+        setSelectedCourse(targetCourse);
+      }
+    }
   };
 
   // 알림 내용에서 강의명 추출
@@ -251,6 +275,26 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         setSelectedCourse(course);
       }
       localStorage.removeItem('selectedCourse');
+    }
+  }, [courses]);
+
+  // 다른 화면(게시판 등)에서 저장한 알림 타겟이 있는 경우 처리
+  useEffect(() => {
+    const stored = localStorage.getItem("notificationTarget");
+    if (!stored) return;
+
+    try {
+      const target = JSON.parse(stored);
+      if (!target.courseCode || typeof target.postId !== "number") return;
+
+      const course = courses.find((c) => c.code === target.courseCode);
+      if (course) {
+        setSelectedCourse(course);
+      }
+    } catch (err) {
+      console.error("알림 타겟 파싱 실패:", err);
+    } finally {
+      localStorage.removeItem("notificationTarget");
     }
   }, [courses]);
 
@@ -690,8 +734,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       </div>
 
       {/* 강의 추가 모달 */}
-      {isCourseModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsCourseModalOpen(false)}>
+      {isCourseModalOpen && createPortal(
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
@@ -747,12 +791,13 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 일정 추가 모달 */}
-      {isEventModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsEventModalOpen(false)}>
+      {isEventModalOpen && createPortal(
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
@@ -862,12 +907,13 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 일정 상세보기/수정 모달 */}
-      {isEventDetailModalOpen && selectedEvent && (
-        <div className="modal-overlay" onClick={() => setIsEventDetailModalOpen(false)}>
+      {isEventDetailModalOpen && selectedEvent && createPortal(
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
@@ -962,7 +1008,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 안내창 */}

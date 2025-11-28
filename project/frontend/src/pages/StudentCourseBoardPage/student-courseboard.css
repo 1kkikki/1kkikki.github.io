@@ -674,6 +674,9 @@
   font-size: 18px;
   font-weight: 500;
   color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .course-board__modal-header button {

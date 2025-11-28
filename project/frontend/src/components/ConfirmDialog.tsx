@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import "./ConfirmDialog.css";
 
@@ -34,7 +35,8 @@ export default function ConfirmDialog({
 
   if (!show) return null;
 
-  return (
+  // 대시보드 레이아웃과 무관하게 항상 전체 화면을 덮도록 body로 포탈
+  return createPortal(
     <div className="confirm-dialog-overlay" onClick={onCancel}>
       <div className="confirm-dialog-container" onClick={(e) => e.stopPropagation()}>
         <div className="confirm-dialog-icon-wrapper">
@@ -50,7 +52,8 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

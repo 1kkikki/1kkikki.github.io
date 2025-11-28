@@ -20,6 +20,15 @@ export async function uploadFile(file) {
   return res.json();
 }
 
+/**
+ * @param {string} course_id 
+ * @param {string} title 
+ * @param {string} content 
+ * @param {string} category 
+ * @param {Array} files 
+ * @param {string | null} team_board_name 
+ * @returns {Promise<any>}
+ */
 export async function createBoardPost(course_id, title, content, category, files = [], team_board_name = null) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
 
