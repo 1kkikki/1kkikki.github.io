@@ -277,6 +277,45 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         setSelectedCourse(targetCourse);
       }
     }
+
+    // 강의 참여 알림이면 해당 강의의 게시판으로 이동
+    if (notification.type === 'enrollment' && notification.course_id) {
+      const targetCourse = courses.find((c) => c.code === notification.course_id);
+      if (targetCourse) {
+        try {
+          localStorage.setItem(
+            "notificationTarget",
+            JSON.stringify({
+              courseCode: notification.course_id,
+              type: 'enrollment',
+            })
+          );
+        } catch (e) {
+          console.error("알림 타겟 저장 실패:", e);
+        }
+        setSelectedCourse(targetCourse);
+      }
+    }
+
+    // 팀 모집 참여 알림이면 해당 강의의 게시판으로 이동 (모집 탭)
+    if (notification.type === 'recruitment_join' && notification.course_id) {
+      const targetCourse = courses.find((c) => c.code === notification.course_id);
+      if (targetCourse) {
+        try {
+          localStorage.setItem(
+            "notificationTarget",
+            JSON.stringify({
+              courseCode: notification.course_id,
+              type: 'recruitment_join',
+              recruitmentId: notification.related_id,
+            })
+          );
+        } catch (e) {
+          console.error("알림 타겟 저장 실패:", e);
+        }
+        setSelectedCourse(targetCourse);
+      }
+    }
   };
 
   // 알림 내용에서 강의명 추출

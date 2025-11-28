@@ -47,15 +47,15 @@
 }
 
 .success-alert-icon-wrapper {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: white;
-  border: 2.5px solid #a855f7;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-left: -8px;
 }
 
 .success-alert-icon {
@@ -86,8 +86,8 @@
   }
 
   .success-alert-icon-wrapper {
-    width: 44px;
-    height: 44px;
+    width: 52px;
+    height: 52px;
   }
 
   .success-alert-icon {

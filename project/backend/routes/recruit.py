@@ -26,6 +26,11 @@ def create_recruitment():
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
 
+    # 교수는 모집글 작성 불가
+    user = User.query.get(user_id)
+    if user and user.user_type == "professor":
+        return jsonify({"message": "교수는 모집글을 작성할 수 없습니다."}), 403
+
     course_id = data.get("course_id")
     title = data.get("title")
     description = data.get("description")
@@ -108,6 +113,10 @@ def toggle_join(recruitment_id):
     ).first()
 
     if existing:
+        # 참여 취소 - 팀 게시판이 활성화된 경우 취소 불가
+        if recruitment.is_board_activated:
+            return jsonify({"message": "팀 게시판이 활성화되어 참여 취소할 수 없습니다."}), 400
+        
         # 참여 취소
         db.session.delete(existing)
         db.session.commit()
@@ -203,7 +212,13 @@ def activate_team_board(recruitment_id):
     if recruitment.is_board_activated:
         return jsonify({"message": "이미 활성화된 팀 게시판입니다."}), 400
 
-    # 모집글의 활성화 상태 업데이트
+    # 현재 참여 인원수 계산
+    current_members_count = TeamRecruitmentMember.query.filter_by(
+        recruitment_id=recruitment_id
+    ).count()
+    
+    # 팀 게시판 활성화 시 자동으로 마감 처리 (max_members를 현재 인원수로 설정)
+    recruitment.max_members = current_members_count
     recruitment.is_board_activated = True
     
     db.session.commit()

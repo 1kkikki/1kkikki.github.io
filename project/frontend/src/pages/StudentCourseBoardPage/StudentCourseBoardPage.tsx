@@ -38,8 +38,9 @@ import {
   PROFILE_IMAGE_UPDATED_EVENT,
   ProfileImageEventDetail,
 } from "../../utils/profileImage";
-import ConfirmDialog from "../../components/ConfirmDialog";
+import ConfirmDialog from "../Alert/ConfirmDialog";
 import SuccessAlert from "../Alert/SuccessAlert";
+import WarningAlert from "../Alert/WarningAlert";
 
 interface CourseBoardPageProps {
   course: {
@@ -192,6 +193,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 성공 알림 상태
   const [successMessage, setSuccessMessage] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // 경고 알림 상태
+  const [warningMessage, setWarningMessage] = useState("");
+  const [showWarning, setShowWarning] = useState(false);
 
   // 모집 데이터 (서버에서 불러옴)
   const [recruitments, setRecruitments] = useState<TeamRecruitment[]>([]);
@@ -202,24 +207,35 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 선택된 팀 게시판 (팀 게시판 내부로 들어갔을 때)
   const [selectedTeamBoard, setSelectedTeamBoard] = useState<TeamRecruitment | null>(null);
 
-  // 상단 탭 메뉴 (팀 게시판은 활성화된 경우에만 표시)
+  // 상단 탭 메뉴 (팀 게시판은 활성화된 경우에만 표시, 각 팀 게시판마다 개별 탭)
   const tabs = useMemo(() => {
-    const baseTabs = [
+    const baseTabs: Array<{ id: string; name: string; icon: any; teamBoardId?: number; teamBoardName?: string }> = [
       { id: "notice", name: "공지", icon: Bell },
       { id: "community", name: "커뮤니티", icon: MessageCircle },
       { id: "recruit", name: "모집", icon: Users },
     ];
     
-    // 활성화된 팀 게시판이 있으면 팀 게시판 탭 추가
-    if (teamBoards.length > 0) {
-      baseTabs.push({ id: "team", name: "팀 게시판", icon: Hash });
-    }
+    // 활성화된 각 팀 게시판마다 개별 탭 추가
+    teamBoards.forEach((teamBoard) => {
+      if (teamBoard.team_board_name) {
+        baseTabs.push({ 
+          id: `team-${teamBoard.id}`, 
+          name: `팀 게시판: ${teamBoard.team_board_name}`, 
+          icon: Hash,
+          teamBoardId: teamBoard.id,
+          teamBoardName: teamBoard.team_board_name
+        });
+      }
+    });
     
     return baseTabs;
   }, [teamBoards]);
 
   // 매핑 함수
   function tabNameToCategory(tab: string): string {
+    if (tab.startsWith("팀 게시판:")) {
+      return "team";
+    }
     switch (tab) {
       case "공지":
         return "notice";
@@ -227,8 +243,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         return "recruit";
       case "커뮤니티":
         return "community";
-      case "팀 게시판":
-        return "team";
       default:
         return "community";
     }
@@ -374,15 +388,29 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
     try {
       const target = JSON.parse(stored);
-      if (target.courseCode === course.code && typeof target.postId === "number") {
-        setNotificationTargetPostId(target.postId);
+      if (target.courseCode === course.code) {
+        // 게시글 관련 알림
+        if (typeof target.postId === "number") {
+          setNotificationTargetPostId(target.postId);
+        }
+        // 강의 참여 알림 - 이미 해당 강의 게시판에 있으므로 아무것도 하지 않음
+        else if (target.type === 'enrollment') {
+          // 이미 해당 강의 게시판에 있으므로 아무것도 하지 않음
+        }
+        // 팀 모집 참여 알림 - 모집 상세 모달 바로 열기
+        else if (target.type === 'recruitment_join') {
+          // recruitmentId가 있으면 해당 모집을 선택 (recruitments가 로드된 후 처리)
+          if (target.recruitmentId) {
+            setNotificationTargetRecruitmentId(target.recruitmentId);
+          }
+        }
       }
     } catch (err) {
       console.error("알림 타겟 파싱 실패:", err);
     } finally {
       localStorage.removeItem("notificationTarget");
     }
-  }, [course.code]);
+  }, [course.code, recruitments]);
 
   // 프로필 이미지 가져오기
   useEffect(() => {
@@ -497,18 +525,44 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 알림 데이터
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationTargetPostId, setNotificationTargetPostId] = useState<number | null>(null);
+  const [notificationTargetRecruitmentId, setNotificationTargetRecruitmentId] = useState<number | null>(null);
+
+  // 현재 선택된 팀 게시판 정보 가져오기
+  const currentTeamBoard = useMemo(() => {
+    if (activeTab.startsWith("팀 게시판:")) {
+      const teamBoardName = activeTab.replace("팀 게시판: ", "");
+      return teamBoards.find(tb => tb.team_board_name === teamBoardName) || null;
+    }
+    return null;
+  }, [activeTab, teamBoards]);
+  
+  // 팀 게시판 탭이 선택되면 자동으로 selectedTeamBoard 설정
+  useEffect(() => {
+    if (currentTeamBoard && selectedTeamBoard?.id !== currentTeamBoard.id) {
+      setSelectedTeamBoard(currentTeamBoard);
+    } else if (!activeTab.startsWith("팀 게시판:") && selectedTeamBoard) {
+      setSelectedTeamBoard(null);
+    }
+  }, [currentTeamBoard, activeTab, selectedTeamBoard]);
 
   // 필터링된 게시글
   const filteredPosts = posts.filter(post => {
-    const matchesTab = post.category === activeTab;
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // 팀 게시판에서 특정 팀을 선택한 경우, 해당 팀의 게시글만 표시
-    if (activeTab === "팀 게시판" && selectedTeamBoard) {
-      return matchesTab && matchesSearch && post.team_board_name === selectedTeamBoard.team_board_name;
+    // 팀 게시판 탭인 경우
+    if (activeTab.startsWith("팀 게시판:")) {
+      if (currentTeamBoard) {
+        const matchesTeamBoard = post.category === "팀 게시판" && 
+                                 post.team_board_name === currentTeamBoard.team_board_name;
+        const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                             post.content.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesTeamBoard && matchesSearch;
+      }
+      return false;
     }
     
+    // 일반 탭인 경우
+    const matchesTab = post.category === activeTab;
+    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         post.content.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -541,6 +595,20 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     handlePostClick(targetPost);
     setNotificationTargetPostId(null);
   }, [notificationTargetPostId, posts]);
+
+  // 알림으로 지정된 모집 자동 선택
+  useEffect(() => {
+    if (!notificationTargetRecruitmentId) return;
+    if (!recruitments || recruitments.length === 0) return;
+
+    const targetRecruitment = recruitments.find(r => r.id === notificationTargetRecruitmentId);
+    if (targetRecruitment) {
+      // 모집 탭으로 전환하고 모집 선택 (모달이 바로 열림)
+      setActiveTab("모집");
+      setSelectedRecruitment(targetRecruitment);
+      setNotificationTargetRecruitmentId(null);
+    }
+  }, [notificationTargetRecruitmentId, recruitments]);
 
   // 알림 클릭 핸들러
   const handleNotificationClick = async (notification: Notification) => {
@@ -578,6 +646,51 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         }
 
         // 대시보드(강의 목록 화면)로 이동
+        onBack();
+      }
+    }
+
+    // 강의 참여 알림이면 현재 강의에 있으므로 아무것도 하지 않음
+    if (notification.type === 'enrollment' && notification.course_id === course.code) {
+      // 이미 해당 강의 게시판에 있으므로 아무것도 하지 않음
+    } else if (notification.type === 'enrollment' && notification.course_id) {
+      // 다른 강의 참여 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
+      try {
+        localStorage.setItem(
+          "notificationTarget",
+          JSON.stringify({
+            courseCode: notification.course_id,
+            type: 'enrollment',
+          })
+        );
+      } catch (e) {
+        console.error("알림 타겟 저장 실패:", e);
+      }
+      onBack();
+    }
+
+    // 팀 모집 참여 알림이면 모집 상세 모달 바로 열기
+    if (notification.type === 'recruitment_join') {
+      // 현재 강의에 대한 알림이면 모집 상세 모달 바로 열기
+      if (notification.course_id === course.code) {
+        // related_id가 있으면 해당 모집을 선택 (recruitments가 로드된 후 처리)
+        if (notification.related_id) {
+          setNotificationTargetRecruitmentId(notification.related_id);
+        }
+      } else if (notification.course_id) {
+        // 다른 강의 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
+        try {
+          localStorage.setItem(
+            "notificationTarget",
+            JSON.stringify({
+              courseCode: notification.course_id,
+              type: 'recruitment_join',
+              recruitmentId: notification.related_id,
+            })
+          );
+        } catch (e) {
+          console.error("알림 타겟 저장 실패:", e);
+        }
         onBack();
       }
     }
@@ -704,11 +817,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         };
         setPostFiles(prev => [...prev, fileData]);
       } else {
-        alert(res.message || "파일 업로드에 실패했습니다.");
+        setWarningMessage(res.message || "파일 업로드에 실패했습니다.");
+        setShowWarning(true);
       }
     } catch (err) {
       console.error("파일 업로드 실패:", err);
-      alert("파일 업로드 중 오류가 발생했습니다.");
+      setWarningMessage("파일 업로드 중 오류가 발생했습니다.");
+      setShowWarning(true);
     }
   };
 
@@ -720,7 +835,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     Array.from(files).forEach(file => {
       // 파일 크기 확인 (50MB)
       if (file.size > 50 * 1024 * 1024) {
-        alert(`${file.name} 파일 크기는 50MB를 초과할 수 없습니다.`);
+        setWarningMessage(`${file.name} 파일 크기는 50MB를 초과할 수 없습니다.`);
+        setShowWarning(true);
         return;
       }
       handleFileUpload(file, fileType);
@@ -753,7 +869,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
     Array.from(files).forEach(file => {
       if (file.size > 50 * 1024 * 1024) {
-        alert(`${file.name} 파일 크기는 50MB를 초과할 수 없습니다.`);
+        setWarningMessage(`${file.name} 파일 크기는 50MB를 초과할 수 없습니다.`);
+        setShowWarning(true);
         return;
       }
       const fileType = getFileType(file.name);
@@ -775,7 +892,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   const handleCreatePost = async () => {
     if (!newPostTitle.trim() || !newPostContent.trim()) {
-      alert("제목과 내용을 입력해주세요.");
+      setWarningMessage("제목과 내용을 입력해주세요.");
+      setShowWarning(true);
       return;
     }
 
@@ -793,7 +911,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }));
 
       // 팀 게시판인 경우 team_board_name 추가
-      const teamBoardName = activeTab === "팀 게시판" && selectedTeamBoard ? selectedTeamBoard.team_board_name : null;
+      const teamBoardName = activeTab.startsWith("팀 게시판:") 
+        ? activeTab.replace("팀 게시판: ", "")
+        : null;
 
       // 서버에 글 생성 요청 보내기
       const res = await createBoardPost(
@@ -837,7 +957,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       setIsCreatePostOpen(false);
     } catch (err) {
       console.error("게시글 작성 실패:", err);
-      alert("게시글 작성 중 오류가 발생했습니다.");
+      setWarningMessage("게시글 작성 중 오류가 발생했습니다.");
+      setShowWarning(true);
     }
   };
 
@@ -926,47 +1047,51 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       setReplyTo(null);
     } catch (err) {
       console.error("댓글 작성 실패:", err);
-      alert("댓글 작성 중 오류가 발생했습니다.");
+      setWarningMessage("댓글 작성 중 오류가 발생했습니다.");
+      setShowWarning(true);
     }
   };
 
   const handleDeleteComment = async (commentId: number) => {
     if (!selectedPost) return;
-    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+    setConfirmMessage("댓글을 삭제하시겠습니까?");
+    setConfirmCallback(() => async () => {
+      try {
+        await deleteComment(commentId);
 
-    try {
-      await deleteComment(commentId);
+        // 댓글 목록에서 제거 (답글 포함)
+        const removeComment = (comments: Comment[]): Comment[] => {
+          return comments
+            .filter(c => c.id !== commentId)
+            .map(c => ({
+              ...c,
+              replies: c.replies ? removeComment(c.replies) : c.replies
+            }));
+        };
 
-      // 댓글 목록에서 제거 (답글 포함)
-      const removeComment = (comments: Comment[]): Comment[] => {
-        return comments
-          .filter(c => c.id !== commentId)
-          .map(c => ({
-            ...c,
-            replies: c.replies ? removeComment(c.replies) : c.replies
-          }));
-      };
+        setSelectedPost({
+          ...selectedPost,
+          comments: removeComment(selectedPost.comments),
+        });
 
-      setSelectedPost({
-        ...selectedPost,
-        comments: removeComment(selectedPost.comments),
-      });
-
-      // 목록의 댓글 수도 업데이트
-      setPosts(prev =>
-        prev.map(post =>
-          post.id === selectedPost.id
-            ? {
-                ...post,
-                comments_count: (post.comments_count || 0) - 1,
-              }
-            : post
-        )
-      );
-    } catch (err) {
-      console.error("댓글 삭제 실패:", err);
-      alert("댓글 삭제 중 오류가 발생했습니다.");
-    }
+        // 목록의 댓글 수도 업데이트
+        setPosts(prev =>
+          prev.map(post =>
+            post.id === selectedPost.id
+              ? {
+                  ...post,
+                  comments_count: (post.comments_count || 0) - 1,
+                }
+              : post
+          )
+        );
+      } catch (err) {
+        console.error("댓글 삭제 실패:", err);
+        setWarningMessage("댓글 삭제 중 오류가 발생했습니다.");
+        setShowWarning(true);
+      }
+    });
+    setShowConfirm(true);
   };
 
   const handleCommentLike = async (commentId: number) => {
@@ -991,7 +1116,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       });
     } catch (err) {
       console.error("댓글 좋아요 실패:", err);
-      alert("댓글 좋아요 중 오류가 발생했습니다.");
+      setWarningMessage("댓글 좋아요 중 오류가 발생했습니다.");
+      setShowWarning(true);
     }
   };
 
@@ -1197,6 +1323,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
     const recruitment = recruitments.find(r => r.id === recruitmentId);
     const isCurrentlyJoined = recruitment?.isJoined;
+    
+    // 팀 게시판이 활성화된 경우 참여 취소 불가
+    if (isCurrentlyJoined && recruitment?.is_board_activated) {
+      setWarningMessage("팀 게시판이 활성화되어 참여 취소할 수 없습니다.");
+      setShowWarning(true);
+      return;
+    }
 
     // 참여 취소인 경우 확인 다이얼로그 표시
     if (isCurrentlyJoined) {
@@ -1240,7 +1373,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
           loadTeamBoards();
         } catch (err) {
           console.error("모집 참여/취소 실패:", err);
-          alert("모집 참여/취소 중 오류가 발생했습니다.");
+          setWarningMessage("모집 참여/취소 중 오류가 발생했습니다.");
+          setShowWarning(true);
         }
       });
       setShowConfirm(true);
@@ -1286,26 +1420,31 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       loadTeamBoards();
     } catch (err) {
       console.error("모집 참여/취소 실패:", err);
-      alert("모집 참여/취소 중 오류가 발생했습니다.");
+      setWarningMessage("모집 참여/취소 중 오류가 발생했습니다.");
+      setShowWarning(true);
     }
   };
 
   // 모집 생성 핸들러
   const handleCreateRecruitment = async () => {
     if (!newRecruitment.team_board_name?.trim()) {
-      alert("팀게시판 이름을 입력해주세요.");
+      setWarningMessage("팀게시판 이름을 입력해주세요.");
+      setShowWarning(true);
       return;
     }
     if (!newRecruitment.title.trim()) {
-      alert("제목을 입력해주세요.");
+      setWarningMessage("제목을 입력해주세요.");
+      setShowWarning(true);
       return;
     }
     if (!newRecruitment.description.trim()) {
-      alert("내용을 입력해주세요.");
+      setWarningMessage("내용을 입력해주세요.");
+      setShowWarning(true);
       return;
     }
     if (newRecruitment.maxMembers < 2) {
-      alert("인원수는 최소 2명 이상이어야 합니다.");
+      setWarningMessage("인원수는 최소 2명 이상이어야 합니다.");
+      setShowWarning(true);
       return;
     }
 
@@ -1343,7 +1482,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       setIsCreateRecruitmentOpen(false);
     } catch (err) {
       console.error("모집글 작성 실패:", err);
-      alert("모집글 작성 중 오류가 발생했습니다.");
+      setWarningMessage("모집글 작성 중 오류가 발생했습니다.");
+      setShowWarning(true);
     }
   };
 
@@ -1357,7 +1497,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         setSelectedRecruitment(null);
       } catch (err) {
         console.error("모집글 삭제 실패:", err);
-        alert("모집글 삭제 중 오류가 발생했습니다.");
+        setWarningMessage("모집글 삭제 중 오류가 발생했습니다.");
+        setShowWarning(true);
       }
     });
     setShowConfirm(true);
@@ -1378,7 +1519,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         await loadRecruitments();
       } catch (err) {
         console.error("팀 게시판 삭제 실패:", err);
-        alert("팀 게시판 삭제 중 오류가 발생했습니다.");
+        setWarningMessage("팀 게시판 삭제 중 오류가 발생했습니다.");
+        setShowWarning(true);
       }
     });
     setShowConfirm(true);
@@ -1386,22 +1528,32 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 팀 게시판 활성화 핸들러
   const handleActivateTeamBoard = async (recruitmentId: number) => {
-    setConfirmMessage("팀 게시판을 활성화하시겠습니까?");
+    setConfirmMessage("팀 게시판을 활성화하시겠습니까?\n 팀 게시판 활성화 시 자동으로 마감 처리됩니다.");
     setConfirmCallback(() => async () => {
       try {
         const res = await activateTeamBoard(recruitmentId);
+        
+        // 에러 응답 처리
+        if (res.message && res.message.includes("이미 활성화")) {
+          setWarningMessage(res.message);
+          setShowWarning(true);
+          return;
+        }
+        
         if (res.message && res.recruitment) {
           // SuccessAlert로 표시
           setSuccessMessage("팀 게시판이 활성화 되었습니다!");
           setShowSuccess(true);
           
-          // 모집글 목록 업데이트
+          // 모집글 목록 업데이트 (서버에서 받은 최신 데이터로 업데이트)
           setRecruitments(prev =>
             prev.map(rec =>
               rec.id === recruitmentId
                 ? {
                     ...rec,
-                    is_board_activated: true,
+                    is_board_activated: res.recruitment.is_board_activated || true,
+                    maxMembers: res.recruitment.max_members || rec.maxMembers,
+                    currentMembers: res.recruitment.current_members || rec.currentMembers,
                   }
                 : rec
             )
@@ -1413,19 +1565,28 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               prev
                 ? {
                     ...prev,
-                    is_board_activated: true,
+                    is_board_activated: res.recruitment.is_board_activated || true,
+                    maxMembers: res.recruitment.max_members || prev.maxMembers,
+                    currentMembers: res.recruitment.current_members || prev.currentMembers,
                   }
                 : prev
             );
           }
           
-          // 게시글 목록, 팀 게시판 목록 새로고침
-          loadPosts();
-          loadTeamBoards();
+          // 게시글 목록, 모집글 목록, 팀 게시판 목록 새로고침
+          await loadRecruitments();
+          await loadTeamBoards();
+          await loadPosts();
+        } else if (res.message) {
+          // 에러 메시지만 있는 경우
+          setWarningMessage(res.message);
+          setShowWarning(true);
         }
       } catch (err: any) {
         console.error("팀 게시판 활성화 실패:", err);
-        alert(err.message || "팀 게시판 활성화 중 오류가 발생했습니다.");
+        const errorMessage = err.message || err.response?.data?.message || "팀 게시판 활성화 중 오류가 발생했습니다.";
+        setWarningMessage(errorMessage);
+        setShowWarning(true);
       }
     });
     setShowConfirm(true);
@@ -1433,18 +1594,22 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 게시글 삭제 핸들러
   const handleDeletePost = async (postId: number) => {
-    const ok = confirm("이 게시글을 삭제하시겠습니까?");
-    if (!ok) return;
-
-    try {
-      await deleteBoardPost(postId);
-      // 성공하면 프론트에서도 제거
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
-      setSelectedPost(null);
-    } catch (err) {
-      console.error("게시글 삭제 실패:", err);
-      alert("게시글 삭제 중 오류가 발생했습니다.");
-    }
+    setConfirmMessage("이 게시글을 삭제하시겠습니까?");
+    setConfirmCallback(() => async () => {
+      try {
+        await deleteBoardPost(postId);
+        // 성공하면 프론트에서도 제거
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+        setSelectedPost(null);
+        setSuccessMessage("게시글이 삭제되었습니다.");
+        setShowSuccess(true);
+      } catch (err) {
+        console.error("게시글 삭제 실패:", err);
+        setWarningMessage("게시글 삭제 중 오류가 발생했습니다.");
+        setShowWarning(true);
+      }
+    });
+    setShowConfirm(true);
   };
 
   return (
@@ -1580,7 +1745,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
             <button
               key={tab.id}
               className={`course-board__tab ${activeTab === tab.name ? "course-board__tab--active" : ""}`}
-              onClick={() => setActiveTab(tab.name)}
+              onClick={() => {
+                setActiveTab(tab.name);
+                // 팀 게시판 탭이 아닌 경우 selectedTeamBoard 초기화
+                if (!tab.name.startsWith("팀 게시판:")) {
+                  setSelectedTeamBoard(null);
+                }
+              }}
             >
               <Icon size={16} />
               <span>{tab.name}</span>
@@ -1594,19 +1765,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         <main className="course-board__main course-board__main--full">
           {/* 검색 */}
           <div className="course-board__toolbar">
-            {activeTab === "팀 게시판" && selectedTeamBoard && (
-              <button
-                className="course-board__back-to-list-button"
-                onClick={() => setSelectedTeamBoard(null)}
-              >
-                ← 팀 게시판 목록
-              </button>
-            )}
-            {activeTab === "팀 게시판" && selectedTeamBoard && (
-              <div style={{ fontSize: '16px', fontWeight: '600', color: '#374151' }}>
-                {selectedTeamBoard.team_board_name}
-              </div>
-            )}
             <div className="course-board__search">
               <Search size={18} />
               <input
@@ -1616,7 +1774,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            {activeTab === "팀 게시판" && selectedTeamBoard && (
+            {activeTab.startsWith("팀 게시판:") && currentTeamBoard && (
               <button
                 className="course-board__available-time-button"
                 onClick={handleOpenAvailableTimeModal}
@@ -1681,20 +1839,26 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       <div className="recruitment-card__footer">
                         <div className="recruitment-card__members">
                           <Users size={18} />
-                          <span className={isFull ? "recruitment-card__members-full" : ""}>
+                          <span className={isFull || recruitment.is_board_activated ? "recruitment-card__members-full" : ""}>
                             {recruitment.currentMembers} / {recruitment.maxMembers}명
                           </span>
-                          {isFull && <span className="recruitment-card__full-badge">마감</span>}
+                          {(isFull || recruitment.is_board_activated) && <span className="recruitment-card__full-badge">마감</span>}
                         </div>
 
                         {recruitment.author_id !== user?.id ? (
                           <button
                             className={`recruitment-card__join-button ${recruitment.isJoined ? "recruitment-card__join-button--joined" : ""
-                              } ${isFull && !recruitment.isJoined ? "recruitment-card__join-button--disabled" : ""}`}
+                              } ${(isFull && !recruitment.isJoined) || recruitment.is_board_activated || (recruitment.isJoined && recruitment.is_board_activated) ? "recruitment-card__join-button--disabled" : ""}`}
                             onClick={(e) => handleJoinRecruitment(recruitment.id, e)}
-                            disabled={isFull && !recruitment.isJoined}
+                            disabled={(isFull && !recruitment.isJoined) || recruitment.is_board_activated || (recruitment.isJoined && recruitment.is_board_activated)}
                           >
-                            {recruitment.isJoined ? "참여 취소" : isFull ? "마감" : "참여하기"}
+                            {recruitment.is_board_activated 
+                              ? (recruitment.isJoined ? "참여중" : "마감")
+                              : recruitment.isJoined 
+                                ? "참여 취소" 
+                                : isFull 
+                                  ? "마감" 
+                                  : "참여하기"}
                           </button>
                         ) : (
                           <div style={{ minWidth: '100px', flexShrink: 0 }}></div>
@@ -1705,79 +1869,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     </div>
                   );
                 })}
-              </div>
-            </div>
-          ) : activeTab === "팀 게시판" && !selectedTeamBoard ? (
-            /* 팀 게시판 목록 */
-            <div className="recruitment-cards">
-              <div className="course-board__posts-header">
-                {teamBoards.length}개의 팀 게시판
-              </div>
-              <div className="recruitment-cards__grid">
-                {teamBoards.map((board) => (
-                  <div
-                    key={board.id}
-                    className="recruitment-card"
-                    onClick={() => setSelectedTeamBoard(board)}
-                  >
-                    <div className="recruitment-card__header">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <h3 className="recruitment-card__title">{board.team_board_name}</h3>
-                        {board.author_id === user?.id && (
-                          <button
-                            className="team-board-delete-button"
-                            onClick={(e) => handleDeleteTeamBoard(e, board.id)}
-                            title="팀 게시판 삭제"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#ef4444',
-                              borderRadius: '4px',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#fee2e2'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="recruitment-card__author">
-                        <div style={{ 
-                          width: '16px', 
-                          height: '16px', 
-                          borderRadius: '50%', 
-                          overflow: 'hidden', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          background: board.author_profile_image && board.author_profile_image.startsWith('color:') 
-                            ? board.author_profile_image.replace('color:', '')
-                            : board.author_profile_image 
-                              ? 'transparent' 
-                              : '#e5e7eb'
-                        }}>
-                          {renderProfileAvatar(board.author_id, board.author_profile_image ?? null, 16)}
-                        </div>
-                        <div className="recruitment-card__author-text">
-                          <span className="recruitment-card__author-name">{board.author}</span>
-                          {board.author_student_id && (
-                            <span className="recruitment-card__author-id">{board.author_student_id}</span>
-                          )}
-                          {board.is_professor && (
-                            <span className="recruitment-card__author-professor">교수</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                ))}
               </div>
             </div>
           ) : (
@@ -1862,8 +1953,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       </div>
 
       {/* 플로팅 게시글 작성 버튼 */}
-      {!(activeTab === "공지" && user?.user_type === "student") && 
-       !(activeTab === "팀 게시판" && !selectedTeamBoard) && (
+      {!(activeTab === "공지" && user?.user_type === "student") && (
         <button
           className="course-board__floating-add-button"
           onClick={() => activeTab === "모집" ? setIsCreateRecruitmentOpen(true) : setIsCreatePostOpen(true)}
@@ -2512,22 +2602,24 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   {selectedRecruitment.author_id !== user?.id && (
                     <button
                       className={`recruitment-detail-join-button ${selectedRecruitment.isJoined ? "recruitment-detail-join-button--joined" : ""
-                        } ${selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined ? "recruitment-detail-join-button--disabled" : ""}`}
+                        } ${(selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined) || selectedRecruitment.is_board_activated || (selectedRecruitment.isJoined && selectedRecruitment.is_board_activated) ? "recruitment-detail-join-button--disabled" : ""}`}
                       onClick={() => {
                         handleJoinRecruitment(selectedRecruitment.id);
                         // 상태 업데이트를 반영하기 위해 모달도 업데이트
                         const updated = recruitments.find(r => r.id === selectedRecruitment.id);
                         if (updated) setSelectedRecruitment(updated);
                       }}
-                      disabled={selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined}
+                      disabled={(selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers && !selectedRecruitment.isJoined) || selectedRecruitment.is_board_activated || (selectedRecruitment.isJoined && selectedRecruitment.is_board_activated)}
                     >
                       <Users size={20} />
                       <span>
-                        {selectedRecruitment.isJoined
-                          ? "참여 취소"
-                          : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers
-                            ? "마감"
-                            : "참여하기"}
+                        {selectedRecruitment.is_board_activated
+                          ? (selectedRecruitment.isJoined ? "참여중" : "마감")
+                          : selectedRecruitment.isJoined
+                            ? "참여 취소"
+                            : selectedRecruitment.currentMembers >= selectedRecruitment.maxMembers
+                              ? "마감"
+                              : "참여하기"}
                       </span>
                     </button>
                   )}
@@ -2842,6 +2934,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         show={showSuccess}
         onClose={() => setShowSuccess(false)}
         autoCloseDelay={1500}
+      />
+      
+      {/* 경고 알림 */}
+      <WarningAlert
+        message={warningMessage}
+        show={showWarning}
+        onClose={() => setShowWarning(false)}
+        autoCloseDelay={3000}
       />
     </div>
   );

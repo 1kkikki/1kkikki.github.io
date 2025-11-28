@@ -26,7 +26,7 @@ export default function SuccessAlert({ message, onClose, show = true, autoCloseD
     <div className="success-alert-overlay" onClick={onClose}>
       <div className="success-alert-container" onClick={(e) => e.stopPropagation()}>
         <div className="success-alert-icon-wrapper">
-          <Check className="success-alert-icon" size={24} />
+          <Check className="success-alert-icon" size={32} />
         </div>
         <p className="success-alert-message">{message}</p>
       </div>
