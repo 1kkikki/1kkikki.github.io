@@ -10,7 +10,7 @@ const getAuthHeader = () => {
 };
 
 // 모든 일정 조회 (년/월 필터링 가능)
-export const getSchedules = async (year = null, month = null) => {
+export const getSchedules = async (year: number | null = null, month: number | null = null) => {
   try {
     let url = `${SCHEDULE_URL}/`;
     if (year && month) {
@@ -27,7 +27,14 @@ export const getSchedules = async (year = null, month = null) => {
 };
 
 // 일정 생성
-export const createSchedule = async (scheduleData) => {
+export const createSchedule = async (scheduleData: {
+  title: string;
+  date: number;
+  month: number;
+  year: number;
+  color: string;
+  category?: string;
+}) => {
   try {
     const response = await axios.post(`${SCHEDULE_URL}/`, scheduleData, {
       headers: getAuthHeader(),
@@ -40,7 +47,17 @@ export const createSchedule = async (scheduleData) => {
 };
 
 // 일정 수정
-export const updateSchedule = async (scheduleId, scheduleData) => {
+export const updateSchedule = async (
+  scheduleId: number,
+  scheduleData: {
+    title: string;
+    date: number;
+    month: number;
+    year: number;
+    color: string;
+    category?: string;
+  }
+) => {
   try {
     const response = await axios.put(
       `${SCHEDULE_URL}/${scheduleId}`,
@@ -57,7 +74,7 @@ export const updateSchedule = async (scheduleId, scheduleData) => {
 };
 
 // 일정 삭제
-export const deleteSchedule = async (scheduleId) => {
+export const deleteSchedule = async (scheduleId: number) => {
   try {
     const response = await axios.delete(`${SCHEDULE_URL}/${scheduleId}`, {
       headers: getAuthHeader(),
@@ -68,3 +85,4 @@ export const deleteSchedule = async (scheduleId) => {
     throw error;
   }
 };
+

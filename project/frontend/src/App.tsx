@@ -39,11 +39,14 @@ export default function App() {
   };
 
 
+  // 강의 참여 맥락인지 확인 (courseInfo가 설정되어 있을 때)
+  const isCourseJoinContext = courseInfo.id !== '';
+
   return (
     <AuthProvider>
       {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
-      {currentPage === 'login' && <LoginPage onNavigate={handleNavigate} />}
-      {currentPage === 'signup' && <SignUpPage onNavigate={handleNavigate} />}
+      {currentPage === 'login' && <LoginPage onNavigate={handleNavigate} returnToCourseJoin={isCourseJoinContext} />}
+      {currentPage === 'signup' && <SignUpPage onNavigate={handleNavigate} returnToCourseJoin={isCourseJoinContext} />}
       {currentPage === 'signup-for-course' && <SignUpPage onNavigate={handleNavigate} returnToCourseJoin={true} />}
       {currentPage === 'student-dashboard' && <StudentDashboardPage onNavigate={handleNavigate} />}
       {currentPage === 'professor-dashboard' && <ProfessorDashboardPage onNavigate={handleNavigate} />}

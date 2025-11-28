@@ -74,8 +74,8 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
       <div className="signup-page__background"></div>
       <button 
         className="signup-page__back-button"
-        onClick={() => onNavigate("home")}
-        title="홈으로 돌아가기"
+        onClick={() => onNavigate(returnToCourseJoin ? "course-join-login" : "home")}
+        title={returnToCourseJoin ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
       >
         <ArrowLeft size={20} />
       </button>

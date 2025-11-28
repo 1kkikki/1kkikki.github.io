@@ -8,9 +8,10 @@ import AlertDialog from "../Alert/AlertDialog";
 
 interface LoginPageProps {
   onNavigate: (page: string, type?: 'student' | 'professor') => void;
+  returnToCourseJoin?: boolean;
 }
 
-export default function LoginPage({ onNavigate }: LoginPageProps) {
+export default function LoginPage({ onNavigate, returnToCourseJoin = false }: LoginPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -141,8 +142,8 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
       <div className="login-page__background"></div>
       <button 
         className="login-page__back-button"
-        onClick={() => onNavigate("home")}
-        title="홈으로 돌아가기"
+        onClick={() => onNavigate(returnToCourseJoin ? "course-join-login" : "home")}
+        title={returnToCourseJoin ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
       >
         <ArrowLeft size={20} />
       </button>
