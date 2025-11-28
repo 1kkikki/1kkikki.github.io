@@ -237,8 +237,10 @@ def create_comment(post_id):
     comment_preview = data["content"][:30] + "..." if len(data["content"]) > 30 else data["content"]
     
     if parent_comment_id:
-        # 답글인 경우 - 원 댓글 작성자에게 알림 (본인 제외)
+        # 답글인 경우
         parent_comment = CourseBoardComment.query.get(parent_comment_id)
+
+        # 1) 원 댓글 작성자에게 알림 (본인 제외)
         if parent_comment and parent_comment.author_id != int(user_id):
             notification = Notification(
                 user_id=parent_comment.author_id,
@@ -248,7 +250,21 @@ def create_comment(post_id):
                 course_id=post.course_id
             )
             db.session.add(notification)
-            db.session.commit()
+
+        # 2) 게시글 작성자에게도 알림 (작성자가 답글 작성자가 아니고,
+        #    이미 위에서 알림을 받은 댓글 작성자와도 다를 때)
+        post_author_id = int(post.author_id)
+        if post_author_id != int(user_id) and (not parent_comment or post_author_id != parent_comment.author_id):
+            notification_for_post_author = Notification(
+                user_id=post_author_id,
+                type="reply",
+                content=f"[{course_title}] {category_korean} \"{post.title[:20]}{'...' if len(post.title) > 20 else ''}\" 게시글의 댓글에 새로운 답글이 달렸어요: {comment_preview}",
+                related_id=post_id,
+                course_id=post.course_id
+            )
+            db.session.add(notification_for_post_author)
+
+        db.session.commit()
     else:
         # 일반 댓글인 경우 - 게시글 작성자에게 알림 (본인 제외)
         if post.author_id != int(user_id):

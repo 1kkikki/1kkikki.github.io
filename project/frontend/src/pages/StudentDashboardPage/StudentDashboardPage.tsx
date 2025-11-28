@@ -536,8 +536,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   }
 
   return (
-    <div className="dashboard">
-      <>
+    <>
+      <div className="dashboard">
           {/* 헤더 - 마이페이지 및 로그아웃 버튼 */}
           <header className="dashboard__header">
             <div className="dashboard__header-buttons">
@@ -801,6 +801,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </div>
             </main>
           </div>
+      </div>
 
       {/* 가능한 시간 추가 모달 */}
       {isTimeModalOpen && (
@@ -1127,8 +1128,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
 
       {/* 일정 상세/수정 모달 */}
       {isEventDetailModalOpen && selectedEvent && (
-        <div className="modal-overlay">
-              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setIsEventDetailModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                   <h2 className="modal-title">
                     <Calendar size={24} />
@@ -1243,17 +1244,14 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </div>
             </div>
           )}
-        </>
-      
 
-      {/* 안내창 */}
+      {/* 안내창 / 확인 다이얼로그 */}
       <AlertDialog
         message={alertMessage}
         show={showAlert}
         onClose={() => setShowAlert(false)}
       />
 
-      {/* 확인 다이얼로그 */}
       <ConfirmDialog
         message={confirmMessage}
         show={showConfirm}
@@ -1265,6 +1263,6 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         }}
         onCancel={() => setShowConfirm(false)}
       />
-    </div>
+    </>
   )
 }

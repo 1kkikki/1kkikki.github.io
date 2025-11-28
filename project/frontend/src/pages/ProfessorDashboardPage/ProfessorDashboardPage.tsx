@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
@@ -733,7 +734,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       </div>
 
       {/* 강의 추가 모달 */}
-      {isCourseModalOpen && (
+      {isCourseModalOpen && createPortal(
         <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -790,11 +791,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 일정 추가 모달 */}
-      {isEventModalOpen && (
+      {isEventModalOpen && createPortal(
         <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -905,11 +907,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 일정 상세보기/수정 모달 */}
-      {isEventDetailModalOpen && selectedEvent && (
+      {isEventDetailModalOpen && selectedEvent && createPortal(
         <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -1005,7 +1008,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 안내창 */}
