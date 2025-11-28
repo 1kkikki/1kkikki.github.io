@@ -1102,8 +1102,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  /* 화면 전체를 더 어둡게, 살짝 더 흐리게 처리 */
+  background: rgba(15, 23, 42, 0.7); /* 진한 남색 계열 반투명 */
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;

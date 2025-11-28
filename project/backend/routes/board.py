@@ -216,13 +216,22 @@ def create_comment(post_id):
     course_title = course.title if course else post.course_id
     
     # 카테고리 한글 변환
-    category_names = {
+    base_category_names = {
         "notice": "공지사항",
         "question": "질문게시판",
         "free": "자유게시판",
-        "team": "팀모집"
+        "community": "커뮤니티",
     }
-    category_korean = category_names.get(post.category, post.category)
+
+    # 팀 게시판은 팀게시판-[팀게시판 이름] 형식으로 표시
+    if post.category == "team":
+        if post.team_board_name:
+            category_korean = f"팀게시판-{post.team_board_name}"
+        else:
+            category_korean = "팀게시판"
+    else:
+        # 매핑에 없으면 원래 값을 그대로 사용
+        category_korean = base_category_names.get(post.category, post.category)
     
     # 댓글 내용 미리보기 (30자 제한)
     comment_preview = data["content"][:30] + "..." if len(data["content"]) > 30 else data["content"]

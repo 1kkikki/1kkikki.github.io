@@ -186,6 +186,26 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   }, []);
 
+  // 다른 화면(교수/학생 게시판 등)에서 저장한 알림 타겟이 있는 경우 처리
+  useEffect(() => {
+    const stored = localStorage.getItem("notificationTarget");
+    if (!stored) return;
+
+    try {
+      const target = JSON.parse(stored);
+      if (!target.courseCode || typeof target.postId !== "number") return;
+
+      const course = courses.find((c) => c.code === target.courseCode);
+      if (course) {
+        setSelectedCourse(course);
+      }
+    } catch (err) {
+      console.error("알림 타겟 파싱 실패:", err);
+    } finally {
+      localStorage.removeItem("notificationTarget");
+    }
+  }, [courses]);
+
   // 캘린더 날짜 생성 (2025년 1월 - 수요일 시작)
   const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -232,6 +252,29 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         );
       } catch (err) {
         console.error("알림 읽음 처리 실패:", err);
+      }
+    }
+
+    // 게시판 관련 알림이면 해당 강의의 게시판으로 이동
+    if (
+      (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply') &&
+      notification.course_id &&
+      notification.related_id
+    ) {
+      const targetCourse = courses.find((c) => c.code === notification.course_id);
+      if (targetCourse) {
+        try {
+          localStorage.setItem(
+            "notificationTarget",
+            JSON.stringify({
+              courseCode: notification.course_id,
+              postId: notification.related_id,
+            })
+          );
+        } catch (e) {
+          console.error("알림 타겟 저장 실패:", e);
+        }
+        setSelectedCourse(targetCourse);
       }
     }
   };
@@ -480,17 +523,21 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     "#ffd4a3", "#f4c2d7", "#fff5ba", "#e5e7eb"
   ];
 
+  // 강의가 선택된 경우: 교수 페이지와 동일하게 강의 게시판만 전체 화면으로 표시
+  if (selectedCourse) {
+    return (
+      <CourseBoardPage
+        course={selectedCourse}
+        onBack={() => setSelectedCourse(null)}
+        onNavigate={onNavigate}
+        availableTimes={availableTimes}
+      />
+    );
+  }
+
   return (
     <div className="dashboard">
-      {selectedCourse ? (
-        <CourseBoardPage
-          course={selectedCourse}
-          onBack={() => setSelectedCourse(null)}
-          onNavigate={onNavigate}
-          availableTimes={availableTimes}
-        />
-      ) : (
-        <>
+      <>
           {/* 헤더 - 마이페이지 및 로그아웃 버튼 */}
           <header className="dashboard__header">
             <div className="dashboard__header-buttons">
@@ -755,9 +802,9 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             </main>
           </div>
 
-          {/* 가능한 시간 추가 모달 */}
-          {isTimeModalOpen && (
-            <div className="modal-overlay" onClick={() => setIsTimeModalOpen(false)}>
+      {/* 가능한 시간 추가 모달 */}
+      {isTimeModalOpen && (
+        <div className="modal-overlay">
               <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                   <h2 className="modal-title">
@@ -945,9 +992,9 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             </div>
           )}
 
-          {/* 일정 추가 모달 */}
-          {isEventModalOpen && (
-            <div className="modal-overlay" onClick={() => setIsEventModalOpen(false)}>
+      {/* 일정 추가 모달 */}
+      {isEventModalOpen && (
+        <div className="modal-overlay">
               <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                   <h2 className="modal-title">
@@ -1078,9 +1125,9 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             </div>
           )}
 
-          {/* 일정 상세/수정 모달 */}
-          {isEventDetailModalOpen && selectedEvent && (
-            <div className="modal-overlay" onClick={() => setIsEventDetailModalOpen(false)}>
+      {/* 일정 상세/수정 모달 */}
+      {isEventDetailModalOpen && selectedEvent && (
+        <div className="modal-overlay">
               <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                   <h2 className="modal-title">
@@ -1197,7 +1244,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             </div>
           )}
         </>
-      )}
+      
 
       {/* 안내창 */}
       <AlertDialog

@@ -189,7 +189,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
               onChange={(e) => setRememberMe(e.target.checked)}
             />
             <label htmlFor="rememberMe" className="login-page__checkbox-label">
-              사용자이름 기억
+              아이디 저장
             </label>
           </div>
 
@@ -230,7 +230,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
 
       {/* 아이디 찾기 모달 */}
       {showFindId && (
-        <div className="modal-overlay" onClick={closeFindIdModal}>
+        <div className="modal-overlay">
           <div className="modal-container" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">아이디 찾기</h2>
@@ -287,7 +287,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
 
       {/* 비밀번호 찾기 모달 */}
       {showFindPassword && (
-        <div className="modal-overlay" onClick={closeFindPasswordModal}>
+        <div className="modal-overlay">
           <div className="modal-container" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">비밀번호 찾기</h2>
