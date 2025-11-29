@@ -1238,15 +1238,37 @@
   border-left: 3px solid #a855f7;
 }
 
+.available-time-team-meta {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #5b21b6;
+  font-weight: 600;
+}
+
+.available-time-loading,
+.available-time-error {
+  margin: 0 0 12px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.available-time-error {
+  color: #dc2626;
+}
+
+.available-time-loading {
+  color: #4b5563;
+}
+
 /* ===================================
    TIME SCHEDULE GRID
    =================================== */
 
 .time-schedule {
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 2px solid #e5e7eb;
+  border: 1px solid #e5e7eb;
   margin-bottom: 20px;
 }
 
@@ -1254,7 +1276,7 @@
   display: grid;
   grid-template-columns: 80px repeat(7, 1fr);
   background: #f9fafb;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .time-schedule__corner {
@@ -1265,7 +1287,7 @@
   padding: 12px;
   text-align: center;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
   color: #374151;
   border-right: 1px solid #e5e7eb;
 }
@@ -1290,7 +1312,7 @@
 }
 
 .time-schedule__time-label {
-  padding: 8px 12px;
+  padding: 8px 10px;
   font-size: 12px;
   color: #6b7280;
   font-weight: 500;
@@ -1302,14 +1324,15 @@
 }
 
 .time-schedule__cell {
-  height: 50px;
+  height: 40px;
   border-right: 1px solid #e5e7eb;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  background: #ffffff;
 }
 
 .time-schedule__cell:last-child {
@@ -1317,9 +1340,7 @@
 }
 
 .time-schedule__cell:hover {
-  transform: scale(1.02);
-  z-index: 10;
-  box-shadow: inset 0 0 0 2px #a855f7;
+  background: #fafafa;
 }
 
 /* ===================================
@@ -1330,9 +1351,9 @@
   text-align: center;
   padding: 20px;
   background: #ffffff;
-  border-radius: 12px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .result-title {
@@ -1346,6 +1367,13 @@
   margin: 0;
   font-size: 14px;
   color: #6b7280;
+}
+
+.result-empty {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #dc2626;
+  text-align: center;
 }
 
 /* ===================================
@@ -1372,14 +1400,24 @@
 
 /* 결과 단계 - 보라색 (모든 팀원 가능) */
 .time-schedule__cell--optimal-result {
-  background: #ddd6fe;
+  background: #f5f3ff;
   cursor: default;
   position: relative;
 }
 
 .time-schedule__cell--optimal-result:hover {
-  transform: none;
-  box-shadow: none;
+  background: #f5f3ff;
+}
+
+/* 결과 단계 - 부분 가능 (일부 시간만 가능) */
+.time-schedule__cell--partial-result {
+  background: #ffffff;
+  cursor: default;
+  position: relative;
+}
+
+.time-schedule__cell--partial-result:hover {
+  background: #ffffff;
 }
 
 /* 결과 단계 - 흰색 (불가능한 시간) */
@@ -1390,15 +1428,59 @@
 }
 
 .time-schedule__cell--unavailable-result:hover {
-  transform: none;
-  box-shadow: none;
+  background: #ffffff;
+}
+
+/* 셀 채움 레이어 (세로로 위에서 아래로 채워짐) */
+.time-schedule__cell-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  background: #a78bfa;
+  border-radius: 0;
+  transition: height 0.2s ease;
+  z-index: 1;
+  animation: fillDown 0.6s ease-out, shimmer 3.5s ease-in-out infinite;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes fillDown {
+  from {
+    height: 0 !important;
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.time-schedule__cell--optimal-result .time-schedule__cell-fill {
+  background-color: #a78bfa;
 }
 
 /* 최적 시간 체크 아이콘 */
 .time-schedule__optimal-icon {
   color: #7c3aed;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
+  position: relative;
+  z-index: 2;
 }
 
 /* 결과 보기 모드 셀 (클릭 불가) */

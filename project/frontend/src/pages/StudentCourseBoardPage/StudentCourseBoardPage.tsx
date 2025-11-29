@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
+import { getTeamCommonAvailability } from "../../api/available";
 import { getProfile } from "../../api/profile";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import {
@@ -59,6 +60,29 @@ interface AvailableTime {
   day: string;
   startTime: string;
   endTime: string;
+}
+
+interface TeamMemberTime {
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+}
+
+interface TeamMemberAvailability {
+  user_id: number;
+  name: string;
+  student_id?: string | null;
+  user_type?: string;
+  times: TeamMemberTime[];
+}
+
+interface TeamAvailabilityResponse {
+  team_size: number;
+  team_board_name?: string | null;
+  members: TeamMemberAvailability[];
+  optimal_slots: string[];
+  slot_counts: Record<string, number>;
+  daily_blocks: Record<string, Array<{ start_time: string; end_time: string }>>;
 }
 
 interface Post {
@@ -168,6 +192,16 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
   const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
   const [isResultView, setIsResultView] = useState(false);
+  const SCHEDULE_START_HOUR = 9;
+  const SCHEDULE_END_HOUR = 20;
+  const SCHEDULE_ROW_COUNT = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR + 1;
+  const SLOT_INTERVAL_MINUTES = 10;
+  const SLOTS_PER_HOUR = 60 / SLOT_INTERVAL_MINUTES;
+
+  const AVAILABLE_HOUR_OPTIONS = Array.from({ length: SCHEDULE_ROW_COUNT }, (_, i) =>
+    (SCHEDULE_START_HOUR + i).toString().padStart(2, "0")
+  );
+
   const [newTime, setNewTime] = useState({
     day: "월요일",
     startHour: "09",
@@ -176,6 +210,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     endMinute: "00"
   });
   const [timeOverlapWarning, setTimeOverlapWarning] = useState("");
+  const [teamMemberAvailabilities, setTeamMemberAvailabilities] = useState<TeamMemberAvailability[]>([]);
+  const [teamSize, setTeamSize] = useState(0);
+  const [teamModalName, setTeamModalName] = useState<string | null>(null);
+  const [teamSlotsError, setTeamSlotsError] = useState("");
+  const [isTeamSlotsLoading, setIsTeamSlotsLoading] = useState(false);
 
   // 모집 관련 상태
   const [selectedRecruitment, setSelectedRecruitment] = useState<TeamRecruitment | null>(null);
@@ -1280,13 +1319,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   };
 
   // 가능한 시간 관련 함수
-  const handleOpenAvailableTimeModal = () => {
-    // Dashboard에서 가져온 가능한 시간을 불러옴
-    setMyAvailableTimes([...availableTimes]);
-    setIsResultView(false); // 처음에는 입력 단계
-    setIsAvailableTimeModalOpen(true);
-  };
-
   const checkTimeOverlap = (day: string, startTime: string, endTime: string): boolean => {
     const start = new Date(`2000-01-01 ${startTime}`);
     const end = new Date(`2000-01-01 ${endTime}`);
@@ -1341,90 +1373,153 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     setIsResultView(true);
   };
 
-  // 팀원들의 가능한 시간 (더미 데이터 - 실제로는 서버에서 가져와야 함)
-  const teamMembersAvailableTimes = [
-    {
-      name: "김민수", times: [
-        { id: "m1-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
-        { id: "m1-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
-        { id: "m1-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
-        { id: "m1-4", day: "토요일", startTime: "14:00", endTime: "17:00" },
-      ]
-    },
-    {
-      name: "이지은", times: [
-        { id: "m2-1", day: "월요일", startTime: "10:00", endTime: "12:00" },
-        { id: "m2-2", day: "화요일", startTime: "10:00", endTime: "11:00" },
-        { id: "m2-3", day: "수요일", startTime: "10:00", endTime: "11:00" },
-        { id: "m2-4", day: "토요일", startTime: "14:00", endTime: "16:00" },
-      ]
-    },
-    {
-      name: "최수연", times: [
-        { id: "m3-1", day: "월요일", startTime: "10:00", endTime: "11:00" },
-        { id: "m3-2", day: "화요일", startTime: "13:00", endTime: "15:00" },
-        { id: "m3-3", day: "수요일", startTime: "10:00", endTime: "12:00" },
-        { id: "m3-4", day: "토요일", startTime: "14:00", endTime: "18:00" },
-      ]
-    }
-  ];
+  const loadTeamAvailability = useCallback(async () => {
+    if (!currentTeamBoard) return;
 
-  // 시간을 30분 단위 슬롯으로 변환
-  const convertToTimeSlots = (times: AvailableTime[]): Set<string> => {
+    setIsTeamSlotsLoading(true);
+    setTeamSlotsError("");
+
+    try {
+      const data = await getTeamCommonAvailability(currentTeamBoard.id);
+      if ("error" in data) {
+        throw data.error;
+      }
+
+      setTeamMemberAvailabilities(data.members || []);
+      setTeamSize(data.team_size ?? data.members?.length ?? 0);
+      setTeamModalName(data.team_board_name ?? currentTeamBoard.team_board_name ?? null);
+    } catch (err) {
+      console.error("팀 가능 시간 조회 실패:", err);
+      setTeamMemberAvailabilities([]);
+      setTeamSize(0);
+      setTeamModalName(currentTeamBoard.team_board_name ?? null);
+      setTeamSlotsError("팀원의 가능한 시간을 불러오는 데 실패했습니다.");
+    } finally {
+      setIsTeamSlotsLoading(false);
+    }
+  }, [currentTeamBoard]);
+
+  const handleOpenAvailableTimeModal = async () => {
+    if (!currentTeamBoard) return;
+
+    setMyAvailableTimes([...availableTimes]);
+    setIsResultView(false);
+    setTeamSlotsError("");
+    setTeamModalName(currentTeamBoard.team_board_name ?? null);
+    setIsAvailableTimeModalOpen(true);
+
+    await loadTeamAvailability();
+  };
+
+  const DAY_MAP: Record<string, number> = {
+    "월요일": 0, "화요일": 1, "수요일": 2, "목요일": 3, "금요일": 4, "토요일": 5, "일요일": 6
+  };
+  const parseTimeMinutes = (value?: string): number | null => {
+    if (!value) return null;
+    const [hourStr, minuteStr] = value.split(":");
+    const hour = Number(hourStr);
+    const minute = Number(minuteStr);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+    return hour * 60 + minute;
+  };
+
+  type TimeEntry = AvailableTime | TeamMemberTime;
+
+  const getSlotKey = (dayIndex: number, minutes: number) => {
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+    return `${dayIndex}-${hour}-${minute}`;
+  };
+
+  const getHourSlotKeys = (dayIndex: number, hour: number) => {
+    const baseMinutes = hour * 60;
+    return Array.from({ length: SLOTS_PER_HOUR }, (_, idx) =>
+      getSlotKey(dayIndex, baseMinutes + idx * SLOT_INTERVAL_MINUTES)
+    );
+  };
+
+  const convertToTimeSlots = (times: TimeEntry[]): Set<string> => {
     const slots = new Set<string>();
-    const dayMap: { [key: string]: number } = {
-      "월요일": 0, "화요일": 1, "수요일": 2, "목요일": 3, "금요일": 4, "토요일": 5, "일요일": 6
-    };
 
     times.forEach(time => {
-      const dayIndex = dayMap[time.day];
+      const dayName = "day" in time
+        ? time.day
+        : time.day_of_week;
+      if (!dayName) return;
+      const dayIndex = DAY_MAP[dayName];
       if (dayIndex === undefined) return;
 
-      const [startHour, startMin] = time.startTime.split(':').map(Number);
-      const [endHour, endMin] = time.endTime.split(':').map(Number);
+      const startMinutes = "startTime" in time ? parseTimeMinutes(time.startTime) : parseTimeMinutes(time.start_time);
+      const endMinutes = "endTime" in time ? parseTimeMinutes(time.endTime) : parseTimeMinutes(time.end_time);
+      if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) {
+        return;
+      }
 
-      const startMinutes = startHour * 60 + startMin;
-      const endMinutes = endHour * 60 + endMin;
-
-      // 30분 단위로 슬롯 생성
-      for (let minutes = startMinutes; minutes < endMinutes; minutes += 30) {
+      for (let minutes = startMinutes; minutes < endMinutes; minutes += SLOT_INTERVAL_MINUTES) {
         const hour = Math.floor(minutes / 60);
-        const min = minutes % 60;
-        if (hour >= 9 && hour < 19) {
-          slots.add(`${dayIndex}-${hour}-${min}`);
-        }
+        const minute = minutes % 60;
+        slots.add(`${dayIndex}-${hour}-${minute}`);
       }
     });
 
     return slots;
   };
 
-  // 모든 팀원이 가능한 시간 계산
-  const calculateOptimalTimes = () => {
-    const allMemberSlots = [
-      convertToTimeSlots(myAvailableTimes),
-      ...teamMembersAvailableTimes.map(m => convertToTimeSlots(m.times))
-    ];
+  const teamMemberSlotSets = useMemo(() => {
+    return teamMemberAvailabilities
+      .filter(member => member.user_id !== user?.id)
+      .map(member => convertToTimeSlots(member.times));
+  }, [teamMemberAvailabilities, user?.id]);
 
-    // 모든 팀원이 가능한 시간 찾기
-    const optimalSlots = new Set<string>();
-    const firstMemberSlots = allMemberSlots[0];
+  const mySlotSet = useMemo(() => convertToTimeSlots(myAvailableTimes), [myAvailableTimes]);
 
-    firstMemberSlots.forEach(slot => {
-      const allHaveSlot = allMemberSlots.every(memberSlots => memberSlots.has(slot));
-      if (allHaveSlot) {
-        optimalSlots.add(slot);
+  const combinedSlotSets = useMemo(() => {
+    const sets = [...teamMemberSlotSets];
+    sets.push(mySlotSet);
+    return sets;
+  }, [teamMemberSlotSets, mySlotSet]);
+
+  const slotCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    combinedSlotSets.forEach(set => {
+      set.forEach(slot => {
+        counts[slot] = (counts[slot] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [combinedSlotSets]);
+
+  const optimalSlots = useMemo(() => {
+    if (combinedSlotSets.length === 0) {
+      return new Set<string>();
+    }
+    if (combinedSlotSets.some((set) => set.size === 0)) {
+      return new Set<string>();
+    }
+
+    const sortedSets = [...combinedSlotSets].sort((a, b) => a.size - b.size);
+    const [base, ...rest] = sortedSets;
+    const optimal = new Set<string>();
+    base.forEach((slot) => {
+      if (rest.every((slots) => slots.has(slot))) {
+        optimal.add(slot);
       }
     });
 
-    return optimalSlots;
+    return optimal;
+  }, [combinedSlotSets]);
+
+  const optimalDurationMinutes = useMemo(() => optimalSlots.size * SLOT_INTERVAL_MINUTES, [optimalSlots]);
+  const formatDurationLabel = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}시간 ${mins}분`;
   };
 
-  const isTimeSlotOptimal = (day: number, hour: number) => {
-    const optimalTimes = calculateOptimalTimes();
-    // 전체 시간 슬롯 체크 (00분과 30분 모두)
-    return optimalTimes.has(`${day}-${hour}-0`) || optimalTimes.has(`${day}-${hour}-30`);
-  };
+  const isTimeSlotOptimal = useCallback((day: number, hour: number) => {
+    const hourKeys = getHourSlotKeys(day, hour);
+    return hourKeys.every((key) => optimalSlots.has(key));
+  }, [optimalSlots]);
 
   // 모집 참여/취소 핸들러
   const handleJoinRecruitment = async (recruitmentId: number, e?: React.MouseEvent) => {
@@ -2834,6 +2929,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       미리 입력한 시간이 자동으로 불러와지며, 추가로 시간을 더 입력할 수 있습니다.
                     </p>
                   </div>
+                  {teamModalName && (
+                    <p className="available-time-team-meta">
+                      {teamModalName} · 참여 인원 {teamSize}명
+                    </p>
+                  )}
+                  {isTeamSlotsLoading && (
+                    <p className="available-time-loading">팀원의 가능한 시간을 불러오는 중입니다...</p>
+                  )}
+                  {teamSlotsError && (
+                    <p className="available-time-error">{teamSlotsError}</p>
+                  )}
 
                   {/* 시간 추가 폼 */}
                   <div className="time-form">
@@ -2872,10 +2978,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {Array.from({ length: 24 }, (_, i) => {
-                                const hour = i.toString().padStart(2, '0');
-                                return <option key={hour} value={hour}>{hour}</option>;
-                              })}
+                              {AVAILABLE_HOUR_OPTIONS.map((hour) => (
+                                <option key={hour} value={hour}>{hour}</option>
+                              ))}
                             </select>
                           </div>
                           <span className="time-form-separator">:</span>
@@ -2888,7 +2993,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {["00", "10", "20", "30", "40", "50"].map(min => (
+                              {["00", "30"].map(min => (
                                 <option key={min} value={min}>{min}</option>
                               ))}
                             </select>
@@ -2908,10 +3013,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {Array.from({ length: 24 }, (_, i) => {
-                                const hour = i.toString().padStart(2, '0');
-                                return <option key={hour} value={hour}>{hour}</option>;
-                              })}
+                              {AVAILABLE_HOUR_OPTIONS.map((hour) => (
+                                <option key={hour} value={hour}>{hour}</option>
+                              ))}
                             </select>
                           </div>
                           <span className="time-form-separator">:</span>
@@ -2924,7 +3028,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {["00", "10", "20", "30", "40", "50"].map(min => (
+                              {["00", "30"].map(min => (
                                 <option key={min} value={min}>{min}</option>
                               ))}
                             </select>
@@ -2976,11 +3080,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               ) : (
                 /* 결과 보기 단계 */
                 <>
-                  <div className="result-header">
-                    <h3 className="result-title">✨ 팀 미팅 가능 시간 분석 결과</h3>
-                    <p className="result-description">
-                      모든 팀원이 만날 수 있는 최적의 시간을 찾았습니다!
-                    </p>
+                    <div className="result-header">
+                      <h3 className="result-title">✨ 팀 미팅 가능 시간 분석 결과</h3>
+                      <p className="result-description">
+                        {teamSize > 0
+                          ? `팀원 모두 가능한 시간대 총 ${formatDurationLabel(optimalDurationMinutes)}을 찾았습니다.`
+                          : "팀원이 아직 시간 정보를 등록하지 않아 공통 시간대를 찾을 수 없습니다."}
+                      </p>
+                    {optimalSlots.size === 0 && teamSize > 0 && (
+                      <p className="result-empty">
+                        아직 모든 팀원이 겹치는 시간이 없어요. 시간을 다시 조율해주세요.
+                      </p>
+                    )}
                   </div>
 
                   {/* 주간 시간표 그리드 - 결과 단계 */}
@@ -2995,27 +3106,45 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     </div>
 
                     <div className="time-schedule__body">
-                      {Array.from({ length: 10 }, (_, hourIndex) => (
-                        <div key={hourIndex} className="time-schedule__row">
-                          <div className="time-schedule__time-label time-schedule__time-label--result">
-                            {(9 + hourIndex).toString().padStart(2, '0')}:00
-                          </div>
-                          {Array.from({ length: 7 }, (_, dayIndex) => {
-                            const isOptimal = isTimeSlotOptimal(dayIndex, hourIndex);
+                      {Array.from({ length: SCHEDULE_ROW_COUNT }, (_, hourIndex) => {
+                        const rowHour = SCHEDULE_START_HOUR + hourIndex;
+                        return (
+                          <div key={rowHour} className="time-schedule__row">
+                            <div className="time-schedule__time-label time-schedule__time-label--result">
+                              {rowHour.toString().padStart(2, '0')}:00
+                            </div>
+                            {["월", "화", "수", "목", "금", "토", "일"].map((_, dayIndex) => {
+                              const hourSlotKeys = getHourSlotKeys(dayIndex, rowHour);
+                              const activeSlots = hourSlotKeys.filter((key) => optimalSlots.has(key)).length;
+                              const coverage = (activeSlots / hourSlotKeys.length) * 100;
+                              const isOptimal = activeSlots === hourSlotKeys.length;
+                              const availableMembers = hourSlotKeys.reduce((acc, key, idx) => {
+                                const count = slotCounts[key] ?? 0;
+                                return idx === 0 ? count : Math.min(acc, count);
+                              }, 0);
+                              const availabilityTitle = teamSize > 0
+                                ? `${availableMembers}/${teamSize}명 가능`
+                                : `${availableMembers}명 가능`;
 
-                            return (
-                              <div
-                                key={`${dayIndex}-${hourIndex}`}
-                                className={`time-schedule__cell time-schedule__cell--result ${isOptimal ? 'time-schedule__cell--optimal-result' : 'time-schedule__cell--unavailable-result'
-                                  }`}
-                                title={isOptimal ? '✓ 모든 팀원 만남 가능!' : '✗ 일부 팀원 불가능'}
-                              >
-                                {isOptimal && <span className="time-schedule__optimal-icon">✓</span>}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
+                              return (
+                                <div
+                                  key={`${dayIndex}-${rowHour}`}
+                                  className={`time-schedule__cell time-schedule__cell--result ${isOptimal ? 'time-schedule__cell--optimal-result' : activeSlots > 0 ? 'time-schedule__cell--partial-result' : 'time-schedule__cell--unavailable-result'}`}
+                                  title={availabilityTitle}
+                                >
+                                  {coverage > 0 && (
+                                    <div 
+                                      className="time-schedule__cell-fill" 
+                                      style={{ height: `${coverage}%` }}
+                                    />
+                                  )}
+                                  {isOptimal && <span className="time-schedule__optimal-icon">✓</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 

@@ -31,6 +31,7 @@ interface AvailableTime {
   day: string;
   startTime: string;
   endTime: string;
+  isSynced?: boolean;
 }
 
 // 강의 타입
@@ -91,11 +92,18 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showAllNotifications, setShowAllNotifications] = useState(false);
+  const AVAILABLE_START_HOUR = 9;
+  const AVAILABLE_END_HOUR = 20;
+  const AVAILABLE_HOURS = Array.from(
+    { length: AVAILABLE_END_HOUR - AVAILABLE_START_HOUR + 1 },
+    (_, index) => (AVAILABLE_START_HOUR + index).toString().padStart(2, "0")
+  );
+
   const [newTime, setNewTime] = useState({
     day: "월요일",
-    startHour: "09",
+    startHour: AVAILABLE_START_HOUR.toString().padStart(2, "0"),
     startMinute: "00",
-    endHour: "10",
+    endHour: (AVAILABLE_START_HOUR + 1).toString().padStart(2, "0"),
     endMinute: "00"
   });
   const [timeOverlapWarning, setTimeOverlapWarning] = useState("");
@@ -117,6 +125,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       day: t.day_of_week,
       startTime: t.start_time,
       endTime: t.end_time,
+      isSynced: true,
     }));
     setAvailableTimes(formatted);
   }
@@ -431,7 +440,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       id: Date.now().toString(),
       day: newTime.day,
       startTime: startTime,
-      endTime: endTime
+      endTime: endTime,
+      isSynced: false,
     };
 
     setAvailableTimes([...availableTimes, time]);
@@ -441,9 +451,17 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRemoveTime = async (id: string) => {
+    const target = availableTimes.find((time) => time.id === id);
+    setAvailableTimes((prev) => prev.filter((time) => time.id !== id));
+
+    if (!target?.isSynced) {
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await deleteAvailableTime(id);
+      const parsedId = Number(id);
+      await deleteAvailableTime(Number.isNaN(parsedId) ? id : parsedId);
       await fetchAvailableTimes();
     } catch (error) {
       console.error(error);
@@ -939,10 +957,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {Array.from({ length: 24 }, (_, i) => {
-                                const hour = i.toString().padStart(2, '0');
-                                return <option key={hour} value={hour}>{hour}</option>;
-                              })}
+                              {AVAILABLE_HOURS.map((hour) => (
+                                <option key={hour} value={hour}>
+                                  {hour}
+                                </option>
+                              ))}
                             </select>
                           </div>
                           <span className="time-form-separator">:</span>
@@ -955,7 +974,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {["00", "10", "20", "30", "40", "50"].map(min => (
+                              {["00", "30"].map(min => (
                                 <option key={min} value={min}>{min}</option>
                               ))}
                             </select>
@@ -975,10 +994,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {Array.from({ length: 24 }, (_, i) => {
-                                const hour = i.toString().padStart(2, '0');
-                                return <option key={hour} value={hour}>{hour}</option>;
-                              })}
+                              {AVAILABLE_HOURS.map((hour) => (
+                                <option key={hour} value={hour}>
+                                  {hour}
+                                </option>
+                              ))}
                             </select>
                           </div>
                           <span className="time-form-separator">:</span>
@@ -991,7 +1011,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                                 setTimeOverlapWarning("");
                               }}
                             >
-                              {["00", "10", "20", "30", "40", "50"].map(min => (
+                              {["00", "30"].map(min => (
                                 <option key={min} value={min}>{min}</option>
                               ))}
                             </select>

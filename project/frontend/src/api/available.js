@@ -58,3 +58,21 @@ export async function deleteAvailableTime(id) {
     return { msg: "서버 오류" };
   }
 }
+
+export async function getTeamCommonAvailability(teamId) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  try {
+    const res = await fetch(`${AVAILABLE_URL}/team/${teamId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
+    console.error("팀 가능 시간 조회 오류:", error);
+    return { error };
+  }
+}
