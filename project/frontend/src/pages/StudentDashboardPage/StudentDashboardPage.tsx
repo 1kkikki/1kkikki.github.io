@@ -957,6 +957,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                             </select>
                           </div>
                         </div>
+
                       </div>
 
                       <div className="time-form-group">

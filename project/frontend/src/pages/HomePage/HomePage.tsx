@@ -3,8 +3,8 @@ import { Clock, Calendar, Users, Bell, CheckCircle, ArrowRight, Sparkles, Layout
 import "./home-page.css";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 
-import homepage1 from "@/assets/homepage1.png";
-import homepage2 from "@/assets/homepage2.png";
+import homepage1 from "../../assets/homepage1.png";
+import homepage2 from "../../assets/homepage2.png";
 
 interface HomePageProps {
   onNavigate: (page: string) => void;

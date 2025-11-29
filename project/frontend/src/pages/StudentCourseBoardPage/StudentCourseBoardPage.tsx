@@ -2847,6 +2847,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                             </select>
                           </div>
                         </div>
+
                       </div>
 
                       <div className="time-form-group">
@@ -3057,3 +3058,4 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     </div>
   );
 }
+
