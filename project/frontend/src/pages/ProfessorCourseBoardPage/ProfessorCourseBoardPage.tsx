@@ -30,7 +30,8 @@ import {
   Trash2,
   Image,
   Video,
-  File
+  File,
+  FileText
 } from "lucide-react";
 import { getProfile } from "../../api/profile";
 import "./professor-courseboard.css";
@@ -42,6 +43,7 @@ import {
   ProfileImageEventDetail,
 } from "../../utils/profileImage";
 import SuccessAlert from "../Alert/SuccessAlert";
+import WarningAlert from "../Alert/WarningAlert";
 
 interface CourseBoardPageProps {
   course: {
@@ -100,6 +102,7 @@ interface Notification {
   type: string;
   content: string;
   related_id?: number | null;
+  comment_id?: number | null;
   course_id?: string | null;
   is_read: boolean;
   created_at: string;
@@ -175,6 +178,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   // 성공 알림 상태
   const [successMessage, setSuccessMessage] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // 경고 알림 상태
+  const [warningMessage, setWarningMessage] = useState("");
+  const [showWarning, setShowWarning] = useState(false);
 
   // 강의 초대 링크 생성
   const inviteLink = `${window.location.origin}/#/course/${course.id}/${encodeURIComponent(course.title)}/${encodeURIComponent(course.code)}`;
@@ -364,6 +371,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   // 알림 데이터
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationTargetPostId, setNotificationTargetPostId] = useState<number | null>(null);
+  const [notificationTargetCommentId, setNotificationTargetCommentId] = useState<number | null>(null);
   const [notificationTargetRecruitmentId, setNotificationTargetRecruitmentId] = useState<number | null>(null);
 
   // 현재 선택된 팀 게시판 정보 가져오기
@@ -427,12 +435,45 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     if (!posts || posts.length === 0) return;
 
     const targetPost = posts.find((p) => p.id === notificationTargetPostId);
-    if (!targetPost) return;
+    if (!targetPost) {
+      console.log("게시글을 찾을 수 없음:", notificationTargetPostId);
+      setWarningMessage("삭제된 게시글입니다.");
+      setShowWarning(true);
+      setNotificationTargetPostId(null);
+      setNotificationTargetCommentId(null);
+      return;
+    }
 
-    // 해당 게시글이 있는 탭으로 전환 후 상세 모달 열기
-    setActiveTab(targetPost.category);
-    handlePostClick(targetPost);
+    console.log("알림 게시글:", targetPost.category, targetPost.team_board_name, "현재 탭:", activeTab);
+
+    // 게시글을 찾았으므로 이전 경고 메시지 초기화
+    setShowWarning(false);
+    setWarningMessage("");
+
+    // 해당 게시글이 있는 탭으로 전환
+    let targetTab = targetPost.category;
+    if (targetPost.category === "팀 게시판" && targetPost.team_board_name) {
+      targetTab = `팀 게시판: ${targetPost.team_board_name}`;
+    }
+    
+    console.log("목표 탭:", targetTab);
+    
+    // notificationTargetPostId를 먼저 null로 설정 (useEffect 중복 실행 방지)
     setNotificationTargetPostId(null);
+    
+    // 이미 올바른 탭에 있으면 바로 게시글 열기
+    if (activeTab === targetTab) {
+      console.log("이미 올바른 탭에 있음, 바로 게시글 열기");
+      handlePostClick(targetPost);
+      return;
+    }
+    
+    // 탭이 다르면 전환하고, setTimeout으로 게시글 열기
+    console.log("탭 전환 후 게시글 열기");
+    setActiveTab(targetTab);
+    setTimeout(() => {
+      handlePostClick(targetPost);
+    }, 200);
   }, [notificationTargetPostId, posts]);
 
   // 알림으로 지정된 모집 자동 선택
@@ -442,12 +483,46 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
     const targetRecruitment = recruitments.find(r => r.id === notificationTargetRecruitmentId);
     if (targetRecruitment) {
+      // 모집을 찾았으므로 이전 경고 메시지 초기화
+      setShowWarning(false);
+      setWarningMessage("");
       // 모집 탭으로 전환하고 모집 선택 (모달이 바로 열림)
       setActiveTab("모집");
       setSelectedRecruitment(targetRecruitment);
-      setNotificationTargetRecruitmentId(null);
+    } else {
+      setWarningMessage("삭제된 모집입니다.");
+      setShowWarning(true);
     }
+    setNotificationTargetRecruitmentId(null);
   }, [notificationTargetRecruitmentId, recruitments]);
+
+  // 댓글/답글 알림에서 댓글이 삭제되었는지 확인
+  useEffect(() => {
+    if (!notificationTargetCommentId) return;
+    if (!selectedPost) return;
+    
+    // selectedPost.comments에서 해당 댓글이 있는지 확인 (답글 포함)
+    const findComment = (comments: Comment[]): boolean => {
+      for (const comment of comments) {
+        if (comment.id === notificationTargetCommentId) return true;
+        if (comment.replies && findComment(comment.replies)) return true;
+      }
+      return false;
+    };
+    
+    const commentExists = findComment(selectedPost.comments);
+    if (!commentExists) {
+      console.log("댓글을 찾을 수 없음:", notificationTargetCommentId);
+      setWarningMessage("삭제된 댓글입니다.");
+      setShowWarning(true);
+    } else {
+      // 댓글을 찾았으므로 이전 경고 메시지 초기화
+      setShowWarning(false);
+      setWarningMessage("");
+    }
+    
+    setNotificationTargetCommentId(null);
+  }, [notificationTargetCommentId, selectedPost]);
 
   // 대시보드/다른 화면에서 온 알림 타겟 처리
   useEffect(() => {
@@ -459,7 +534,25 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       if (target.courseCode === course.code) {
         // 게시글 관련 알림
         if (typeof target.postId === "number") {
-          setNotificationTargetPostId(target.postId);
+          // 댓글 ID가 있으면 저장
+          if (target.commentId) {
+            setNotificationTargetCommentId(target.commentId);
+          }
+          
+          // 팀게시판 알림인 경우 먼저 탭 전환 후 게시글 ID 설정
+          if (target.teamBoardName) {
+            console.log("대시보드→강의: 팀게시판 탭 전환:", target.teamBoardName);
+            setActiveTab(`팀 게시판: ${target.teamBoardName}`);
+            // 탭 전환 완료 후 게시글 ID 설정 (다음 렌더 사이클에서)
+            setTimeout(() => {
+              console.log("대시보드→강의: 게시글 ID 설정:", target.postId);
+              setNotificationTargetPostId(target.postId);
+            }, 150);
+          } else {
+            // 일반 게시판은 바로 설정
+            console.log("대시보드→강의: 일반 게시판, 게시글 ID:", target.postId);
+            setNotificationTargetPostId(target.postId);
+          }
         }
         // 강의 참여 알림 - 이미 해당 강의 게시판에 있으므로 아무것도 하지 않음
         else if (target.type === 'enrollment') {
@@ -495,11 +588,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
     // 게시판 관련 알림이면 해당 게시글로 이동
     if (
-      (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply') &&
+      (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply' || notification.type === 'team_post') &&
       notification.related_id
     ) {
       // 현재 강의에 대한 알림이면 바로 게시글 열기
       if (notification.course_id === course.code) {
+        if (notification.comment_id) {
+          setNotificationTargetCommentId(notification.comment_id);
+        }
         setNotificationTargetPostId(notification.related_id);
       } else if (notification.course_id) {
         // 다른 강의 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
@@ -577,6 +673,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       case 'reply': return MessageSquare;
       case 'enrollment': return Users;
       case 'recruitment_join': return Users;
+      case 'team_post': return FileText;
       default: return Bell;
     }
   };
@@ -1035,41 +1132,48 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
   const handleDeleteComment = async (commentId: number) => {
     if (!selectedPost) return;
-    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+    setConfirmMessage("댓글을 삭제하시겠습니까?");
+    setConfirmCallback(() => async () => {
+      try {
+        await deleteComment(commentId);
 
-    try {
-      await deleteComment(commentId);
+        // 댓글 목록에서 제거 (답글 포함)
+        const removeComment = (comments: Comment[]): Comment[] => {
+          return comments
+            .filter(c => c.id !== commentId)
+            .map(c => ({
+              ...c,
+              replies: c.replies ? removeComment(c.replies) : c.replies
+            }));
+        };
 
-      // 댓글 목록에서 제거 (답글 포함)
-      const removeComment = (comments: Comment[]): Comment[] => {
-        return comments
-          .filter(c => c.id !== commentId)
-          .map(c => ({
-            ...c,
-            replies: c.replies ? removeComment(c.replies) : c.replies
-          }));
-      };
+        setSelectedPost({
+          ...selectedPost,
+          comments: removeComment(selectedPost.comments),
+        });
 
-      setSelectedPost({
-        ...selectedPost,
-        comments: removeComment(selectedPost.comments),
-      });
-
-      // 목록의 댓글 수도 업데이트
-      setPosts(prev =>
-        prev.map(post =>
-          post.id === selectedPost.id
-            ? {
-                ...post,
-                comments_count: (post.comments_count || 0) - 1,
-              }
-            : post
-        )
-      );
-    } catch (err) {
-      console.error("댓글 삭제 실패:", err);
-      alert("댓글 삭제 중 오류가 발생했습니다.");
-    }
+        // 목록의 댓글 수도 업데이트
+        setPosts(prev =>
+          prev.map(post =>
+            post.id === selectedPost.id
+              ? {
+                  ...post,
+                  comments_count: (post.comments_count || 0) - 1,
+                }
+              : post
+          )
+        );
+        
+        // 성공 메시지 표시
+        setSuccessMessage("댓글이 삭제되었습니다.");
+        setShowSuccess(true);
+      } catch (err) {
+        console.error("댓글 삭제 실패:", err);
+        setWarningMessage("댓글 삭제 중 오류가 발생했습니다.");
+        setShowWarning(true);
+      }
+    });
+    setShowConfirm(true);
   };
 
   const handleCommentLike = async (commentId: number) => {
@@ -1099,6 +1203,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   };
 
   const handlePostClick = async (post: Post) => {
+    // 게시글 열 때 이전 경고 메시지 초기화 (댓글 타겟은 useEffect에서 처리 후 초기화)
+    setShowWarning(false);
+    setWarningMessage("");
+    
     try {
       // 댓글 불러오기
       const comments = await getComments(post.id);
@@ -1318,6 +1426,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         await deleteRecruitment(recruitmentId);
         setRecruitments(prev => prev.filter(r => r.id !== recruitmentId));
         setSelectedRecruitment(null);
+        setShowWarning(false);
+        setWarningMessage("");
+        setNotificationTargetCommentId(null);
       } catch (err) {
         console.error("모집글 삭제 실패:", err);
         alert("모집글 삭제 중 오류가 발생했습니다.");
@@ -1391,18 +1502,27 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
   // 게시글 삭제 핸들러
   const handleDeletePost = async (postId: number) => {
-    const ok = confirm("이 게시글을 삭제하시겠습니까?");
-    if (!ok) return;
-
-    try {
-      await deleteBoardPost(postId);
-      // 성공하면 프론트에서도 제거
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
-      setSelectedPost(null);
-    } catch (err) {
-      console.error("게시글 삭제 실패:", err);
-      alert("게시글 삭제 중 오류가 발생했습니다.");
-    }
+    setConfirmMessage("이 게시글을 삭제하시겠습니까?");
+    setConfirmCallback(() => async () => {
+      try {
+        await deleteBoardPost(postId);
+        // 성공하면 프론트에서도 제거
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+        setSelectedPost(null);
+        setShowWarning(false);
+        setWarningMessage("");
+        setNotificationTargetCommentId(null);
+        
+        // 성공 메시지 표시
+        setSuccessMessage("게시글이 삭제되었습니다.");
+        setShowSuccess(true);
+      } catch (err) {
+        console.error("게시글 삭제 실패:", err);
+        setWarningMessage("게시글 삭제 중 오류가 발생했습니다.");
+        setShowWarning(true);
+      }
+    });
+    setShowConfirm(true);
   };
 
   const handleCopyLink = async () => {
@@ -1471,9 +1591,40 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                 <div className="course-board__notification-dropdown">
                   <div className="course-board__notification-header">
                     <h3>알림</h3>
-                    <button onClick={() => setIsNotificationOpen(false)}>
-                      <X size={18} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {notifications.some(n => !n.is_read) && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await markAllAsRead();
+                              setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                            } catch (err) {
+                              console.error("모두 읽음 처리 실패:", err);
+                            }
+                          }}
+                          style={{
+                            fontSize: '12px',
+                            color: '#a855f7',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            transition: 'background 0.2s',
+                            width: 'auto',
+                            height: 'auto',
+                            whiteSpace: 'nowrap'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          모두 읽음
+                        </button>
+                      )}
+                      <button onClick={() => setIsNotificationOpen(false)}>
+                        <X size={18} />
+                      </button>
+                    </div>
                   </div>
                   <div className="course-board__notification-list">
                     {notifications.length === 0 ? (
@@ -1939,7 +2090,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
           <div className="course-board__modal course-board__modal--large" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>게시글</h2>
-              <button onClick={() => setSelectedPost(null)}>
+              <button onClick={() => {
+                setSelectedPost(null);
+                setShowWarning(false);
+                setWarningMessage("");
+                setNotificationTargetCommentId(null);
+              }}>
                 <X size={20} />
               </button>
             </div>
@@ -2293,7 +2449,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
           <div className="course-board__modal course-board__modal--large" onClick={(e) => e.stopPropagation()}>
             <div className="course-board__modal-header">
               <h2>모집 상세</h2>
-              <button onClick={() => setSelectedRecruitment(null)}>
+              <button onClick={() => {
+                setSelectedRecruitment(null);
+                setShowWarning(false);
+                setWarningMessage("");
+                setNotificationTargetCommentId(null);
+              }}>
                 <X size={20} />
               </button>
             </div>
@@ -2440,6 +2601,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         message={successMessage}
         show={showSuccess}
         onClose={() => setShowSuccess(false)}
+        autoCloseDelay={1500}
+      />
+      
+      {/* 경고 알림 */}
+      <WarningAlert
+        message={warningMessage}
+        show={showWarning}
+        onClose={() => setShowWarning(false)}
         autoCloseDelay={1500}
       />
     </div>

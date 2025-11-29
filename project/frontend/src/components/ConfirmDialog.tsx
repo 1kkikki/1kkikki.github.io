@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Check } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import "./ConfirmDialog.css";
 
 interface ConfirmDialogProps {
@@ -40,7 +40,7 @@ export default function ConfirmDialog({
     <div className="confirm-dialog-overlay" onClick={onCancel}>
       <div className="confirm-dialog-container" onClick={(e) => e.stopPropagation()}>
         <div className="confirm-dialog-icon-wrapper">
-          <Check className="confirm-dialog-icon" size={24} />
+          <AlertCircle className="confirm-dialog-icon" size={32} />
         </div>
         <p className="confirm-dialog-message">{message}</p>
         <div className="confirm-dialog-footer">

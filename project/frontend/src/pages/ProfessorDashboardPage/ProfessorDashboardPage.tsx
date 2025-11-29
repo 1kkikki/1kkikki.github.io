@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle, Users, FileText } from "lucide-react";
 import { Dialog } from "../../../components/ui/dialog";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
 import { getMyCourses, createCourse, deleteCourse } from "../../api/course.js";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
-import { getNotifications, markAsRead } from "../../api/notification";
+import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import "./professor-dashboard.css";
 import AlertDialog from "../Alert/AlertDialog";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -39,6 +39,7 @@ interface Notification {
   type: string;
   content: string;
   related_id?: number | null;
+  comment_id?: number | null;
   course_id?: string | null;
   is_read: boolean;
   created_at: string;
@@ -145,6 +146,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       case 'reply': return MessageCircle;
       case 'enrollment': return CheckCircle;
       case 'recruitment_join': return CheckCircle;
+      case 'team_post': return FileText;
       default: return Bell;
     }
   };
@@ -157,6 +159,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       case 'reply': return '#3b82f6'; // 파란색
       case 'enrollment': return '#10b981'; // 초록색
       case 'recruitment_join': return '#10b981'; // 초록색
+      case 'team_post': return '#a855f7'; // 보라색 (팀 게시판)
       default: return '#3b82f6'; // 파란색
     }
   };
@@ -176,18 +179,30 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
 
     // 게시판 관련 알림이면 해당 강의의 게시판으로 이동
     if (
-      (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply') &&
+      (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply' || notification.type === 'team_post') &&
       notification.course_id &&
       notification.related_id
     ) {
       const targetCourse = courses.find((c) => c.code === notification.course_id);
       if (targetCourse) {
         try {
+          // 팀게시판 알림인 경우 팀게시판 이름 추출
+          let teamBoardName = null;
+          if (notification.type === 'team_post' || notification.type === 'comment' || notification.type === 'reply') {
+            // 알림 내용에서 "팀게시판-{이름}" 패턴 추출
+            const match = notification.content.match(/팀게시판-([^\s]+)/);
+            if (match && match[1]) {
+              teamBoardName = match[1];
+            }
+          }
+          
           localStorage.setItem(
             "notificationTarget",
             JSON.stringify({
               courseCode: notification.course_id,
               postId: notification.related_id,
+              commentId: notification.comment_id,
+              teamBoardName: teamBoardName,
             })
           );
         } catch (e) {
@@ -603,23 +618,51 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               <h3 className="dashboard__notifications-title">new!</h3>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button 
-                onClick={() => setShowAllNotifications(!showAllNotifications)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#6b7280',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  transition: 'background 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                {showAllNotifications ? '읽지 않은 알림만' : '모두 보기'}
-              </button>
+              <div style={{ display: 'flex', gap: '0px', alignItems: 'center' }}>
+                {notifications.some(n => !n.is_read) && (
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await markAllAsRead();
+                        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                      } catch (err) {
+                        console.error("모두 읽음 처리 실패:", err);
+                      }
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#a855f7',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    모두 읽음
+                  </button>
+                )}
+                <button 
+                  onClick={() => setShowAllNotifications(!showAllNotifications)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#6b7280',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  {showAllNotifications ? '읽지 않은 알림' : '모두 보기'}
+                </button>
+              </div>
               <span className="dashboard__notifications-count">
                 {showAllNotifications ? notifications.length : notifications.filter(n => !n.is_read).length}
               </span>

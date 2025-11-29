@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 from flask import Blueprint, request, jsonify, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User, Course, Enrollment, Notification
+from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User, Course, Enrollment, Notification, TeamRecruitment, TeamRecruitmentMember
 
 board_bp = Blueprint("board", __name__, url_prefix="/board")
 
@@ -163,6 +163,38 @@ def create_post():
             
             db.session.commit()
 
+    # 🔔 팀 게시판인 경우 팀 멤버들에게만 알림
+    if data["category"] == "team" and data.get("team_board_name"):
+        # team_board_name으로 해당 팀 모집글 찾기
+        team_recruitment = TeamRecruitment.query.filter_by(
+            course_id=data["course_id"],
+            team_board_name=data["team_board_name"]
+        ).first()
+        
+        if team_recruitment:
+            # 해당 팀의 멤버들 찾기
+            team_members = TeamRecruitmentMember.query.filter_by(
+                recruitment_id=team_recruitment.id
+            ).all()
+            
+            # 강의 정보 가져오기
+            course = Course.query.filter_by(code=data["course_id"]).first()
+            course_title = course.title if course else data["course_id"]
+            
+            # 각 팀 멤버에게 알림 전송 (작성자 본인 제외)
+            for member in team_members:
+                if member.user_id != int(user_id):  # 작성자 본인은 제외
+                    notification = Notification(
+                        user_id=member.user_id,
+                        type="team_post",
+                        content=f"[{course_title}] 팀게시판-{data['team_board_name']} 새 글이 작성되었습니다: {data['title']}",
+                        related_id=post.id,
+                        course_id=data["course_id"]
+                    )
+                    db.session.add(notification)
+            
+            db.session.commit()
+
     return jsonify({"msg": "글 작성 완료", "post": post.to_dict()}), 201
 
 
@@ -285,6 +317,7 @@ def create_comment(post_id):
                 type="reply",
                 content=f"[{course_title}] {category_korean} \"{post.title[:20]}{'...' if len(post.title) > 20 else ''}\" 게시글의 댓글에 답글이 달렸어요: {comment_preview}",
                 related_id=post_id,
+                comment_id=comment.id,
                 course_id=post.course_id
             )
             db.session.add(notification)
@@ -298,6 +331,7 @@ def create_comment(post_id):
                 type="reply",
                 content=f"[{course_title}] {category_korean} \"{post.title[:20]}{'...' if len(post.title) > 20 else ''}\" 게시글의 댓글에 새로운 답글이 달렸어요: {comment_preview}",
                 related_id=post_id,
+                comment_id=comment.id,
                 course_id=post.course_id
             )
             db.session.add(notification_for_post_author)
@@ -311,6 +345,7 @@ def create_comment(post_id):
                 type="comment",
                 content=f"[{course_title}] {category_korean} \"{post.title[:20]}{'...' if len(post.title) > 20 else ''}\" 게시글에 댓글이 달렸어요: {comment_preview}",
                 related_id=post_id,
+                comment_id=comment.id,
                 course_id=post.course_id
             )
             db.session.add(notification)
