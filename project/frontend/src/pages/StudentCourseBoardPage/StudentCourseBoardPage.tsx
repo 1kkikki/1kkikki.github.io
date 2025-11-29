@@ -1152,7 +1152,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }));
 
       const byId = new Map<number, Comment>();
-      flat.forEach(c => byId.set(c.id, c));
+      flat.forEach(c => {
+        c.replies = [];
+        byId.set(c.id, c);
+      });
 
       const roots: Comment[] = [];
       flat.forEach(c => {
@@ -2246,148 +2249,95 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
               {/* 댓글 목록 */}
               <div className="course-board__comments">
-                <h3>댓글 {selectedPost.comments.length}개</h3>
+                {(() => {
+                  const countComments = (comments: Comment[]): number => {
+                    return comments.reduce((count, comment) => {
+                      return count + 1 + (comment.replies ? countComments(comment.replies) : 0);
+                    }, 0);
+                  };
+                  const totalComments = countComments(selectedPost.comments);
+                  return <h3>댓글 {totalComments}개</h3>;
+                })()}
                 <div className="course-board__comments-list">
-                  {selectedPost.comments.map((comment) => (
-                    <React.Fragment key={comment.id}>
-                      <div className="course-board__comment">
-                        <div 
-                          className="course-board__comment-avatar"
-                          style={
-                            profileImage && comment.author_id === user?.id
-                              ? (profileImage.startsWith('color:') 
-                                  ? { background: profileImage.replace('color:', '') }
-                                  : { background: 'transparent' })
-                              : comment.author_profile_image && comment.author_profile_image.startsWith('color:')
-                                ? { background: comment.author_profile_image.replace('color:', '') }
-                                : comment.author_profile_image
-                                  ? { background: 'transparent' }
-                                  : {}
-                          }
-                        >
-                          {renderProfileAvatar(comment.author_id, comment.author_profile_image, 20)}
-                        </div>
-                        <div className="course-board__comment-content">
-                          <div className="course-board__comment-header">
-                            <div className="course-board__comment-author-row">
-                              <span className="course-board__comment-author">{comment.author}</span>
-                              {comment.author === selectedPost.author && (
-                                <span className="course-board__comment-author-badge">작성자</span>
-                              )}
-                              {comment.author_student_id && (
-                                <span className="course-board__comment-author-id">{comment.author_student_id}</span>
-                              )}
-                              {comment.is_professor && (
-                                <span className="course-board__comment-author-professor">교수</span>
-                              )}
+                  {selectedPost.comments.map((comment) => {
+                    const renderComment = (c: Comment, depth: number = 0) => {
+                      const isReply = depth > 0;
+                      const isNestedReply = depth > 1;
+                      return (
+                        <React.Fragment key={c.id}>
+                          <div className={`course-board__comment ${isReply ? 'course-board__comment--reply' : ''} ${isNestedReply ? 'course-board__comment--reply-nested' : ''}`}>
+                            <div 
+                              className="course-board__comment-avatar"
+                              style={
+                                profileImage && c.author_id === user?.id
+                                  ? (profileImage.startsWith('color:') 
+                                      ? { background: profileImage.replace('color:', '') }
+                                      : { background: 'transparent' })
+                                  : c.author_profile_image && c.author_profile_image.startsWith('color:')
+                                    ? { background: c.author_profile_image.replace('color:', '') }
+                                    : c.author_profile_image
+                                      ? { background: 'transparent' }
+                                      : {}
+                              }
+                            >
+                              {renderProfileAvatar(c.author_id, c.author_profile_image, 20)}
                             </div>
-                            <span className="course-board__comment-timestamp">{comment.timestamp}</span>
-                          </div>
-                          <p className="course-board__comment-text">{comment.content}</p>
-                          <div className="course-board__comment-actions">
-                            <button 
-                              className={`course-board__comment-like ${comment.isLiked ? 'active' : ''}`}
-                              onClick={() => handleCommentLike(comment.id)}
-                            >
-                              <Heart size={14} fill={comment.isLiked ? "currentColor" : "none"} />
-                              <span>{comment.likes || 0}</span>
-                            </button>
-                            <button
-                              className="course-board__comment-reply-button"
-                              onClick={() => {
-                                setReplyTo(comment);
-                                setNewComment("");
-                              }}
-                            >
-                              답글 달기
-                            </button>
-                            {comment.author_id === user?.id && (
-                              <button
-                                className="course-board__comment-delete-button"
-                                onClick={() => handleDeleteComment(comment.id)}
-                              >
-                                삭제
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {comment.replies && comment.replies.map((reply) => (
-                        <React.Fragment key={reply.id}>
-                        <div className="course-board__comment course-board__comment--reply">
-                          <div 
-                            className="course-board__comment-avatar"
-                            style={
-                              profileImage && reply.author_id === user?.id
-                                ? (profileImage.startsWith('color:') 
-                                    ? { background: profileImage.replace('color:', '') }
-                                    : { background: 'transparent' })
-                                : reply.author_profile_image && reply.author_profile_image.startsWith('color:')
-                                  ? { background: reply.author_profile_image.replace('color:', '') }
-                                  : reply.author_profile_image
-                                    ? { background: 'transparent' }
-                                    : {}
-                            }
-                          >
-                            {renderProfileAvatar(reply.author_id, reply.author_profile_image, 20)}
-                          </div>
-                          <div className="course-board__comment-content">
-                            <div className="course-board__comment-header">
-                              <div className="course-board__comment-author-row">
-                                <span className="course-board__comment-author">{reply.author}</span>
-                                {reply.author === selectedPost.author && (
-                                  <span className="course-board__comment-author-badge">작성자</span>
-                                )}
-                                {reply.author_student_id && (
-                                  <span className="course-board__comment-author-id">{reply.author_student_id}</span>
-                                )}
-                                {reply.is_professor && (
-                                  <span className="course-board__comment-author-professor">교수</span>
+                            <div className="course-board__comment-content">
+                              <div className="course-board__comment-header">
+                                <div className="course-board__comment-author-row">
+                                  <span className="course-board__comment-author">{c.author}</span>
+                                  {c.author === selectedPost.author && (
+                                    <span className="course-board__comment-author-badge">작성자</span>
+                                  )}
+                                  {c.author_student_id && (
+                                    <span className="course-board__comment-author-id">{c.author_student_id}</span>
+                                  )}
+                                  {c.is_professor && (
+                                    <span className="course-board__comment-author-professor">교수</span>
+                                  )}
+                                </div>
+                                <span className="course-board__comment-timestamp">{c.timestamp}</span>
+                              </div>
+                              <p className="course-board__comment-text">{c.content}</p>
+                              <div className="course-board__comment-actions">
+                                <button 
+                                  className={`course-board__comment-like ${c.isLiked ? 'active' : ''}`}
+                                  onClick={() => handleCommentLike(c.id)}
+                                >
+                                  <Heart size={14} fill={c.isLiked ? "currentColor" : "none"} />
+                                  <span>{c.likes || 0}</span>
+                                </button>
+                                <button
+                                  className="course-board__comment-reply-button"
+                                  onClick={() => {
+                                    setReplyTo(c);
+                                    setNewComment("");
+                                  }}
+                                >
+                                  답글 달기
+                                </button>
+                                {c.author_id === user?.id && (
+                                  <button
+                                    className="course-board__comment-delete-button"
+                                    onClick={() => handleDeleteComment(c.id)}
+                                  >
+                                    삭제
+                                  </button>
                                 )}
                               </div>
-                              <span className="course-board__comment-timestamp">{reply.timestamp}</span>
-                            </div>
-                            <p className="course-board__comment-text">{reply.content}</p>
-                            <div className="course-board__comment-actions">
-                              <button 
-                                className={`course-board__comment-like ${reply.isLiked ? 'active' : ''}`}
-                                onClick={() => handleCommentLike(reply.id)}
-                              >
-                                <Heart size={14} fill={reply.isLiked ? "currentColor" : "none"} />
-                                <span>{reply.likes || 0}</span>
-                              </button>
-                              {reply.author_id === user?.id && (
-                                <button
-                                  className="course-board__comment-delete-button"
-                                  onClick={() => handleDeleteComment(reply.id)}
-                                >
-                                  삭제
-                                </button>
-                              )}
                             </div>
                           </div>
-                        </div>
+                          {c.replies && c.replies.map((reply) => renderComment(reply, depth + 1))}
                         </React.Fragment>
-                      ))}
-                    </React.Fragment>
-                  ))}
+                      );
+                    };
+                    return renderComment(comment);
+                  })}
                 </div>
               </div>
 
               {/* 댓글 작성 */}
               <div className="course-board__comment-write">
-        {replyTo && (
-          <div className="course-board__reply-info">
-            <span>{replyTo.author} 답글</span>
-            <button
-              className="course-board__reply-cancel"
-              onClick={() => setReplyTo(null)}
-            >
-              취소
-            </button>
-          </div>
-        )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
                   <div 
                     className="course-board__comment-avatar"
@@ -2402,9 +2352,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     {renderProfileAvatar(user?.id, profileImage, 20)}
                   </div>
                   <div className="course-board__comment-input-wrapper">
-                    {replyTo && (
-                      <span className="course-board__mention-tag">@{replyTo.author}</span>
-                    )}
                     <input
                       type="text"
                       placeholder="댓글을 입력하세요"
@@ -2425,6 +2372,17 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     <Send size={18} />
                   </button>
                 </div>
+                {replyTo && (
+                  <div className="course-board__reply-info">
+                    <span>{replyTo.author} 답글</span>
+                    <button
+                      className="course-board__reply-cancel"
+                      onClick={() => setReplyTo(null)}
+                    >
+                      취소
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* 삭제 버튼 (본인 글인 경우만) */}

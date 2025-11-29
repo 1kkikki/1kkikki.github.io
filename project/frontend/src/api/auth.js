@@ -48,3 +48,43 @@ export async function login(credentials) {
     return { message: "서버 오류가 발생했습니다.", status: 500 };
   }
 }
+
+// ✅ 아이디 찾기
+export async function findId(findIdData) {
+  try {
+    const res = await fetch(`${API_URL}/find-id`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(findIdData),
+    });
+
+    const data = await res.json();
+    return {
+      status: res.status,
+      ...data,
+    };
+  } catch (error) {
+    console.error("아이디 찾기 API 오류:", error);
+    return { message: "서버 오류가 발생했습니다.", status: 500 };
+  }
+}
+
+// ✅ 비밀번호 찾기 (임시 비밀번호 생성)
+export async function resetPassword(resetData) {
+  try {
+    const res = await fetch(`${API_URL}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(resetData),
+    });
+
+    const data = await res.json();
+    return {
+      status: res.status,
+      ...data,
+    };
+  } catch (error) {
+    console.error("비밀번호 찾기 API 오류:", error);
+    return { message: "서버 오류가 발생했습니다.", status: 500 };
+  }
+}

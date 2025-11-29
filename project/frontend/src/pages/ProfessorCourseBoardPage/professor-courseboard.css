@@ -916,6 +916,10 @@
   margin-top: 8px;
 }
 
+.course-board__comment--reply-nested {
+  margin-left: 80px;
+}
+
 .course-board__comment-actions {
   display: flex;
   align-items: center;
@@ -993,6 +997,7 @@
 .course-board__reply-info {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 8px;
   font-size: 12px;

@@ -542,6 +542,34 @@
   margin: 0;
 }
 
+.modal-temp-password {
+  background: #fef3c7;
+  border: 2px solid #fbbf24;
+  border-radius: 12px;
+  padding: 1.25rem;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.modal-temp-password-label {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 0.9rem;
+  color: #92400e;
+  margin: 0 0 0.5rem 0;
+  font-weight: 500;
+}
+
+.modal-temp-password-value {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #78350f;
+  margin: 0;
+  letter-spacing: 2px;
+  text-align: center;
+  word-break: break-all;
+}
+
 /* 모달 반응형 */
 @media (max-width: 640px) {
   .modal-container {
