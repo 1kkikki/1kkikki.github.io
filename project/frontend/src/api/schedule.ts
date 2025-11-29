@@ -1,5 +1,5 @@
 import axios from "axios";
-import { BASE_URL } from "./config";
+import { BASE_URL } from "./config.js";
 
 const SCHEDULE_URL = `${BASE_URL}/schedule`;
 

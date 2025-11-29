@@ -1,4 +1,4 @@
-import { BASE_URL } from "./config";
+import { BASE_URL } from "./config.js";
 const COURSE_URL = `${BASE_URL}/course`;
 
 // 강의 추가
@@ -181,6 +181,31 @@ export async function getEnrolledCourses() {
   } catch (error) {
     console.error("수강 강의 목록 조회 오류:", error);
     return { error: "NETWORK_ERROR", originalError: error };
+  }
+}
+
+// 강의 참여 (학생)
+export async function enrollCourse(courseId: number) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  try {
+    const res = await fetch(`${COURSE_URL}/enroll/${courseId}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("강의 참여 오류:", error);
+    throw error;
   }
 }
 

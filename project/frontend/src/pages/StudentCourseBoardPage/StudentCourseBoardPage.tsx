@@ -8,15 +8,10 @@ import {
   Home,
   Bell,
   Users,
-  Calendar,
-  Settings,
   Search,
-  Filter,
-  Menu,
   Send,
   User,
   Hash,
-  ChevronDown,
   Pin,
   Heart,
   MessageCircle,
@@ -29,7 +24,6 @@ import {
   Image,
   Video,
   File,
-  Upload,
   FileText
 } from "lucide-react";
 import "./student-courseboard.css";
@@ -892,14 +886,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     return content;
   };
 
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
-  };
+  // formatDateTime 함수는 현재 사용되지 않음
+  // const formatDateTime = (date: Date) => {
+  //   const year = date.getFullYear();
+  //   const month = String(date.getMonth() + 1).padStart(2, '0');
+  //   const day = String(date.getDate()).padStart(2, '0');
+  //   const hours = String(date.getHours()).padStart(2, '0');
+  //   const minutes = String(date.getMinutes()).padStart(2, '0');
+  //   return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
+  // };
 
   // 파일 타입 확인
   const getFileType = (filename: string): 'image' | 'video' | 'file' => {
@@ -1621,27 +1616,27 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     setShowConfirm(true);
   };
 
-  // 팀 게시판 삭제 핸들러
-  const handleDeleteTeamBoard = async (e: React.MouseEvent, boardId: number) => {
-    e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
-    setConfirmMessage("이 팀 게시판을 삭제하시겠습니까? (관련 게시글도 모두 삭제됩니다)");
-    setConfirmCallback(() => async () => {
-      try {
-        await deleteRecruitment(boardId);
-        setTeamBoards(prev => prev.filter(b => b.id !== boardId));
-        if (selectedTeamBoard?.id === boardId) {
-          setSelectedTeamBoard(null);
-        }
-        // 목록도 갱신
-        await loadRecruitments();
-      } catch (err) {
-        console.error("팀 게시판 삭제 실패:", err);
-        setWarningMessage("팀 게시판 삭제 중 오류가 발생했습니다.");
-        setShowWarning(true);
-      }
-    });
-    setShowConfirm(true);
-  };
+  // 팀 게시판 삭제 핸들러 (현재 사용되지 않음)
+  // const handleDeleteTeamBoard = async (e: React.MouseEvent, boardId: number) => {
+  //   e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+  //   setConfirmMessage("이 팀 게시판을 삭제하시겠습니까? (관련 게시글도 모두 삭제됩니다)");
+  //   setConfirmCallback(() => async () => {
+  //     try {
+  //       await deleteRecruitment(boardId);
+  //       setTeamBoards(prev => prev.filter(b => b.id !== boardId));
+  //       if (selectedTeamBoard?.id === boardId) {
+  //         setSelectedTeamBoard(null);
+  //       }
+  //       // 목록도 갱신
+  //       await loadRecruitments();
+  //     } catch (err) {
+  //       console.error("팀 게시판 삭제 실패:", err);
+  //       setWarningMessage("팀 게시판 삭제 중 오류가 발생했습니다.");
+  //       setShowWarning(true);
+  //     }
+  //   });
+  //   setShowConfirm(true);
+  // };
 
   // 팀 게시판 활성화 핸들러
   const handleActivateTeamBoard = async (recruitmentId: number) => {

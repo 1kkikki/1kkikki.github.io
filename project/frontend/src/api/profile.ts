@@ -1,4 +1,4 @@
-import { BASE_URL } from "./config"; 
+import { BASE_URL } from "./config.js"; 
 
 const PROFILE_URL = `${BASE_URL}/profile`;        
 

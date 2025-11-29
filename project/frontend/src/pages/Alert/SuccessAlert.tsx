@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { Check } from "lucide-react";
 import "./SuccessAlert.css";
 

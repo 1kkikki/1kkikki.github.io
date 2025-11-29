@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Settings, Lock, Palette, Shield, FileText, Eye, EyeOff, UserX, X } from "lucide-react";
+import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Lock, Palette, Shield, FileText, Eye, EyeOff, UserX, X } from "lucide-react";
 import "./my-page.css";
 import { getProfile, updateProfile, changePassword, deleteAccount } from "../../api/profile";
 import { useAuth } from "../../contexts/AuthContext";
@@ -22,7 +22,8 @@ export default function MyPage({ onNavigate }: MyPageProps) {
   const [profileImage, setProfileImage] = useState<string | null>(() =>
     readProfileImageFromStorage(user?.id)
   );
-  const [profileColor, setProfileColor] = useState("#a855f7");
+  // profileColor는 현재 사용되지 않지만 향후 사용을 위해 유지
+  const [, setProfileColor] = useState("#a855f7");
   const [customColor, setCustomColor] = useState("#a855f7");
   const [name, setName] = useState("홍길동");
   const [email, setEmail] = useState("hong@example.com");
@@ -150,12 +151,13 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     });
   };
 
-  const handleAppearanceToggle = (key: keyof typeof appearance) => {
-    setAppearance({
-      ...appearance,
-      [key]: !appearance[key]
-    });
-  };
+  // handleAppearanceToggle 함수는 현재 사용되지 않음
+  // const handleAppearanceToggle = (key: keyof typeof appearance) => {
+  //   setAppearance({
+  //     ...appearance,
+  //     [key]: !appearance[key]
+  //   });
+  // };
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
@@ -275,7 +277,6 @@ export default function MyPage({ onNavigate }: MyPageProps) {
               const returnToCourseboard = localStorage.getItem('returnToCourseboard');
               if (returnToCourseboard) {
                 // courseboard로 돌아가야 함 - Dashboard로 이동하고 course 정보 전달
-                const courseInfo = JSON.parse(returnToCourseboard);
                 localStorage.setItem('selectedCourse', returnToCourseboard);
                 localStorage.removeItem('returnToCourseboard');
                 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle, Users, FileText } from "lucide-react";
-import { Dialog } from "../../../components/ui/dialog";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle, FileText } from "lucide-react";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
 import { getMyCourses, createCourse, deleteCourse } from "../../api/course.js";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
@@ -410,9 +409,10 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
-  const handleRemoveEvent = (id: number) => {
-    setEvents(events.filter(e => e.id !== id));
-  };
+  // handleRemoveEvent 함수는 현재 사용되지 않음
+  // const handleRemoveEvent = (id: number) => {
+  //   setEvents(events.filter(e => e.id !== id));
+  // };
 
   const handleDateClick = (date: number) => {
     setNewEvent({ 

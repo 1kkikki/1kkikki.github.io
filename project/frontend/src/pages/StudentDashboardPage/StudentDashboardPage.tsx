@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageCircle, Users, FileText } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageCircle, FileText } from "lucide-react";
 import CourseBoardPage from "../StudentCourseBoardPage/StudentCourseBoardPage";
 import "./student-dashboard.css";
 import { addAvailableTime, getMyAvailableTimes, deleteAvailableTime } from "../../api/available";
@@ -438,17 +438,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
   };
 
-  const [isLoading, setIsLoading] = useState(false);
-
   const handleRemoveTime = async (id: string) => {
-    setIsLoading(true);
     try {
       await deleteAvailableTime(id);
       await fetchAvailableTimes();
     } catch (error) {
       console.error(error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -487,9 +482,10 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
-  const handleRemoveEvent = (id: number) => {
-    setEvents(events.filter(e => e.id !== id));
-  };
+  // handleRemoveEvent 함수는 현재 사용되지 않음
+  // const handleRemoveEvent = (id: number) => {
+  //   setEvents(events.filter(e => e.id !== id));
+  // };
 
   const handleDateClick = (date: number) => {
     setNewEvent({ 

@@ -10,7 +10,15 @@ interface SignUpPageProps {
 }
 
 export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: SignUpPageProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    userType: 'student' | 'professor';
+    studentId: string;
+    name: string;
+    email: string;
+    username: string;
+    password: string;
+    confirmPassword: string;
+  }>({
     userType: "student", // 기본값: 학생
     studentId: "",
     name: "",

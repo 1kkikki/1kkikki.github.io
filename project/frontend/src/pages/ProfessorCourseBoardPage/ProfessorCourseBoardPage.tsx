@@ -8,15 +8,10 @@ import {
   Home, 
   Bell, 
   Users, 
-  Calendar, 
-  Settings, 
   Search, 
-  Filter, 
-  Menu, 
   Send,
   User,
   Hash,
-  ChevronDown,
   Pin,
   Heart,
   MessageCircle,
@@ -25,7 +20,6 @@ import {
   X,
   Plus,
   Link,
-  Copy,
   Check,
   Trash2,
   Image,
@@ -874,14 +868,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     return <User size={size} />;
   };
 
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
-  };
+  // formatDateTime 함수는 현재 사용되지 않음
+  // const formatDateTime = (date: Date) => {
+  //   const year = date.getFullYear();
+  //   const month = String(date.getMonth() + 1).padStart(2, '0');
+  //   const day = String(date.getDate()).padStart(2, '0');
+  //   const hours = String(date.getHours()).padStart(2, '0');
+  //   const minutes = String(date.getMinutes()).padStart(2, '0');
+  //   return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
+  // };
 
   // 파일 타입 확인
   const getFileType = (filename: string): 'image' | 'video' | 'file' => {

@@ -35,7 +35,8 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
   // 환영 메시지 안내창 상태
   const [showWelcomeAlert, setShowWelcomeAlert] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
-  const [alertMessage, setAlertMessage] = useState("");
+  // alertMessage는 현재 사용되지 않지만 향후 사용을 위해 유지
+  const [alertMessage] = useState("");
   const [showAlert, setShowAlert] = useState(false);
   const [pendingUserType, setPendingUserType] = useState<'student' | 'professor' | null>(null);
 
