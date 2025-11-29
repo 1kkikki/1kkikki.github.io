@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageCircle, Users, FileText } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageCircle, FileText } from "lucide-react";
 import CourseBoardPage from "../StudentCourseBoardPage/StudentCourseBoardPage";
 import "./student-dashboard.css";
 import { addAvailableTime, getMyAvailableTimes, deleteAvailableTime } from "../../api/available";
-import { getEnrolledCourses } from "../../api/course";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import { useAuth } from "../../contexts/AuthContext";
+import { useCourses } from "../../contexts/CourseContext";
+import { onNotificationUpdated, notifyNotificationUpdated } from "../../utils/notificationSync";
 import AlertDialog from "../Alert/AlertDialog";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
@@ -34,11 +36,14 @@ interface AvailableTime {
   isSynced?: boolean;
 }
 
-// 강의 타입
+// 강의 타입 (CourseContext와 일치하도록 수정)
 interface Course {
   id: number;
   title: string;
   code: string;
+  professor_name?: string;
+  professor_id?: number;
+  join_code?: string;
 }
 
 // 알림 타입
@@ -55,6 +60,10 @@ interface Notification {
 
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
   const { user, logout } = useAuth();
+  const { courses: contextCourses, isLoading: coursesLoading } = useCourses(); // Context에서 강의 목록 가져오기
+  const courses = contextCourses as Course[]; // 타입 단언
+  const navigate = useNavigate();
+  const location = useLocation();
   console.log("현재 로그인 유저:", user);
 
   const today = new Date();
@@ -140,32 +149,20 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   }
 
-  // 왼쪽 사이드바 강의 목록
-  const [courses, setCourses] = useState<Course[]>([]);
-
-  // 수강 중인 강의 목록 로드
-  async function loadEnrolledCourses() {
-    try {
-      const data = await getEnrolledCourses();
-      setCourses(data);
-    } catch (err) {
-      console.error("수강 강의 목록 로드 실패:", err);
-    }
-  }
+  // 강의 목록은 Context에서 관리 (중복 API 호출 방지)
 
   useEffect(() => {
     fetchAvailableTimes();
-    loadEnrolledCourses(); // 강의 목록도 로드
     fetchSchedules(); // 일정도 로드
     loadNotifications(); // 알림 로드
     
-    // 10초마다 알림 자동 새로고침
+    // 30초마다 알림 자동 새로고침 (성능 최적화)
     const notificationInterval = setInterval(() => {
       loadNotifications();
-    }, 10000); // 10초
+    }, 30000);
     
     return () => clearInterval(notificationInterval);
-  }, []);
+  }, []); // loadEnrolledCourses 제거 (Context에서 자동 로드)
 
   // 알림 로드
   const loadNotifications = async () => {
@@ -182,8 +179,40 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     fetchSchedules();
   }, [currentYear, currentMonth]);
 
-  // MyPage에서 돌아온 경우 courseboard 자동 선택
+  // 알림 동기화 리스너 (다른 페이지에서 알림을 읽으면 즉시 반영)
   useEffect(() => {
+    const unsubscribe = onNotificationUpdated((detail) => {
+      if (detail.type === 'read-all') {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      } else if (detail.type === 'read' && detail.notificationId) {
+        setNotifications(prev => 
+          prev.map(n => n.id === detail.notificationId ? { ...n, is_read: true } : n)
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // URL에서 강의 ID 확인 및 복원 (초기 로드 및 MyPage에서 돌아온 경우)
+  useEffect(() => {
+    if (courses.length === 0) return;
+
+    // URL 경로에서 강의 ID 추출 (예: /student-dashboard/course/123)
+    const pathParts = location.pathname.split('/');
+    const courseIndex = pathParts.indexOf('course');
+    if (courseIndex !== -1 && pathParts[courseIndex + 1]) {
+      const courseIdFromUrl = parseInt(pathParts[courseIndex + 1]);
+      if (courseIdFromUrl) {
+        const course = courses.find(c => c.id === courseIdFromUrl);
+        if (course && course.id !== selectedCourse?.id) {
+          setSelectedCourse(course);
+          return;
+        }
+      }
+    }
+
+    // MyPage에서 돌아온 경우 courseboard 자동 선택 (기존 호환성)
     const selectedCourseStr = localStorage.getItem('selectedCourse');
     if (selectedCourseStr) {
       const courseInfo = JSON.parse(selectedCourseStr);
@@ -191,10 +220,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       const course = courses.find(c => c.id === courseInfo.courseId);
       if (course) {
         setSelectedCourse(course);
+        // URL도 업데이트
+        navigate(`/student-dashboard/course/${course.id}`, { replace: true });
       }
       localStorage.removeItem('selectedCourse');
     }
-  }, []);
+  }, [courses, location.pathname, navigate]); // selectedCourse 제거로 무한 루프 방지
 
   // 다른 화면(교수/학생 게시판 등)에서 저장한 알림 타겟이 있는 경우 처리
   useEffect(() => {
@@ -208,6 +239,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       const course = courses.find((c) => c.code === target.courseCode);
       if (course) {
         setSelectedCourse(course);
+        navigate(`/student-dashboard/course/${course.id}`, { replace: false });
       }
     } catch (err) {
       console.error("알림 타겟 파싱 실패:", err);
@@ -257,11 +289,16 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   // 알림 클릭 핸들러
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
+      // 낙관적 업데이트: UI를 먼저 업데이트
+      setNotifications(prev => 
+        prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
+      );
+      
+      // 다른 페이지에도 알림 (즉시 동기화)
+      notifyNotificationUpdated({ type: 'read', notificationId: notification.id });
+      
       try {
         await markAsRead(notification.id);
-        setNotifications(prev => 
-          prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
-        );
       } catch (err) {
         console.error("알림 읽음 처리 실패:", err);
       }
@@ -448,8 +485,6 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
   };
 
-  const [isLoading, setIsLoading] = useState(false);
-
   const handleRemoveTime = async (id: string) => {
     const target = availableTimes.find((time) => time.id === id);
     setAvailableTimes((prev) => prev.filter((time) => time.id !== id));
@@ -457,16 +492,13 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     if (!target?.isSynced) {
       return;
     }
-
-    setIsLoading(true);
+    
     try {
       const parsedId = Number(id);
       await deleteAvailableTime(Number.isNaN(parsedId) ? id : parsedId);
       await fetchAvailableTimes();
     } catch (error) {
       console.error(error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -505,9 +537,10 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
-  const handleRemoveEvent = (id: number) => {
-    setEvents(events.filter(e => e.id !== id));
-  };
+  // handleRemoveEvent 함수는 현재 사용되지 않음
+  // const handleRemoveEvent = (id: number) => {
+  //   setEvents(events.filter(e => e.id !== id));
+  // };
 
   const handleDateClick = (date: number) => {
     setNewEvent({ 
@@ -594,12 +627,78 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     "#ffd4a3", "#f4c2d7", "#fff5ba", "#e5e7eb"
   ];
 
+  // 강의 선택 시 URL 업데이트
+  const handleCourseSelect = (course: Course) => {
+    setSelectedCourse(course);
+    navigate(`/student-dashboard/course/${course.id}`, { replace: false });
+  };
+
+  // 뒤로가기 버튼 처리
+  const handleBack = () => {
+    setSelectedCourse(null);
+    navigate('/student-dashboard', { replace: false });
+  };
+
+  // URL 변경 감지 (뒤로가기/앞으로가기) - courses가 로드된 후에만 작동
+  useEffect(() => {
+    if (courses.length === 0) return;
+
+    const pathParts = location.pathname.split('/');
+    const courseIndex = pathParts.indexOf('course');
+    
+    if (courseIndex === -1 || !pathParts[courseIndex + 1]) {
+      // URL에 강의 ID가 없으면 선택 해제
+      if (selectedCourse) {
+        setSelectedCourse(null);
+      }
+    } else {
+      // URL에 강의 ID가 있으면 해당 강의 선택
+      const courseIdFromUrl = parseInt(pathParts[courseIndex + 1]);
+      if (courseIdFromUrl) {
+        const course = courses.find(c => c.id === courseIdFromUrl);
+        if (course && course.id !== selectedCourse?.id) {
+          setSelectedCourse(course);
+        } else if (!course && selectedCourse) {
+          // URL에 있는 강의 ID가 courses에 없으면 선택 해제
+          setSelectedCourse(null);
+        }
+      }
+    }
+  }, [location.pathname, courses]); // selectedCourse 제거로 무한 루프 방지
+
+  // 강의 목록 로딩 중이고 URL에 강의 ID가 있으면 로딩 표시 (깜빡임 방지)
+  // 또는 URL에 강의 ID가 있지만 아직 selectedCourse가 설정되지 않은 경우에도 로딩 표시
+  const pathParts = location.pathname.split('/');
+  const courseIndex = pathParts.indexOf('course');
+  const hasCourseInUrl = courseIndex !== -1 && pathParts[courseIndex + 1];
+  
+  if ((coursesLoading || !selectedCourse) && hasCourseInUrl) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: '#f9fafb'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid #e5e7eb',
+          borderTop: '4px solid #a855f7',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+      </div>
+    );
+  }
+
   // 강의가 선택된 경우: 교수 페이지와 동일하게 강의 게시판만 전체 화면으로 표시
   if (selectedCourse) {
     return (
       <CourseBoardPage
         course={selectedCourse}
-        onBack={() => setSelectedCourse(null)}
+        onBack={handleBack}
         onNavigate={onNavigate}
         availableTimes={availableTimes}
       />
@@ -621,7 +720,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               </button>
               <button
                 className="dashboard__logout-button"
-                onClick={() => { logout(); onNavigate('home'); }}
+                onClick={() => { 
+                  logout(); 
+                  // 로그아웃 후 홈으로 이동
+                  window.location.href = '/';
+                }}
               >
                 로그아웃
               </button>
@@ -642,7 +745,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                   <button
                     key={course.id}
                     className="dashboard__course-button"
-                    onClick={() => setSelectedCourse(course)}
+                    onClick={() => handleCourseSelect(course)}
                   >
                     <span className="dashboard__course-code">{course.code}</span>
                     <span className="dashboard__course-title">{course.title}</span>
@@ -662,11 +765,18 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                       {notifications.some(n => !n.is_read) && (
                         <button 
                           onClick={async () => {
+                            // 낙관적 업데이트: UI를 먼저 업데이트
+                            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                            
+                            // 다른 페이지에도 알림 (즉시 동기화)
+                            notifyNotificationUpdated({ type: 'read-all' });
+                            
                             try {
                               await markAllAsRead();
-                              setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
                             } catch (err) {
                               console.error("모두 읽음 처리 실패:", err);
+                              // 실패 시 원래대로 복구
+                              await loadNotifications();
                             }
                           }}
                           style={{
@@ -980,6 +1090,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                             </select>
                           </div>
                         </div>
+
                       </div>
 
                       <div className="time-form-group">

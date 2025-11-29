@@ -3,21 +3,15 @@ import { useAuth } from "../../contexts/AuthContext";
 import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
 import { getTeamCommonAvailability } from "../../api/available";
-import { getProfile } from "../../api/profile";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import {
   Home,
   Bell,
   Users,
-  Calendar,
-  Settings,
   Search,
-  Filter,
-  Menu,
   Send,
   User,
   Hash,
-  ChevronDown,
   Pin,
   Heart,
   MessageCircle,
@@ -30,16 +24,15 @@ import {
   Image,
   Video,
   File,
-  Upload,
   FileText
 } from "lucide-react";
 import "./student-courseboard.css";
 import {
   readProfileImageFromStorage,
-  writeProfileImageToStorage,
   PROFILE_IMAGE_UPDATED_EVENT,
   ProfileImageEventDetail,
 } from "../../utils/profileImage";
+import { onNotificationUpdated, notifyNotificationUpdated } from "../../utils/notificationSync";
 import ConfirmDialog from "../Alert/ConfirmDialog";
 import SuccessAlert from "../Alert/SuccessAlert";
 import WarningAlert from "../Alert/WarningAlert";
@@ -74,15 +67,6 @@ interface TeamMemberAvailability {
   student_id?: string | null;
   user_type?: string;
   times: TeamMemberTime[];
-}
-
-interface TeamAvailabilityResponse {
-  team_size: number;
-  team_board_name?: string | null;
-  members: TeamMemberAvailability[];
-  optimal_slots: string[];
-  slot_counts: Record<string, number>;
-  daily_blocks: Record<string, Array<{ start_time: string; end_time: string }>>;
 }
 
 interface Post {
@@ -179,6 +163,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostContent, setNewPostContent] = useState("");
   const [newComment, setNewComment] = useState("");
+  const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [postFiles, setPostFiles] = useState<Array<{
     filename: string;
     original_name: string;
@@ -188,7 +173,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     preview?: string;
   }>>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
   const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
   const [isResultView, setIsResultView] = useState(false);
@@ -422,6 +406,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     }
   }, [tabs, activeTab]);
 
+  // 게시글이 변경될 때 댓글 입력창 초기화
+  useEffect(() => {
+    setNewComment("");
+    setReplyTo(null);
+  }, [selectedPost?.id]);
+
   // 대시보드/다른 화면에서 온 알림 타겟 처리
   useEffect(() => {
     const stored = localStorage.getItem("notificationTarget");
@@ -472,23 +462,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   }, [course.code, recruitments]);
 
   // 프로필 이미지 가져오기
+  // 프로필 이미지 초기화 (localStorage에서만 읽기, API 호출 제거로 성능 개선)
   useEffect(() => {
     setProfileImage(readProfileImageFromStorage(user?.id) || null);
-  }, [user?.id]);
-
-  useEffect(() => {
-    async function fetchProfile() {
-      const data = await getProfile();
-      if (data.profile && data.profile.profile_image) {
-        setProfileImage(data.profile.profile_image);
-        writeProfileImageToStorage(user?.id, data.profile.profile_image);
-      } else if (data.profile && !data.profile.profile_image) {
-        setProfileImage(null);
-        writeProfileImageToStorage(user?.id, null);
-      }
-    }
-
-    fetchProfile();
   }, [user?.id]);
 
   useEffect(() => {
@@ -507,21 +483,38 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     };
   }, [user?.id]);
 
+  // 알림 로드 함수 (외부에서도 호출 가능하도록 분리)
+  const loadNotifications = async () => {
+    try {
+      const data = await getNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.error("알림 불러오기 실패:", err);
+    }
+  };
+
   // 알림 데이터 로드
   useEffect(() => {
-    async function loadNotifications() {
-      try {
-        const data = await getNotifications();
-        setNotifications(data);
-      } catch (err) {
-        console.error("알림 불러오기 실패:", err);
-      }
-    }
     loadNotifications();
     
-    // 10초마다 알림 자동 새로고침
-    const interval = setInterval(loadNotifications, 10000);
+    // 30초마다 알림 자동 새로고침 (성능 최적화)
+    const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // 알림 동기화 리스너 (다른 페이지에서 알림을 읽으면 즉시 반영)
+  useEffect(() => {
+    const unsubscribe = onNotificationUpdated((detail) => {
+      if (detail.type === 'read-all') {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      } else if (detail.type === 'read' && detail.notificationId) {
+        setNotifications(prev => 
+          prev.map(n => n.id === detail.notificationId ? { ...n, is_read: true } : n)
+        );
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   // 프로필 아바타 렌더링 함수
@@ -931,14 +924,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     return content;
   };
 
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
-  };
+  // formatDateTime 함수는 현재 사용되지 않음
+  // const formatDateTime = (date: Date) => {
+  //   const year = date.getFullYear();
+  //   const month = String(date.getMonth() + 1).padStart(2, '0');
+  //   const day = String(date.getDate()).padStart(2, '0');
+  //   const hours = String(date.getHours()).padStart(2, '0');
+  //   const minutes = String(date.getMinutes()).padStart(2, '0');
+  //   return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
+  // };
 
   // 파일 타입 확인
   const getFileType = (filename: string): 'image' | 'video' | 'file' => {
@@ -1136,7 +1130,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (!newComment.trim() || !selectedPost) return;
 
     try {
-      const res = await createComment(selectedPost.id, newComment, replyTo?.id as any);
+      // 답글일 경우 @이름 부분 제거
+      const commentContent = replyTo 
+        ? newComment.replace(`@${replyTo.author} `, '').trim()
+        : newComment;
+      
+      const res = await createComment(selectedPost.id, commentContent, replyTo?.id as any);
       const newCommentData: Comment = {
         id: res.comment.id,
         author: res.comment.author,
@@ -1291,7 +1290,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }));
 
       const byId = new Map<number, Comment>();
-      flat.forEach(c => byId.set(c.id, c));
+      flat.forEach(c => {
+        c.replies = [];
+        byId.set(c.id, c);
+      });
 
       const roots: Comment[] = [];
       flat.forEach(c => {
@@ -1516,11 +1518,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     return `${hours}시간 ${mins}분`;
   };
 
-  const isTimeSlotOptimal = useCallback((day: number, hour: number) => {
-    const hourKeys = getHourSlotKeys(day, hour);
-    return hourKeys.every((key) => optimalSlots.has(key));
-  }, [optimalSlots]);
-
   // 모집 참여/취소 핸들러
   const handleJoinRecruitment = async (recruitmentId: number, e?: React.MouseEvent) => {
     if (e) {
@@ -1713,27 +1710,27 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     setShowConfirm(true);
   };
 
-  // 팀 게시판 삭제 핸들러
-  const handleDeleteTeamBoard = async (e: React.MouseEvent, boardId: number) => {
-    e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
-    setConfirmMessage("이 팀 게시판을 삭제하시겠습니까? (관련 게시글도 모두 삭제됩니다)");
-    setConfirmCallback(() => async () => {
-      try {
-        await deleteRecruitment(boardId);
-        setTeamBoards(prev => prev.filter(b => b.id !== boardId));
-        if (selectedTeamBoard?.id === boardId) {
-          setSelectedTeamBoard(null);
-        }
-        // 목록도 갱신
-        await loadRecruitments();
-      } catch (err) {
-        console.error("팀 게시판 삭제 실패:", err);
-        setWarningMessage("팀 게시판 삭제 중 오류가 발생했습니다.");
-        setShowWarning(true);
-      }
-    });
-    setShowConfirm(true);
-  };
+  // 팀 게시판 삭제 핸들러 (현재 사용되지 않음)
+  // const handleDeleteTeamBoard = async (e: React.MouseEvent, boardId: number) => {
+  //   e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+  //   setConfirmMessage("이 팀 게시판을 삭제하시겠습니까? (관련 게시글도 모두 삭제됩니다)");
+  //   setConfirmCallback(() => async () => {
+  //     try {
+  //       await deleteRecruitment(boardId);
+  //       setTeamBoards(prev => prev.filter(b => b.id !== boardId));
+  //       if (selectedTeamBoard?.id === boardId) {
+  //         setSelectedTeamBoard(null);
+  //       }
+  //       // 목록도 갱신
+  //       await loadRecruitments();
+  //     } catch (err) {
+  //       console.error("팀 게시판 삭제 실패:", err);
+  //       setWarningMessage("팀 게시판 삭제 중 오류가 발생했습니다.");
+  //       setShowWarning(true);
+  //     }
+  //   });
+  //   setShowConfirm(true);
+  // };
 
   // 팀 게시판 활성화 핸들러
   const handleActivateTeamBoard = async (recruitmentId: number) => {
@@ -1865,11 +1862,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       {notifications.some(n => !n.is_read) && (
                         <button 
                           onClick={async () => {
+                            // 낙관적 업데이트: UI를 먼저 업데이트
+                            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                            
+                            // 다른 페이지에도 알림 (즉시 동기화)
+                            notifyNotificationUpdated({ type: 'read-all' });
+                            
                             try {
                               await markAllAsRead();
-                              setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
                             } catch (err) {
                               console.error("모두 읽음 처리 실패:", err);
+                              // 실패 시 원래대로 복구
+                              loadNotifications();
                             }
                           }}
                           style={{
@@ -2483,148 +2487,95 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
               {/* 댓글 목록 */}
               <div className="course-board__comments">
-                <h3>댓글 {selectedPost.comments.length}개</h3>
+                {(() => {
+                  const countComments = (comments: Comment[]): number => {
+                    return comments.reduce((count, comment) => {
+                      return count + 1 + (comment.replies ? countComments(comment.replies) : 0);
+                    }, 0);
+                  };
+                  const totalComments = countComments(selectedPost.comments);
+                  return <h3>댓글 {totalComments}개</h3>;
+                })()}
                 <div className="course-board__comments-list">
-                  {selectedPost.comments.map((comment) => (
-                    <React.Fragment key={comment.id}>
-                      <div className="course-board__comment">
-                        <div 
-                          className="course-board__comment-avatar"
-                          style={
-                            profileImage && comment.author_id === user?.id
-                              ? (profileImage.startsWith('color:') 
-                                  ? { background: profileImage.replace('color:', '') }
-                                  : { background: 'transparent' })
-                              : comment.author_profile_image && comment.author_profile_image.startsWith('color:')
-                                ? { background: comment.author_profile_image.replace('color:', '') }
-                                : comment.author_profile_image
-                                  ? { background: 'transparent' }
-                                  : {}
-                          }
-                        >
-                          {renderProfileAvatar(comment.author_id, comment.author_profile_image, 20)}
-                        </div>
-                        <div className="course-board__comment-content">
-                          <div className="course-board__comment-header">
-                            <div className="course-board__comment-author-row">
-                              <span className="course-board__comment-author">{comment.author}</span>
-                              {comment.author === selectedPost.author && (
-                                <span className="course-board__comment-author-badge">작성자</span>
-                              )}
-                              {comment.author_student_id && (
-                                <span className="course-board__comment-author-id">{comment.author_student_id}</span>
-                              )}
-                              {comment.is_professor && (
-                                <span className="course-board__comment-author-professor">교수</span>
-                              )}
+                  {selectedPost.comments.map((comment) => {
+                    const renderComment = (c: Comment, depth: number = 0) => {
+                      const isReply = depth > 0;
+                      const isNestedReply = depth > 1;
+                      return (
+                        <React.Fragment key={c.id}>
+                          <div className={`course-board__comment ${isReply ? 'course-board__comment--reply' : ''} ${isNestedReply ? 'course-board__comment--reply-nested' : ''}`}>
+                            <div 
+                              className="course-board__comment-avatar"
+                              style={
+                                profileImage && c.author_id === user?.id
+                                  ? (profileImage.startsWith('color:') 
+                                      ? { background: profileImage.replace('color:', '') }
+                                      : { background: 'transparent' })
+                                  : c.author_profile_image && c.author_profile_image.startsWith('color:')
+                                    ? { background: c.author_profile_image.replace('color:', '') }
+                                    : c.author_profile_image
+                                      ? { background: 'transparent' }
+                                      : {}
+                              }
+                            >
+                              {renderProfileAvatar(c.author_id, c.author_profile_image, 20)}
                             </div>
-                            <span className="course-board__comment-timestamp">{comment.timestamp}</span>
-                          </div>
-                          <p className="course-board__comment-text">{comment.content}</p>
-                          <div className="course-board__comment-actions">
-                            <button 
-                              className={`course-board__comment-like ${comment.isLiked ? 'active' : ''}`}
-                              onClick={() => handleCommentLike(comment.id)}
-                            >
-                              <Heart size={14} fill={comment.isLiked ? "currentColor" : "none"} />
-                              <span>{comment.likes || 0}</span>
-                            </button>
-                            <button
-                              className="course-board__comment-reply-button"
-                              onClick={() => {
-                                setReplyTo(comment);
-                                setNewComment("");
-                              }}
-                            >
-                              답글 달기
-                            </button>
-                            {comment.author_id === user?.id && (
-                              <button
-                                className="course-board__comment-delete-button"
-                                onClick={() => handleDeleteComment(comment.id)}
-                              >
-                                삭제
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {comment.replies && comment.replies.map((reply) => (
-                        <React.Fragment key={reply.id}>
-                        <div className="course-board__comment course-board__comment--reply">
-                          <div 
-                            className="course-board__comment-avatar"
-                            style={
-                              profileImage && reply.author_id === user?.id
-                                ? (profileImage.startsWith('color:') 
-                                    ? { background: profileImage.replace('color:', '') }
-                                    : { background: 'transparent' })
-                                : reply.author_profile_image && reply.author_profile_image.startsWith('color:')
-                                  ? { background: reply.author_profile_image.replace('color:', '') }
-                                  : reply.author_profile_image
-                                    ? { background: 'transparent' }
-                                    : {}
-                            }
-                          >
-                            {renderProfileAvatar(reply.author_id, reply.author_profile_image, 20)}
-                          </div>
-                          <div className="course-board__comment-content">
-                            <div className="course-board__comment-header">
-                              <div className="course-board__comment-author-row">
-                                <span className="course-board__comment-author">{reply.author}</span>
-                                {reply.author === selectedPost.author && (
-                                  <span className="course-board__comment-author-badge">작성자</span>
-                                )}
-                                {reply.author_student_id && (
-                                  <span className="course-board__comment-author-id">{reply.author_student_id}</span>
-                                )}
-                                {reply.is_professor && (
-                                  <span className="course-board__comment-author-professor">교수</span>
+                            <div className="course-board__comment-content">
+                              <div className="course-board__comment-header">
+                                <div className="course-board__comment-author-row">
+                                  <span className="course-board__comment-author">{c.author}</span>
+                                  {c.author === selectedPost.author && (
+                                    <span className="course-board__comment-author-badge">작성자</span>
+                                  )}
+                                  {c.author_student_id && (
+                                    <span className="course-board__comment-author-id">{c.author_student_id}</span>
+                                  )}
+                                  {c.is_professor && (
+                                    <span className="course-board__comment-author-professor">교수</span>
+                                  )}
+                                </div>
+                                <span className="course-board__comment-timestamp">{c.timestamp}</span>
+                              </div>
+                              <p className="course-board__comment-text">{c.content}</p>
+                              <div className="course-board__comment-actions">
+                                <button 
+                                  className={`course-board__comment-like ${c.isLiked ? 'active' : ''}`}
+                                  onClick={() => handleCommentLike(c.id)}
+                                >
+                                  <Heart size={14} fill={c.isLiked ? "currentColor" : "none"} />
+                                  <span>{c.likes || 0}</span>
+                                </button>
+                                <button
+                                  className="course-board__comment-reply-button"
+                                  onClick={() => {
+                                    setReplyTo(c);
+                                    setNewComment(`@${c.author} `);
+                                  }}
+                                >
+                                  답글 달기
+                                </button>
+                                {c.author_id === user?.id && (
+                                  <button
+                                    className="course-board__comment-delete-button"
+                                    onClick={() => handleDeleteComment(c.id)}
+                                  >
+                                    삭제
+                                  </button>
                                 )}
                               </div>
-                              <span className="course-board__comment-timestamp">{reply.timestamp}</span>
-                            </div>
-                            <p className="course-board__comment-text">{reply.content}</p>
-                            <div className="course-board__comment-actions">
-                              <button 
-                                className={`course-board__comment-like ${reply.isLiked ? 'active' : ''}`}
-                                onClick={() => handleCommentLike(reply.id)}
-                              >
-                                <Heart size={14} fill={reply.isLiked ? "currentColor" : "none"} />
-                                <span>{reply.likes || 0}</span>
-                              </button>
-                              {reply.author_id === user?.id && (
-                                <button
-                                  className="course-board__comment-delete-button"
-                                  onClick={() => handleDeleteComment(reply.id)}
-                                >
-                                  삭제
-                                </button>
-                              )}
                             </div>
                           </div>
-                        </div>
+                          {c.replies && c.replies.map((reply) => renderComment(reply, depth + 1))}
                         </React.Fragment>
-                      ))}
-                    </React.Fragment>
-                  ))}
+                      );
+                    };
+                    return renderComment(comment);
+                  })}
                 </div>
               </div>
 
               {/* 댓글 작성 */}
               <div className="course-board__comment-write">
-        {replyTo && (
-          <div className="course-board__reply-info">
-            <span>{replyTo.author} 답글</span>
-            <button
-              className="course-board__reply-cancel"
-              onClick={() => setReplyTo(null)}
-            >
-              취소
-            </button>
-          </div>
-        )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
                   <div 
                     className="course-board__comment-avatar"
@@ -2639,21 +2590,36 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     {renderProfileAvatar(user?.id, profileImage, 20)}
                   </div>
                   <div className="course-board__comment-input-wrapper">
-                    {replyTo && (
-                      <span className="course-board__mention-tag">@{replyTo.author}</span>
+                    {replyTo ? (
+                      <div className="course-board__comment-input-with-mention">
+                        <span className="course-board__mention-prefix">@{replyTo.author}</span>
+                        <input
+                          type="text"
+                          placeholder=""
+                          className="course-board__comment-input-field-mention"
+                          value={newComment.replace(`@${replyTo.author} `, '')}
+                          onChange={(e) => setNewComment(`@${replyTo.author} ${e.target.value}`)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleAddComment();
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="댓글을 입력하세요"
+                        className="course-board__comment-input-field"
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAddComment();
+                          }
+                        }}
+                      />
                     )}
-                    <input
-                      type="text"
-                      placeholder="댓글을 입력하세요"
-                      className="course-board__comment-input-field"
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddComment();
-                        }
-                      }}
-                    />
                   </div>
                   <button
                     className="course-board__comment-submit"
@@ -2662,6 +2628,20 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     <Send size={18} />
                   </button>
                 </div>
+                {replyTo && (
+                  <div className="course-board__reply-info">
+                    <span>{replyTo.author} 답글</span>
+                    <button
+                      className="course-board__reply-cancel"
+                      onClick={() => {
+                        setReplyTo(null);
+                        setNewComment("");
+                      }}
+                    >
+                      취소
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* 삭제 버튼 (본인 글인 경우만) */}
@@ -2999,6 +2979,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                             </select>
                           </div>
                         </div>
+
                       </div>
 
                       <div className="time-form-group">
@@ -3233,3 +3214,4 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     </div>
   );
 }
+

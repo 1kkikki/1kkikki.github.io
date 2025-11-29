@@ -970,6 +970,10 @@
   margin-top: 8px;
 }
 
+.course-board__comment--reply-nested {
+  margin-left: 80px;
+}
+
 .course-board__comment-actions {
   display: flex;
   align-items: center;
@@ -1047,6 +1051,7 @@
 .course-board__reply-info {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 8px;
   font-size: 12px;
@@ -1085,6 +1090,45 @@
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
+}
+
+.course-board__comment-input-with-mention {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.course-board__comment-input-with-mention:focus-within {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+}
+
+.course-board__mention-prefix {
+  color: #a855f7;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.course-board__comment-input-field-mention {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: #374151;
+  font-family: inherit;
+  padding: 0;
+}
+
+.course-board__comment-input-field-mention::placeholder {
+  color: #9ca3af;
 }
 
 .course-board__comment-input-field {

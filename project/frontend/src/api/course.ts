@@ -1,9 +1,9 @@
-import { BASE_URL } from "./config";
+import { BASE_URL } from "./config.js";
 const COURSE_URL = `${BASE_URL}/course`;
 
 // 강의 추가
 export async function createCourse(title: string, code: string) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${COURSE_URL}/`, {
       method: "POST",
@@ -29,7 +29,7 @@ export async function createCourse(title: string, code: string) {
 
 // 강의 목록 조회
 export async function getCourses() {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${COURSE_URL}/`, {
       method: "GET",
@@ -83,7 +83,7 @@ export async function getMyCourses() {
 
 // 강의 삭제
 export async function deleteCourse(courseId: number) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${COURSE_URL}/${courseId}`, {
       method: "DELETE",
@@ -132,7 +132,7 @@ export async function getCourseByJoinCode(joinCode: string): Promise<Course> {
 
 // 강의 참여
 export async function joinCourse(joinCode: string): Promise<Course> {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${COURSE_URL}/join`, {
       method: "POST",
@@ -159,7 +159,7 @@ export async function joinCourse(joinCode: string): Promise<Course> {
 
 // 수강한 강의 목록 조회
 export async function getEnrolledCourses() {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${COURSE_URL}/enrolled`, {
       method: "GET",
@@ -181,6 +181,31 @@ export async function getEnrolledCourses() {
   } catch (error) {
     console.error("수강 강의 목록 조회 오류:", error);
     return { error: "NETWORK_ERROR", originalError: error };
+  }
+}
+
+// 강의 참여 (학생)
+export async function enrollCourse(courseId: number) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  try {
+    const res = await fetch(`${COURSE_URL}/enroll/${courseId}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("강의 참여 오류:", error);
+    throw error;
   }
 }
 

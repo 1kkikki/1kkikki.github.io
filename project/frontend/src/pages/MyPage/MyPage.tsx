@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Settings, Lock, Palette, Shield, FileText, Eye, EyeOff, UserX, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, Mail, Bell, Camera, Save, ArrowLeft, Check, Lock, Palette, Shield, FileText, Eye, EyeOff, UserX, X } from "lucide-react";
 import "./my-page.css";
 import { getProfile, updateProfile, changePassword, deleteAccount } from "../../api/profile";
 import { useAuth } from "../../contexts/AuthContext";
@@ -18,11 +19,13 @@ type MenuSection = 'profile' | 'security' | 'notifications' | 'appearance' | 'le
 
 export default function MyPage({ onNavigate }: MyPageProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<MenuSection>('profile');
   const [profileImage, setProfileImage] = useState<string | null>(() =>
     readProfileImageFromStorage(user?.id)
   );
-  const [profileColor, setProfileColor] = useState("#a855f7");
+  // profileColor는 현재 사용되지 않지만 향후 사용을 위해 유지
+  const [, setProfileColor] = useState("#a855f7");
   const [customColor, setCustomColor] = useState("#a855f7");
   const [name, setName] = useState("홍길동");
   const [email, setEmail] = useState("hong@example.com");
@@ -54,61 +57,60 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     setProfileImage(readProfileImageFromStorage(user?.id) || null);
   }, [user?.id]);
 
+  // 초기 프로필 정보 설정 (useAuth의 user로 즉시 표시, 깜빡임 방지)
   useEffect(() => {
-  async function fetchProfile() {
-    const token = localStorage.getItem("token");
-    
-    // 토큰이 없으면 로그인 페이지로 이동
-    if (!token) {
-      setAlertMessage("로그인이 필요합니다.");
-      setShowAlert(true);
-      setTimeout(() => onNavigate("login"), 1500);
-      return;
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setStudentId(user.student_id || user.username || "");
     }
+  }, [user]);
 
-    const data = await getProfile();
-    if (data.profile) {
-      setName(data.profile.name);
-      setEmail(data.profile.email);
-      setStudentId(data.profile.student_id || "");
+  // 프로필 상세 정보 로드 (백그라운드에서 업데이트)
+  useEffect(() => {
+    async function fetchProfile() {
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
       
-      if (data.profile.profile_image) {
-        setProfileImage(data.profile.profile_image);
-        writeProfileImageToStorage(user?.id, data.profile.profile_image);
-        notifyProfileImageUpdated({
-          userId: user?.id,
-          profileImage: data.profile.profile_image,
-        });
-      } else {
-        writeProfileImageToStorage(user?.id, null);
-        notifyProfileImageUpdated({ userId: user?.id, profileImage: null });
+      if (!token) {
+        setAlertMessage("로그인이 필요합니다.");
+        setShowAlert(true);
+        setTimeout(() => onNavigate("login"), 1500);
+        return;
       }
-    } else if (data.error === "UNAUTHORIZED" || data.status === 401) {
-      // 인증 실패(401)일 때만 로그인 페이지로 이동
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setAlertMessage("로그인이 필요합니다.");
-      setShowAlert(true);
-      setTimeout(() => onNavigate("login"), 1500);
-    } else if (data.error) {
-      // 기타 에러(네트워크 에러 등)는 콘솔에만 출력하고 페이지는 유지
-      console.error("프로필을 불러오는 중 오류가 발생했습니다:", data.error);
-      // localStorage에 저장된 사용자 정보가 있으면 그것을 사용
-      const savedUser = localStorage.getItem("user");
-      if (savedUser) {
-        try {
-          const user = JSON.parse(savedUser);
-          setName(user.name || "");
-          setEmail(user.email || "");
-          setStudentId(user.student_id || user.username || "");
-        } catch (e) {
-          console.error("저장된 사용자 정보 파싱 오류:", e);
+
+      const data = await getProfile();
+      if (data.profile) {
+        // 서버에서 받은 최신 정보로 업데이트
+        setName(data.profile.name);
+        setEmail(data.profile.email);
+        setStudentId(data.profile.student_id || "");
+        
+        if (data.profile.profile_image) {
+          setProfileImage(data.profile.profile_image);
+          writeProfileImageToStorage(user?.id, data.profile.profile_image);
+          notifyProfileImageUpdated({
+            userId: user?.id,
+            profileImage: data.profile.profile_image,
+          });
+        } else {
+          writeProfileImageToStorage(user?.id, null);
+          notifyProfileImageUpdated({ userId: user?.id, profileImage: null });
         }
+      } else if (data.error === "UNAUTHORIZED" || data.status === 401 || data.status === 422) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("currentUser");
+        setAlertMessage("로그인이 필요합니다.");
+        setShowAlert(true);
+        setTimeout(() => onNavigate("login"), 1500);
       }
     }
-  }
-  fetchProfile();
-}, [onNavigate, user?.id]);
+    
+    if (user?.id) {
+      fetchProfile();
+    }
+  }, [onNavigate, user?.id]);
 
 
   const presetAvatars = [
@@ -150,12 +152,13 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     });
   };
 
-  const handleAppearanceToggle = (key: keyof typeof appearance) => {
-    setAppearance({
-      ...appearance,
-      [key]: !appearance[key]
-    });
-  };
+  // handleAppearanceToggle 함수는 현재 사용되지 않음
+  // const handleAppearanceToggle = (key: keyof typeof appearance) => {
+  //   setAppearance({
+  //     ...appearance,
+  //     [key]: !appearance[key]
+  //   });
+  // };
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
@@ -189,22 +192,33 @@ export default function MyPage({ onNavigate }: MyPageProps) {
 
   const handleSave = async () => {
   try {
-    // 실제로 백엔드에 보낼 데이터 (DB 확장 대비 전체 구조 유지)
+    // 백엔드에서 처리하는 필드만 전송
     const updateData = {
       name,
       email,
       profileImage,
-      notifications,
-      appearance,
     };
 
     console.log("서버로 전송할 데이터:", updateData);
 
     const res = await updateProfile(updateData);
-    if (res.message) {
+    if (res.message && res.profile) {
       // 프로필 저장 후 localStorage에 저장하여 다른 페이지에서 즉시 사용할 수 있도록 함
       writeProfileImageToStorage(user?.id, profileImage);
       notifyProfileImageUpdated({ userId: user?.id, profileImage });
+      
+      // currentUser 업데이트
+      const currentUser = localStorage.getItem("currentUser");
+      if (currentUser) {
+        try {
+          const userData = JSON.parse(currentUser);
+          const updatedUser = { ...userData, ...res.profile };
+          localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+        } catch (e) {
+          console.error("currentUser 업데이트 오류:", e);
+        }
+      }
+      
       setAlertMessage(res.message);
       setShowAlert(true);
       setIsSaved(true);
@@ -274,42 +288,30 @@ export default function MyPage({ onNavigate }: MyPageProps) {
               // courseboard에서 온 경우 확인
               const returnToCourseboard = localStorage.getItem('returnToCourseboard');
               if (returnToCourseboard) {
-                // courseboard로 돌아가야 함 - Dashboard로 이동하고 course 정보 전달
-                const courseInfo = JSON.parse(returnToCourseboard);
-                localStorage.setItem('selectedCourse', returnToCourseboard);
-                localStorage.removeItem('returnToCourseboard');
-                
-                // 사용자 타입에 따라 Dashboard로 이동
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                  const user = JSON.parse(userStr);
-                  const userType = user.user_type;
-                  if (userType === 'student') {
-                    onNavigate('student-dashboard', 'student');
-                  } else if (userType === 'professor') {
-                    onNavigate('professor-dashboard', 'professor');
-                  } else {
-                    onNavigate('home');
+                try {
+                  const courseInfo = JSON.parse(returnToCourseboard);
+                  localStorage.removeItem('returnToCourseboard');
+                  
+                  // React Router로 부드럽게 이동 (깜빡임 방지)
+                  if (user?.user_type === 'student') {
+                    navigate(`/student-dashboard/course/${courseInfo.courseId}`);
+                  } else if (user?.user_type === 'professor') {
+                    navigate(`/professor-dashboard/course/${courseInfo.courseId}`);
                   }
-                } else {
-                  onNavigate('home');
+                  return;
+                } catch (e) {
+                  console.error('returnToCourseboard 파싱 오류:', e);
+                  localStorage.removeItem('returnToCourseboard');
                 }
+              }
+              
+              // 일반적인 경우 - Dashboard로 이동
+              if (user?.user_type === 'student') {
+                navigate('/student-dashboard');
+              } else if (user?.user_type === 'professor') {
+                navigate('/professor-dashboard');
               } else {
-                // 일반적인 경우 - Dashboard로 이동
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                  const user = JSON.parse(userStr);
-                  const userType = user.user_type;
-                  if (userType === 'student') {
-                    onNavigate('student-dashboard', 'student');
-                  } else if (userType === 'professor') {
-                    onNavigate('professor-dashboard', 'professor');
-                  } else {
-                    onNavigate('home');
-                  }
-                } else {
-                  onNavigate('home');
-                }
+                navigate('/');
               }
             }}
             title="뒤로가기"

@@ -1,11 +1,11 @@
 import axios from "axios";
-import { BASE_URL } from "./config";
+import { BASE_URL } from "./config.js";
 
 const SCHEDULE_URL = `${BASE_URL}/schedule`;
 
 // 토큰 가져오기
 const getAuthHeader = () => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 

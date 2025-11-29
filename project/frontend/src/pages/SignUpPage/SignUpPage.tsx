@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import "./signup-page.css";
 import { register } from "../../api/auth";
 import AlertDialog from "../Alert/AlertDialog";
@@ -10,7 +11,16 @@ interface SignUpPageProps {
 }
 
 export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: SignUpPageProps) {
-  const [formData, setFormData] = useState({
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState<{
+    userType: 'student' | 'professor';
+    studentId: string;
+    name: string;
+    email: string;
+    username: string;
+    password: string;
+    confirmPassword: string;
+  }>({
     userType: "student", // 기본값: 학생
     studentId: "",
     name: "",
@@ -21,6 +31,16 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
   });
   const [alertMessage, setAlertMessage] = useState("");
   const [showAlert, setShowAlert] = useState(false);
+
+  // localStorage에서 강의 초대 정보 확인
+  const [hasPendingCourseJoin, setHasPendingCourseJoin] = React.useState(false);
+
+  React.useEffect(() => {
+    const pendingJoin = localStorage.getItem('pendingCourseJoin');
+    if (pendingJoin) {
+      setHasPendingCourseJoin(true);
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -69,13 +89,35 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
   }
   };
 
+  // 뒤로가기 핸들러
+  const handleBack = () => {
+    if (hasPendingCourseJoin || returnToCourseJoin) {
+      // localStorage에서 강의 정보 가져오기
+      const pendingJoin = localStorage.getItem('pendingCourseJoin');
+      if (pendingJoin) {
+        try {
+          const { courseId, courseName, courseCode } = JSON.parse(pendingJoin);
+          // React Router의 navigate를 사용해 깜빡임 없이 이동
+          navigate(`/course/${courseId}/${encodeURIComponent(courseName)}/${encodeURIComponent(courseCode)}`);
+        } catch (e) {
+          console.error("강의 정보 파싱 오류:", e);
+          onNavigate("home");
+        }
+      } else {
+        onNavigate("home");
+      }
+    } else {
+      onNavigate("home");
+    }
+  };
+
   return (
     <div className="signup-page">
       <div className="signup-page__background"></div>
       <button 
         className="signup-page__back-button"
-        onClick={() => onNavigate(returnToCourseJoin ? "course-join-login" : "home")}
-        title={returnToCourseJoin ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
+        onClick={handleBack}
+        title={hasPendingCourseJoin || returnToCourseJoin ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
       >
         <ArrowLeft size={20} />
       </button>

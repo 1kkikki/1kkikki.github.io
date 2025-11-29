@@ -26,6 +26,17 @@ export default function CourseJoinLoginPage({
   const [alertMessage, setAlertMessage] = useState("");
   const [showAlert, setShowAlert] = useState(false);
 
+  // 강의 초대 정보를 localStorage에 저장 (회원가입/로그인 페이지에서 돌아올 수 있도록)
+  React.useEffect(() => {
+    if (courseId && courseName && courseCode) {
+      localStorage.setItem('pendingCourseJoin', JSON.stringify({
+        courseId,
+        courseName,
+        courseCode
+      }));
+    }
+  }, [courseId, courseName, courseCode]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -45,6 +56,8 @@ export default function CourseJoinLoginPage({
           // 강의 참여 시도
           try {
             await enrollCourse(parseInt(courseId));
+            // 강의 참여 성공 시 localStorage 정리
+            localStorage.removeItem('pendingCourseJoin');
             setAlertMessage(`${courseName} 강의에 참여했습니다!`);
             setShowAlert(true);
             setTimeout(() => {
@@ -54,6 +67,8 @@ export default function CourseJoinLoginPage({
             if (err.response?.data?.message) {
               // 이미 수강 중인 경우
               if (err.response.data.message.includes("이미 수강")) {
+                // 이미 수강 중인 경우에도 localStorage 정리
+                localStorage.removeItem('pendingCourseJoin');
                 setAlertMessage(`이미 수강 중인 강의입니다.`);
                 setShowAlert(true);
                 setTimeout(() => {

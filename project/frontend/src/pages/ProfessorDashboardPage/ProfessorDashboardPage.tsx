@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle, Users, FileText } from "lucide-react";
-import { Dialog } from "../../../components/ui/dialog";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, AlertCircle, CheckCircle, X, User, List, Trash2, MessageCircle, FileText } from "lucide-react";
 import ProfessorCourseBoardPage from "../ProfessorCourseBoardPage/ProfessorCourseBoardPage";
-import { getMyCourses, createCourse, deleteCourse } from "../../api/course.js";
+import { createCourse, deleteCourse } from "../../api/course.js";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
+import { useCourses } from "../../contexts/CourseContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { onNotificationUpdated, notifyNotificationUpdated } from "../../utils/notificationSync";
 import "./professor-dashboard.css";
 import AlertDialog from "../Alert/AlertDialog";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -46,6 +49,10 @@ interface Notification {
 }
 
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
+  const { logout } = useAuth();
+  const { courses, refreshCourses, isLoading: coursesLoading } = useCourses(); // Context에서 강의 목록 가져오기
+  const navigate = useNavigate();
+  const location = useLocation();
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0~11
@@ -90,19 +97,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     category: "" 
   });
   
-  // 강의 목록 state로 변경
-  const [courses, setCourses] = useState<Course[]>([]);
+  // 강의 목록은 Context에서 관리 (중복 API 호출 방지)
   const [newCourse, setNewCourse] = useState({ title: "", code: "" });
-
-  // 강의 목록 로드
-  async function loadCourses() {
-    try {
-      const data = await getMyCourses();
-      setCourses(data);
-    } catch (err) {
-      console.error("강의 목록 로드 실패:", err);
-    }
-  }
 
   // 일정 불러오기
   const fetchSchedules = async () => {
@@ -114,9 +110,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   }
 
-  // 컴포넌트 마운트 시 강의 목록 및 일정 로드
+  // 컴포넌트 마운트 시 일정 및 알림 로드 (강의 목록은 Context에서 자동 로드)
   useEffect(() => {
-    loadCourses();
     fetchSchedules();
     loadNotifications();
     
@@ -137,6 +132,21 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       console.error("알림 불러오기 실패:", err);
     }
   };
+
+  // 알림 동기화 리스너 (다른 페이지에서 알림을 읽으면 즉시 반영)
+  useEffect(() => {
+    const unsubscribe = onNotificationUpdated((detail) => {
+      if (detail.type === 'read-all') {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      } else if (detail.type === 'read' && detail.notificationId) {
+        setNotifications(prev => 
+          prev.map(n => n.id === detail.notificationId ? { ...n, is_read: true } : n)
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   // 알림 아이콘 매핑
   const getNotificationIcon = (type: string) => {
@@ -317,19 +327,36 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     fetchSchedules();
   }, [currentYear, currentMonth]);
 
-  // MyPage에서 돌아온 경우 courseboard 자동 선택
+  // URL에서 강의 ID 확인 및 복원
   useEffect(() => {
+    if (courses.length === 0) return;
+
+    const pathParts = location.pathname.split('/');
+    const courseIndex = pathParts.indexOf('course');
+    
+    if (courseIndex !== -1 && pathParts[courseIndex + 1]) {
+      const courseIdFromUrl = parseInt(pathParts[courseIndex + 1]);
+      if (courseIdFromUrl) {
+        const course = courses.find(c => c.id === courseIdFromUrl);
+        if (course && course.id !== selectedCourse?.id) {
+          setSelectedCourse(course);
+          return;
+        }
+      }
+    }
+
+    // MyPage에서 돌아온 경우 courseboard 자동 선택 (기존 호환성)
     const selectedCourseStr = localStorage.getItem('selectedCourse');
     if (selectedCourseStr) {
       const courseInfo = JSON.parse(selectedCourseStr);
-      // courses 배열에서 해당 course 찾기
       const course = courses.find(c => c.id === courseInfo.courseId);
       if (course) {
         setSelectedCourse(course);
+        navigate(`/professor-dashboard/course/${course.id}`, { replace: true });
       }
       localStorage.removeItem('selectedCourse');
     }
-  }, [courses]);
+  }, [courses, location.pathname, navigate]);
 
   // 다른 화면(게시판 등)에서 저장한 알림 타겟이 있는 경우 처리
   useEffect(() => {
@@ -351,12 +378,42 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   }, [courses]);
 
+  // 강의 목록 로딩 중이고 URL에 강의 ID가 있으면 로딩 표시 (깜빡임 방지)
+  // 또는 URL에 강의 ID가 있지만 아직 selectedCourse가 설정되지 않은 경우에도 로딩 표시
+  const pathParts = location.pathname.split('/');
+  const courseIndex = pathParts.indexOf('course');
+  const hasCourseInUrl = courseIndex !== -1 && pathParts[courseIndex + 1];
+  
+  if ((coursesLoading || !selectedCourse) && hasCourseInUrl) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: '#f9fafb'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid #e5e7eb',
+          borderTop: '4px solid #a855f7',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+      </div>
+    );
+  }
+
   // 게시판 페이지가 선택되었을 때
   if (selectedCourse) {
     return (
       <ProfessorCourseBoardPage 
         course={selectedCourse} 
-        onBack={() => setSelectedCourse(null)}
+        onBack={() => {
+          setSelectedCourse(null);
+          navigate('/professor-dashboard', { replace: false });
+        }}
         onNavigate={onNavigate}
       />
     );
@@ -410,9 +467,10 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
-  const handleRemoveEvent = (id: number) => {
-    setEvents(events.filter(e => e.id !== id));
-  };
+  // handleRemoveEvent 함수는 현재 사용되지 않음
+  // const handleRemoveEvent = (id: number) => {
+  //   setEvents(events.filter(e => e.id !== id));
+  // };
 
   const handleDateClick = (date: number) => {
     setNewEvent({ 
@@ -501,10 +559,10 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
 
     try {
-      const res = await createCourse(newCourse.title.trim(), newCourse.code.trim());
+      await createCourse(newCourse.title.trim(), newCourse.code.trim());
       
-      // 서버에서 생성된 강의를 목록에 추가
-      setCourses((prev) => [...prev, res.course]);
+      // Context 새로고침 (중복 API 호출 방지)
+      await refreshCourses();
       setNewCourse({ title: "", code: "" });
       setIsCourseModalOpen(false);
       setAlertMessage("강의가 추가되었습니다!");
@@ -527,8 +585,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     setConfirmCallback(() => async () => {
       try {
       await deleteCourse(courseId);
-      // 목록에서 제거
-      setCourses((prev) => prev.filter((c: Course) => c.id !== courseId));
+      // Context 새로고침 (중복 API 호출 방지)
+      await refreshCourses();
       // 현재 선택된 강의가 삭제된 강의라면 선택 해제
       if (selectedCourse !== null && (selectedCourse as Course).id === courseId) {
         setSelectedCourse(null);
@@ -567,7 +625,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
           </button>
           <button 
             className="dashboard__logout-button"
-            onClick={() => onNavigate('home')}
+            onClick={() => {
+              logout();
+              // 로그아웃 후 홈으로 이동
+              window.location.href = '/';
+            }}
           >
             로그아웃
           </button>
@@ -592,13 +654,20 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         </div>
         <div className="dashboard__sidebar-content">
           {courses.map((course) => (
-            <button
+            <div
               key={course.id}
-              className="dashboard__course-button"
-              onClick={() => setSelectedCourse(course)}
+              className="dashboard__course-item"
             >
-              <span className="dashboard__course-code">{course.code}</span>
-              <span className="dashboard__course-title">{course.title}</span>
+              <button
+                className="dashboard__course-button"
+                onClick={() => {
+                  setSelectedCourse(course);
+                  navigate(`/professor-dashboard/course/${course.id}`);
+                }}
+              >
+                <span className="dashboard__course-code">{course.code}</span>
+                <span className="dashboard__course-title">{course.title}</span>
+              </button>
               <button
                 className="dashboard__course-delete-button"
                 onClick={(e) => handleDeleteCourse(course.id, e)}
@@ -606,7 +675,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               >
                 <Trash2 size={16} />
               </button>
-            </button>
+            </div>
           ))}
         </div>
 
@@ -622,11 +691,18 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                 {notifications.some(n => !n.is_read) && (
                   <button 
                     onClick={async () => {
+                      // 낙관적 업데이트: UI를 먼저 업데이트
+                      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                      
+                      // 다른 페이지에도 알림 (즉시 동기화)
+                      notifyNotificationUpdated({ type: 'read-all' });
+                      
                       try {
                         await markAllAsRead();
-                        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
                       } catch (err) {
                         console.error("모두 읽음 처리 실패:", err);
+                        // 실패 시 원래대로 복구
+                        loadNotifications();
                       }
                     }}
                     style={{

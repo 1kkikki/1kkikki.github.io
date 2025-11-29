@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All Meet</title>
+  <script>
+    // GitHub Pages SPA 라우팅: 모든 경로를 index.html로 리다이렉트
+    var path = window.location.pathname;
+    var search = window.location.search;
+    var hash = window.location.hash;
+    
+    // /allmeet 경로 유지
+    if (!path.startsWith('/allmeet')) {
+      path = '/allmeet' + (path === '/' ? '' : path);
+    }
+    
+    window.location.replace(path + search + hash);
+  </script>
+</head>
+<body>
+  <p>리다이렉트 중...</p>
+</body>
+</html>
+

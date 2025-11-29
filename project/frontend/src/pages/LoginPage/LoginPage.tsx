@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User, Lock, ArrowLeft, X, Mail, Search } from "lucide-react";
-import { login } from "../../api/auth";   // 로그인 API 불러오기
+import { useNavigate } from "react-router-dom";
+import { login, findId, resetPassword } from "../../api/auth";   // 로그인 API 불러오기
 import "./login-page.css";
 import { useAuth } from "../../contexts/AuthContext";
 import SuccessAlert from "../Alert/SuccessAlert";
@@ -12,12 +13,23 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onNavigate, returnToCourseJoin = false }: LoginPageProps) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [showFindId, setShowFindId] = useState(false);
   const [showFindPassword, setShowFindPassword] = useState(false);
+
+  // localStorage에서 강의 초대 정보 확인
+  const [hasPendingCourseJoin, setHasPendingCourseJoin] = React.useState(false);
+
+  React.useEffect(() => {
+    const pendingJoin = localStorage.getItem('pendingCourseJoin');
+    if (pendingJoin) {
+      setHasPendingCourseJoin(true);
+    }
+  }, []);
   
   // 아이디 찾기 상태
   const [findIdName, setFindIdName] = useState("");
@@ -30,11 +42,13 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
   const [findPasswordEmail, setFindPasswordEmail] = useState("");
   const [findPasswordError, setFindPasswordError] = useState("");
   const [findPasswordSuccess, setFindPasswordSuccess] = useState(false);
+  const [tempPassword, setTempPassword] = useState("");
   
   // 환영 메시지 안내창 상태
   const [showWelcomeAlert, setShowWelcomeAlert] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
-  const [alertMessage, setAlertMessage] = useState("");
+  // alertMessage는 현재 사용되지 않지만 향후 사용을 위해 유지
+  const [alertMessage] = useState("");
   const [showAlert, setShowAlert] = useState(false);
   const [pendingUserType, setPendingUserType] = useState<'student' | 'professor' | null>(null);
 
@@ -93,13 +107,21 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
       return;
     }
     
-    // TODO: 백엔드 API 연결
-    // 현재는 UI만 구현
-    setAlertMessage("아이디 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n이름: " + findIdName + "\n이메일: " + findIdEmail);
-    setShowAlert(true);
-    
-    // 예시: 찾은 아이디 표시 (실제로는 API 응답에서 받아옴)
-    // setFoundId("example_user");
+    try {
+      const data = await findId({
+        name: findIdName,
+        email: findIdEmail
+      });
+
+      if (data.status === 200 && data.username) {
+        setFoundId(data.username);
+      } else {
+        setFindIdError(data.message || "아이디를 찾을 수 없습니다.");
+      }
+    } catch (error) {
+      console.error("아이디 찾기 오류:", error);
+      setFindIdError("서버 오류가 발생했습니다. 다시 시도해주세요.");
+    }
   };
 
   const handleFindPassword = async (e: React.FormEvent) => {
@@ -112,13 +134,24 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
       return;
     }
     
-    // TODO: 백엔드 API 연결
-    // 현재는 UI만 구현
-    setAlertMessage("비밀번호 찾기 기능은 백엔드 API 연결 후 사용 가능합니다.\n입력된 정보:\n아이디: " + findPasswordId + "\n이메일: " + findPasswordEmail);
-    setShowAlert(true);
-    
-    // 예시: 성공 메시지 표시 (실제로는 API 응답에서 받아옴)
-    // setFindPasswordSuccess(true);
+    try {
+      const data = await resetPassword({
+        username: findPasswordId,
+        email: findPasswordEmail
+      });
+
+      if (data.status === 200) {
+        // 임시 비밀번호를 사용자에게 표시
+        const tempPw = data.temp_password || "";
+        setTempPassword(tempPw);
+        setFindPasswordSuccess(true);
+      } else {
+        setFindPasswordError(data.message || "비밀번호 재설정에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("비밀번호 찾기 오류:", error);
+      setFindPasswordError("서버 오류가 발생했습니다. 다시 시도해주세요.");
+    }
   };
 
   const closeFindIdModal = () => {
@@ -135,6 +168,7 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
     setFindPasswordEmail("");
     setFindPasswordError("");
     setFindPasswordSuccess(false);
+    setTempPassword("");
   };
 
   return (
@@ -142,8 +176,27 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
       <div className="login-page__background"></div>
       <button 
         className="login-page__back-button"
-        onClick={() => onNavigate(returnToCourseJoin ? "course-join-login" : "home")}
-        title={returnToCourseJoin ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
+        onClick={() => {
+          if (hasPendingCourseJoin || returnToCourseJoin) {
+            // localStorage에서 강의 정보 가져오기
+            const pendingJoin = localStorage.getItem('pendingCourseJoin');
+            if (pendingJoin) {
+              try {
+                const { courseId, courseName, courseCode } = JSON.parse(pendingJoin);
+                // React Router의 navigate를 사용해 깜빡임 없이 이동
+                navigate(`/course/${courseId}/${encodeURIComponent(courseName)}/${encodeURIComponent(courseCode)}`);
+              } catch (e) {
+                console.error("강의 정보 파싱 오류:", e);
+                onNavigate("home");
+              }
+            } else {
+              onNavigate("home");
+            }
+          } else {
+            onNavigate("home");
+          }
+        }}
+        title={hasPendingCourseJoin || returnToCourseJoin ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
       >
         <ArrowLeft size={20} />
       </button>
@@ -338,10 +391,16 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
               <div className="modal-success-content">
                 <div className="modal-success-icon">✓</div>
                 <p className="modal-success-message">
-                  비밀번호 재설정 링크가 이메일로 전송되었습니다.
+                  임시 비밀번호가 생성되었습니다.
                   <br />
-                  이메일을 확인해주세요.
+                  아래 임시 비밀번호로 로그인 후 비밀번호를 변경해주세요.
                 </p>
+                {tempPassword && (
+                  <div className="modal-temp-password">
+                    <p className="modal-temp-password-label">임시 비밀번호:</p>
+                    <p className="modal-temp-password-value">{tempPassword}</p>
+                  </div>
+                )}
                 <button 
                   type="button"
                   onClick={closeFindPasswordModal}

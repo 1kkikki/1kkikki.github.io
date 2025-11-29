@@ -1,10 +1,10 @@
-import { BASE_URL } from "./config"; 
+import { BASE_URL } from "./config.js"; 
 
 const PROFILE_URL = `${BASE_URL}/profile`;        
 
 // 프로필 불러오기
 export async function getProfile() {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${PROFILE_URL}/`, {
       method: "GET",
@@ -15,9 +15,9 @@ export async function getProfile() {
     });
 
     if (!res.ok) {
-      // 401 Unauthorized일 때만 인증 에러로 처리
-      if (res.status === 401) {
-        return { error: "UNAUTHORIZED", status: 401 };
+      // 401 Unauthorized 또는 422 Unprocessable Entity일 때 인증 에러로 처리
+      if (res.status === 401 || res.status === 422) {
+        return { error: "UNAUTHORIZED", status: res.status };
       }
       throw new Error(`HTTP ${res.status}`);
     }
@@ -32,7 +32,7 @@ export async function getProfile() {
 
 // 프로필 업데이트
 export async function updateProfile(updateData: { name: string; email: string; profileImage?: string | null;}) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${PROFILE_URL}/`, {
       method: "PUT",
@@ -54,7 +54,7 @@ export async function updateProfile(updateData: { name: string; email: string; p
 
 // 비밀번호 변경
 export async function changePassword(currentPassword: string, newPassword: string) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${PROFILE_URL}/password`, {
       method: "PUT",
@@ -75,7 +75,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 // 회원탈퇴
 export async function deleteAccount(identifier: string, password: string) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
     const res = await fetch(`${PROFILE_URL}/delete`, {
       method: "DELETE",
