@@ -33,11 +33,8 @@ export async function login(credentials) {
 
     const data = await res.json();
 
-    if (data.access_token) {
-      localStorage.setItem("token", data.access_token);
-      localStorage.setItem("accessToken", data.access_token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-    }
+    // localStorage 저장은 AuthContext의 login 함수에서 처리하므로 여기서는 제거
+    // LoginPage에서 saveLogin(data.user, data.access_token)을 호출하여 저장함
 
     return {
       status: res.status,

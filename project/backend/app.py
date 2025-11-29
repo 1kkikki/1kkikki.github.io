@@ -14,13 +14,24 @@ from routes.notification import notification_bp
 def create_app():
     app = Flask(__name__)
 
+    # 데이터베이스 설정
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     DB_PATH = os.path.join(BASE_DIR, "instance", "project.db")
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+    
+    # 환경 변수에서 데이터베이스 URL 가져오기 (Render 등)
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        # PostgreSQL URL 형식인 경우 (Render 등)
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    else:
+        # 로컬 개발 환경 (SQLite)
+        app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
 
     # 기본 설정
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["JWT_SECRET_KEY"] = "super-secret-key"  # 실제 배포 시엔 환경변수로
+    app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret-key")
 
     # JWT 헤더 인식 설정 추가
     app.config["JWT_TOKEN_LOCATION"] = ["headers"]
@@ -32,13 +43,19 @@ def create_app():
     bcrypt.init_app(app)
     jwt.init_app(app)
 
-    # CORS 설정 (React dev 서버 허용)
+    # CORS 설정 (개발 및 프로덕션 환경)
     allowed_origins = {
         "http://127.0.0.1:5173",
         "http://localhost:5173",
         "http://127.0.0.1:5175",
         "http://localhost:5175",
+        "https://1kkikki.github.io",
+        "https://allmeet.github.io",
+        os.getenv("FRONTEND_URL", ""),  # 환경 변수로 프론트엔드 URL 설정 가능
     }
+    # 빈 문자열 제거
+    allowed_origins = {origin for origin in allowed_origins if origin}
+    
     CORS(app, resources={r"/*": {"origins": list(allowed_origins)}}, supports_credentials=True)
 
     # 🔥 블루프린트 등록 (prefix는 각 파일에서 설정)
@@ -91,4 +108,8 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_ENV") == "development")
+
+# Render 배포용
+app = create_app()

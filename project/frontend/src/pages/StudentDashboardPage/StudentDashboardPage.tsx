@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageCircle, FileText } from "lucide-react";
 import CourseBoardPage from "../StudentCourseBoardPage/StudentCourseBoardPage";
 import "./student-dashboard.css";
@@ -54,6 +55,8 @@ interface Notification {
 
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   console.log("현재 로그인 유저:", user);
 
   const today = new Date();
@@ -173,8 +176,25 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     fetchSchedules();
   }, [currentYear, currentMonth]);
 
-  // MyPage에서 돌아온 경우 courseboard 자동 선택
+  // URL에서 강의 ID 확인 및 복원 (초기 로드 및 MyPage에서 돌아온 경우)
   useEffect(() => {
+    if (courses.length === 0) return;
+
+    // URL 경로에서 강의 ID 추출 (예: /student-dashboard/course/123)
+    const pathParts = location.pathname.split('/');
+    const courseIndex = pathParts.indexOf('course');
+    if (courseIndex !== -1 && pathParts[courseIndex + 1]) {
+      const courseIdFromUrl = parseInt(pathParts[courseIndex + 1]);
+      if (courseIdFromUrl) {
+        const course = courses.find(c => c.id === courseIdFromUrl);
+        if (course && course.id !== selectedCourse?.id) {
+          setSelectedCourse(course);
+          return;
+        }
+      }
+    }
+
+    // MyPage에서 돌아온 경우 courseboard 자동 선택 (기존 호환성)
     const selectedCourseStr = localStorage.getItem('selectedCourse');
     if (selectedCourseStr) {
       const courseInfo = JSON.parse(selectedCourseStr);
@@ -182,10 +202,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       const course = courses.find(c => c.id === courseInfo.courseId);
       if (course) {
         setSelectedCourse(course);
+        // URL도 업데이트
+        navigate(`/student-dashboard/course/${course.id}`, { replace: true });
       }
       localStorage.removeItem('selectedCourse');
     }
-  }, []);
+  }, [courses, location.pathname, navigate, selectedCourse]);
 
   // 다른 화면(교수/학생 게시판 등)에서 저장한 알림 타겟이 있는 경우 처리
   useEffect(() => {
@@ -199,6 +221,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       const course = courses.find((c) => c.code === target.courseCode);
       if (course) {
         setSelectedCourse(course);
+        navigate(`/student-dashboard/course/${course.id}`, { replace: false });
       }
     } catch (err) {
       console.error("알림 타겟 파싱 실패:", err);
@@ -572,12 +595,51 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     "#ffd4a3", "#f4c2d7", "#fff5ba", "#e5e7eb"
   ];
 
+  // 강의 선택 시 URL 업데이트
+  const handleCourseSelect = (course: Course) => {
+    setSelectedCourse(course);
+    navigate(`/student-dashboard/course/${course.id}`, { replace: false });
+  };
+
+  // 뒤로가기 버튼 처리
+  const handleBack = () => {
+    setSelectedCourse(null);
+    navigate('/student-dashboard', { replace: false });
+  };
+
+  // URL 변경 감지 (뒤로가기/앞으로가기) - courses가 로드된 후에만 작동
+  useEffect(() => {
+    if (courses.length === 0) return;
+
+    const pathParts = location.pathname.split('/');
+    const courseIndex = pathParts.indexOf('course');
+    
+    if (courseIndex === -1 || !pathParts[courseIndex + 1]) {
+      // URL에 강의 ID가 없으면 선택 해제
+      if (selectedCourse) {
+        setSelectedCourse(null);
+      }
+    } else {
+      // URL에 강의 ID가 있으면 해당 강의 선택
+      const courseIdFromUrl = parseInt(pathParts[courseIndex + 1]);
+      if (courseIdFromUrl) {
+        const course = courses.find(c => c.id === courseIdFromUrl);
+        if (course && course.id !== selectedCourse?.id) {
+          setSelectedCourse(course);
+        } else if (!course && selectedCourse) {
+          // URL에 있는 강의 ID가 courses에 없으면 선택 해제
+          setSelectedCourse(null);
+        }
+      }
+    }
+  }, [location.pathname, courses, selectedCourse]);
+
   // 강의가 선택된 경우: 교수 페이지와 동일하게 강의 게시판만 전체 화면으로 표시
   if (selectedCourse) {
     return (
       <CourseBoardPage
         course={selectedCourse}
-        onBack={() => setSelectedCourse(null)}
+        onBack={handleBack}
         onNavigate={onNavigate}
         availableTimes={availableTimes}
       />
@@ -620,7 +682,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                   <button
                     key={course.id}
                     className="dashboard__course-button"
-                    onClick={() => setSelectedCourse(course)}
+                    onClick={() => handleCourseSelect(course)}
                   >
                     <span className="dashboard__course-code">{course.code}</span>
                     <span className="dashboard__course-title">{course.title}</span>

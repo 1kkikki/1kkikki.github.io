@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? '/allmeet/' : '/',
   plugins: [react() as PluginOption],  // ✅ 타입 맞춰줌
   resolve: {
     extensions: [".js", ".jsx", ".ts", ".tsx", ".json"],
