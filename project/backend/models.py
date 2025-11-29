@@ -369,9 +369,10 @@ class Notification(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)  # 알림 받는 사람
-    type = db.Column(db.String(50), nullable=False)  # 'comment', 'reply', 'like', 'notice', 'enrollment', 'recruitment_join'
+    type = db.Column(db.String(50), nullable=False)  # 'comment', 'reply', 'like', 'notice', 'enrollment', 'recruitment_join', 'team_post'
     content = db.Column(db.String(500), nullable=False)  # 알림 내용
-    related_id = db.Column(db.Integer, nullable=True)  # 관련 게시글/댓글/모집 ID
+    related_id = db.Column(db.Integer, nullable=True)  # 관련 게시글 ID
+    comment_id = db.Column(db.Integer, nullable=True)  # 관련 댓글 ID (댓글/답글 알림인 경우)
     course_id = db.Column(db.String(20), nullable=True)  # 관련 강의 코드
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -384,6 +385,7 @@ class Notification(db.Model):
             "type": self.type,
             "content": self.content,
             "related_id": self.related_id,
+            "comment_id": self.comment_id,
             "course_id": self.course_id,
             "is_read": self.is_read,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
