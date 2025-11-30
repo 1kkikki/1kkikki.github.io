@@ -19,10 +19,17 @@ export const getSchedules = async (year: number | null = null, month: number | n
     const response = await axios.get(url, {
       headers: getAuthHeader(),
     });
-    return response.data;
-  } catch (error) {
+    const data = response.data;
+    // 배열인지 확인
+    return Array.isArray(data) ? data : [];
+  } catch (error: any) {
     console.error("일정 조회 실패:", error);
-    throw error;
+    // 401 오류 등 에러 응답 시 빈 배열 반환
+    if (error.response?.status === 401) {
+      return [];
+    }
+    // 다른 오류도 빈 배열 반환하여 앱이 크래시되지 않도록 함
+    return [];
   }
 };
 

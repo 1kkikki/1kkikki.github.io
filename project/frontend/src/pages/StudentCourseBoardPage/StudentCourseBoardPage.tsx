@@ -733,13 +733,22 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 알림 클릭 핸들러
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
+      // 낙관적 업데이트: UI를 먼저 업데이트
+      setNotifications(prev => 
+        prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
+      );
+      
+      // 다른 페이지에도 알림 (즉시 동기화)
+      notifyNotificationUpdated({ type: 'read', notificationId: notification.id });
+      
       try {
         await markAsRead(notification.id);
-        setNotifications(prev => 
-          prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
-        );
       } catch (err) {
         console.error("알림 읽음 처리 실패:", err);
+        // 실패 시 원래대로 복구
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? {...n, is_read: false} : n)
+        );
       }
     }
 
@@ -3065,8 +3074,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       <h3 className="result-title">✨ 팀 미팅 가능 시간 분석 결과</h3>
                       <p className="result-description">
                         {teamSize > 0
-                          ? `팀원 모두 가능한 시간대 총 ${formatDurationLabel(optimalDurationMinutes)}을 찾았습니다.`
-                          : "팀원이 아직 시간 정보를 등록하지 않아 공통 시간대를 찾을 수 없습니다."}
+                          ? `팀원 모두 가능한 시간 총 ${formatDurationLabel(optimalDurationMinutes)}을 찾았습니다.`
+                          : "팀원이 아직 시간 정보를 등록하지 않아 공통 시간을 찾을 수 없습니다."}
                       </p>
                     {optimalSlots.size === 0 && teamSize > 0 && (
                       <p className="result-empty">

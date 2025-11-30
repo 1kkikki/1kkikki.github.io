@@ -94,6 +94,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
+  const [tempAvailableTimes, setTempAvailableTimes] = useState<AvailableTime[]>([]); // 모달 내부에서만 사용할 임시 상태
   const [alertMessage, setAlertMessage] = useState("");
   const [showAlert, setShowAlert] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
@@ -128,24 +129,41 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
 
 
   const fetchAvailableTimes = async () => {
-    const data = await getMyAvailableTimes();
-    const formatted = data.map((t: any) => ({
-      id: t.id.toString(),
-      day: t.day_of_week,
-      startTime: t.start_time,
-      endTime: t.end_time,
-      isSynced: true,
-    }));
-    setAvailableTimes(formatted);
+    try {
+      const data = await getMyAvailableTimes();
+      // 배열인지 확인하고, 에러 객체가 아닌지 확인
+      if (Array.isArray(data)) {
+        const formatted = data.map((t: any) => ({
+          id: t.id.toString(),
+          day: t.day_of_week,
+          startTime: t.start_time,
+          endTime: t.end_time,
+          isSynced: true,
+        }));
+        setAvailableTimes(formatted);
+      } else {
+        // 에러 응답이거나 배열이 아닌 경우 빈 배열 설정
+        setAvailableTimes([]);
+      }
+    } catch (error) {
+      console.error("가능한 시간 불러오기 실패:", error);
+      setAvailableTimes([]);
+    }
   }
 
   // 일정 불러오기
   const fetchSchedules = async () => {
     try {
       const data = await getSchedules(currentYear as any, (currentMonth + 1) as any);
-      setEvents(data);
+      // 배열인지 확인
+      if (Array.isArray(data)) {
+        setEvents(data);
+      } else {
+        setEvents([]);
+      }
     } catch (error) {
       console.error("일정 불러오기 실패:", error);
+      setEvents([]);
     }
   }
 
@@ -168,9 +186,15 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const loadNotifications = async () => {
     try {
       const data = await getNotifications();
-      setNotifications(data);
+      // 배열인지 확인
+      if (Array.isArray(data)) {
+        setNotifications(data);
+      } else {
+        setNotifications([]);
+      }
     } catch (err) {
       console.error("알림 불러오기 실패:", err);
+      setNotifications([]);
     }
   };
 
@@ -439,11 +463,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     }
   };
 
-  const checkTimeOverlap = (day: string, startTime: string, endTime: string): boolean => {
+  const checkTimeOverlap = (day: string, startTime: string, endTime: string, timesToCheck: AvailableTime[]): boolean => {
     const start = new Date(`2000-01-01 ${startTime}`);
     const end = new Date(`2000-01-01 ${endTime}`);
 
-    return availableTimes.some(time => {
+    return timesToCheck.some(time => {
       if (time.day !== day) return false;
 
       const existingStart = new Date(`2000-01-01 ${time.startTime}`);
@@ -467,8 +491,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       return;
     }
 
-    // 겹치는 시간이 있는지 확인
-    if (checkTimeOverlap(newTime.day, startTime, endTime)) {
+    // 겹치는 시간이 있는지 확인 (모달 내부의 임시 상태 사용)
+    if (checkTimeOverlap(newTime.day, startTime, endTime, tempAvailableTimes)) {
       setTimeOverlapWarning("⚠️ 이미 해당 요일에 겹치는 시간이 있습니다.");
       return;
     }
@@ -481,10 +505,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       isSynced: false,
     };
 
-    setAvailableTimes([...availableTimes, time]);
+    setTempAvailableTimes([...tempAvailableTimes, time]);
     setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
   };
 
+  // 모달 외부에서 사용하는 삭제 함수 (즉시 서버에 반영)
   const handleRemoveTime = async (id: string) => {
     const target = availableTimes.find((time) => time.id === id);
     setAvailableTimes((prev) => prev.filter((time) => time.id !== id));
@@ -500,6 +525,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     } catch (error) {
       console.error(error);
     }
+  };
+
+  // 모달 내부에서 사용하는 삭제 함수 (임시 상태만 수정)
+  const handleRemoveTimeInModal = (id: string) => {
+    setTempAvailableTimes((prev) => prev.filter((time) => time.id !== id));
   };
 
   const handleAddEvent = async () => {
@@ -762,7 +792,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '0px', alignItems: 'center' }}>
-                      {notifications.some(n => !n.is_read) && (
+                      {Array.isArray(notifications) && notifications.some(n => !n.is_read) && (
                         <button 
                           onClick={async () => {
                             // 낙관적 업데이트: UI를 먼저 업데이트
@@ -814,12 +844,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                       </button>
                     </div>
                     <span className="dashboard__notifications-count">
-                      {showAllNotifications ? notifications.length : notifications.filter(n => !n.is_read).length}
+                      {Array.isArray(notifications) ? (showAllNotifications ? notifications.length : notifications.filter(n => !n.is_read).length) : 0}
                     </span>
                   </div>
                 </div>
                 <div className="dashboard__notifications-list">
-                  {(showAllNotifications ? notifications : notifications.filter(n => !n.is_read)).length === 0 ? (
+                  {(!Array.isArray(notifications) || (showAllNotifications ? notifications : notifications.filter(n => !n.is_read)).length === 0) ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af' }}>
                       알림이 없습니다
                     </div>
@@ -968,7 +998,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                       <span className="dashboard__available-times-count">{availableTimes.length}</span>
                       <button
                         className="dashboard__available-times-add"
-                        onClick={() => setIsTimeModalOpen(true)}
+                        onClick={() => {
+                          // 모달 열 때 현재 availableTimes를 tempAvailableTimes로 복사
+                          setTempAvailableTimes([...availableTimes]);
+                          setIsTimeModalOpen(true);
+                        }}
                         title="시간 추가"
                       >
                         <Plus size={18} />
@@ -1023,7 +1057,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                   </h2>
                   <button
                     className="modal-close"
-                    onClick={() => setIsTimeModalOpen(false)}
+                    onClick={() => {
+                      // 취소 시 임시 상태 버리고 모달 닫기
+                      setTempAvailableTimes([]);
+                      setIsTimeModalOpen(false);
+                    }}
                   >
                     <X size={20} />
                   </button>
@@ -1147,11 +1185,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                   </div>
 
                   {/* 추가된 시간 목록 */}
-                  {availableTimes.length > 0 && (
+                  {tempAvailableTimes.length > 0 && (
                     <div className="time-list">
                       <h3 className="time-list-title">추가된 가능한 시간</h3>
                       <div className="time-list-items">
-                        {availableTimes.map((time) => (
+                        {tempAvailableTimes.map((time) => (
                           <div key={time.id} className="time-list-item">
                             <div className="time-list-item-info">
                               <span className="time-list-item-day">{time.day}</span>
@@ -1161,7 +1199,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                             </div>
                             <button
                               className="time-list-item-remove"
-                              onClick={() => handleRemoveTime(time.id)}
+                              onClick={() => handleRemoveTimeInModal(time.id)}
                             >
                               <X size={16} />
                             </button>
@@ -1175,14 +1213,41 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                 <div className="modal-footer">
                   <button
                     className="modal-button modal-button--secondary"
-                    onClick={() => setIsTimeModalOpen(false)}
+                    onClick={() => {
+                      // 취소 시 임시 상태 버리고 모달 닫기
+                      setTempAvailableTimes([]);
+                      setIsTimeModalOpen(false);
+                    }}
                   >
                     취소
                   </button>
                   <button
                     className="modal-button modal-button--primary"
                     onClick={async () => {
-                      for (const time of availableTimes) {
+                      // 저장 시 변경사항을 서버에 반영
+                      
+                      // 1. 삭제된 시간 처리 (원래 있던 시간 중 임시 상태에 없는 시간)
+                      const originalSyncedTimes = availableTimes.filter(t => t.isSynced);
+                      const currentSyncedTimes = tempAvailableTimes.filter(t => t.isSynced);
+                      const deletedTimes = originalSyncedTimes.filter(
+                        original => !currentSyncedTimes.some(current => current.id === original.id)
+                      );
+                      
+                      for (const time of deletedTimes) {
+                        try {
+                          const parsedId = Number(time.id);
+                          await deleteAvailableTime(Number.isNaN(parsedId) ? time.id : parsedId);
+                        } catch (error) {
+                          console.error("시간 삭제 실패:", error);
+                        }
+                      }
+                      
+                      // 2. 추가된 시간 처리 (임시 상태에 있지만 원래 상태에 없는 시간)
+                      const newTimes = tempAvailableTimes.filter(
+                        temp => !availableTimes.some(original => original.id === temp.id)
+                      );
+                      
+                      for (const time of newTimes) {
                         const result = await addAvailableTime(
                           time.day,
                           time.startTime,
@@ -1192,9 +1257,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                           console.error(result.message || "저장 실패");
                         }
                       }
+                      
+                      // 서버에서 최신 데이터 다시 불러오기
                       await fetchAvailableTimes();
                       setAlertMessage("시간이 저장되었습니다.");
                       setShowAlert(true);
+                      setTempAvailableTimes([]);
                       setIsTimeModalOpen(false);
                     }}
                   >

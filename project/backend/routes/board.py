@@ -374,7 +374,17 @@ def delete_comment(comment_id):
     CourseBoardCommentLike.query.filter_by(comment_id=comment_id).delete()
     
     # 답글도 함께 삭제
+    reply_comments = CourseBoardComment.query.filter_by(parent_comment_id=comment_id).all()
+    reply_comment_ids = [rc.id for rc in reply_comments]
     CourseBoardComment.query.filter_by(parent_comment_id=comment_id).delete()
+    
+    # 삭제된 댓글과 관련된 알림도 삭제
+    from models import Notification
+    Notification.query.filter_by(comment_id=comment_id).delete()
+    
+    # 답글의 알림도 삭제
+    for reply_id in reply_comment_ids:
+        Notification.query.filter_by(comment_id=reply_id).delete()
     
     db.session.delete(comment)
     db.session.commit()

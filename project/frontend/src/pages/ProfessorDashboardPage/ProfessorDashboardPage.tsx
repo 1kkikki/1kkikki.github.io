@@ -177,13 +177,22 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   // 알림 클릭 핸들러
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
+      // 낙관적 업데이트: UI를 먼저 업데이트
+      setNotifications(prev => 
+        prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
+      );
+      
+      // 다른 페이지에도 알림 (즉시 동기화)
+      notifyNotificationUpdated({ type: 'read', notificationId: notification.id });
+      
       try {
         await markAsRead(notification.id);
-        setNotifications(prev => 
-          prev.map(n => n.id === notification.id ? {...n, is_read: true} : n)
-        );
       } catch (err) {
         console.error("알림 읽음 처리 실패:", err);
+        // 실패 시 원래대로 복구
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? {...n, is_read: false} : n)
+        );
       }
     }
 

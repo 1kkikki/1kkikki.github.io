@@ -18,7 +18,7 @@ interface MyPageProps {
 type MenuSection = 'profile' | 'security' | 'notifications' | 'appearance' | 'legal';
 
 export default function MyPage({ onNavigate }: MyPageProps) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<MenuSection>('profile');
   const [profileImage, setProfileImage] = useState<string | null>(() =>
@@ -68,7 +68,20 @@ export default function MyPage({ onNavigate }: MyPageProps) {
 
   // 프로필 상세 정보 로드 (백그라운드에서 업데이트)
   useEffect(() => {
+    // AuthContext가 로딩 중이면 대기 (초기 로드 시 user가 아직 설정되지 않았을 수 있음)
+    if (authLoading) {
+      return;
+    }
+
     async function fetchProfile() {
+      // user가 없으면 로그인 필요
+      if (!user) {
+        setAlertMessage("로그인이 필요합니다.");
+        setShowAlert(true);
+        setTimeout(() => onNavigate("login"), 1500);
+        return;
+      }
+
       const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
       
       if (!token) {
@@ -78,39 +91,44 @@ export default function MyPage({ onNavigate }: MyPageProps) {
         return;
       }
 
-      const data = await getProfile();
-      if (data.profile) {
-        // 서버에서 받은 최신 정보로 업데이트
-        setName(data.profile.name);
-        setEmail(data.profile.email);
-        setStudentId(data.profile.student_id || "");
-        
-        if (data.profile.profile_image) {
-          setProfileImage(data.profile.profile_image);
-          writeProfileImageToStorage(user?.id, data.profile.profile_image);
-          notifyProfileImageUpdated({
-            userId: user?.id,
-            profileImage: data.profile.profile_image,
-          });
-        } else {
-          writeProfileImageToStorage(user?.id, null);
-          notifyProfileImageUpdated({ userId: user?.id, profileImage: null });
+      try {
+        const data = await getProfile();
+        if (data.profile) {
+          // 서버에서 받은 최신 정보로 업데이트
+          setName(data.profile.name);
+          setEmail(data.profile.email);
+          setStudentId(data.profile.student_id || "");
+          
+          if (data.profile.profile_image) {
+            setProfileImage(data.profile.profile_image);
+            writeProfileImageToStorage(user.id, data.profile.profile_image);
+            notifyProfileImageUpdated({
+              userId: user.id,
+              profileImage: data.profile.profile_image,
+            });
+          } else {
+            writeProfileImageToStorage(user.id, null);
+            notifyProfileImageUpdated({ userId: user.id, profileImage: null });
+          }
+        } else if (data.error === "UNAUTHORIZED" || data.status === 401 || data.status === 422) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("user");
+          localStorage.removeItem("currentUser");
+          setAlertMessage("로그인이 필요합니다.");
+          setShowAlert(true);
+          setTimeout(() => onNavigate("login"), 1500);
         }
-      } else if (data.error === "UNAUTHORIZED" || data.status === 401 || data.status === 422) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-        localStorage.removeItem("currentUser");
-        setAlertMessage("로그인이 필요합니다.");
+      } catch (error) {
+        console.error("프로필 로드 오류:", error);
+        // 에러 발생 시에도 사용자에게 알림
+        setAlertMessage("프로필을 불러오는 중 오류가 발생했습니다.");
         setShowAlert(true);
-        setTimeout(() => onNavigate("login"), 1500);
       }
     }
     
-    if (user?.id) {
-      fetchProfile();
-    }
-  }, [onNavigate, user?.id]);
+    fetchProfile();
+  }, [onNavigate, user, authLoading]);
 
 
   const presetAvatars = [
@@ -276,6 +294,28 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     { id: 'notifications' as MenuSection, label: '알림 설정', icon: Bell },
     { id: 'legal' as MenuSection, label: '약관 및 정책', icon: FileText }
   ];
+
+  // AuthContext가 로딩 중이면 로딩 표시
+  if (authLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: '#f9fafb'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid #e5e7eb',
+          borderTop: '4px solid #a855f7',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+      </div>
+    );
+  }
 
   return (
     <div className="mypage">
