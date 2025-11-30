@@ -77,6 +77,27 @@ def create_app():
         )
 
         db.create_all()
+        
+        # is_pinned 컬럼 마이그레이션 (기존 데이터베이스 호환성)
+        try:
+            import sqlite3
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            
+            # 기존 컬럼 확인
+            cursor.execute("PRAGMA table_info(course_board_posts)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'is_pinned' not in columns:
+                print("🔄 is_pinned 컬럼을 추가하는 중...")
+                cursor.execute("ALTER TABLE course_board_posts ADD COLUMN is_pinned BOOLEAN DEFAULT 0")
+                conn.commit()
+                print("✅ is_pinned 컬럼이 추가되었습니다!")
+            
+            conn.close()
+        except Exception as e:
+            print(f"⚠️ 마이그레이션 확인 중 오류 (무시 가능): {e}")
+        
         print("✅ Database initialized successfully!")
 
     @app.route("/")

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCourses } from "../../contexts/CourseContext";
-import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll, checkPostExists, checkCommentExists } from "../../api/board";
+import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll, togglePinPost, checkPostExists, checkCommentExists } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -81,7 +81,8 @@ interface Post {
   is_professor?: boolean;
   author_profile_image?: string | null;
   timestamp: string;
-  category: string;
+  category: string;  // 표시용 카테고리 (공지, 커뮤니티, 팀 게시판 등)
+  originalCategory?: string;  // 원본 카테고리 (notice, community, team 등)
   tags: string[];
   likes: number;
   comments: Comment[];
@@ -320,11 +321,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
+        originalCategory: p.category,  // 원본 카테고리 저장
         tags: [],
         likes: p.likes || 0,
         comments: [],
         comments_count: p.comments_count || 0,
-        isPinned: false,
+        isPinned: p.is_pinned === true || p.is_pinned === 1,
         isLiked: p.is_liked || false,
         files: p.files || [],
         team_board_name: p.team_board_name || null,
@@ -484,6 +486,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          post.content.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
+  }).sort((a, b) => {
+    // 고정된 게시물을 먼저 표시
+    if (a.isPinned !== b.isPinned) {
+      return a.isPinned ? -1 : 1;
+    }
+    // 같은 고정 상태면 최신순 (id가 높을수록 최신)
+    return b.id - a.id;
   });
 
   // 정렬된 모집 목록 (마감 안된 것 우선, 최신순)
@@ -1279,10 +1288,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
+        originalCategory: p.category,  // 원본 카테고리 저장
         tags: [],
         likes: 0,
         comments: [],
-        isPinned: false,
+        isPinned: p.is_pinned === true || p.is_pinned === 1,
         isLiked: false,
         files: p.files || [],
         poll: p.poll || (newPostPoll ? {
@@ -1912,11 +1922,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         is_professor: p.is_professor || editingPost.is_professor || false,
         timestamp: p.created_at || editingPost.timestamp,
         category: categoryToTabName(p.category) || editingPost.category,
+        originalCategory: p.category || editingPost.originalCategory,  // 원본 카테고리 저장
         tags: [],
         likes: p.likes || editingPost.likes,
         comments: editingPost.comments || [],
         comments_count: editingPost.comments_count || 0,
-        isPinned: false,
+        isPinned: p.is_pinned !== undefined ? p.is_pinned : editingPost.isPinned,
         isLiked: p.is_liked !== undefined ? p.is_liked : editingPost.isLiked,
         files: p.files || [],
         team_board_name: p.team_board_name || editingPost.team_board_name || null,
@@ -1975,6 +1986,29 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       }
     });
     setShowConfirm(true);
+  };
+
+  // 게시글 고정/고정 해제 핸들러
+  const handleTogglePinPost = async (postId: number) => {
+    try {
+      const res = await togglePinPost(postId);
+      // 성공하면 게시물 목록을 다시 불러와서 모든 고정 상태를 동기화
+      await loadPosts();
+      // 선택된 게시물도 업데이트
+      if (selectedPost && selectedPost.id === postId) {
+        const updatedPost = posts.find(p => p.id === postId);
+        if (updatedPost) {
+          setSelectedPost({ ...selectedPost, isPinned: updatedPost.isPinned });
+        }
+      }
+      setSuccessMessage(res.is_pinned ? "게시글이 고정되었습니다." : "게시글 고정이 해제되었습니다.");
+      setShowSuccess(true);
+    } catch (err: any) {
+      console.error("게시글 고정 실패:", err);
+      const errorMessage = err.message || "게시글 고정 중 오류가 발생했습니다.";
+      setWarningMessage(errorMessage);
+      setShowWarning(true);
+    }
   };
 
   const handleCopyLink = async () => {
@@ -3404,9 +3438,59 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                 )}
               </div>
               
-              {/* 수정/삭제 버튼 (본인 글인 경우만) */}
-              {selectedPost.author_id === user?.id && (
-                <div className="post-detail-delete-section" style={{ display: 'flex', gap: '8px' }}>
+              {/* 게시글 관리 버튼 섹션 */}
+              {(((user?.user_type === "professor" && (selectedPost.originalCategory === "notice" || selectedPost.originalCategory === "community")) ||
+                 (user?.user_type === "student" && selectedPost.originalCategory === "team")) ||
+                (selectedPost.author_id === user?.id)) && (
+                <div className="post-detail-actions-section" style={{ 
+                  marginTop: '24px', 
+                  paddingTop: '20px', 
+                  borderTop: '1px solid #e5e7eb',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  {/* 고정 버튼 (카테고리별 권한) */}
+                  {((user?.user_type === "professor" && (selectedPost.originalCategory === "notice" || selectedPost.originalCategory === "community")) ||
+                    (user?.user_type === "student" && selectedPost.originalCategory === "team")) && (
+                    <button
+                      className="post-detail-pin-button"
+                      onClick={() => handleTogglePinPost(selectedPost.id)}
+                      title={selectedPost.isPinned ? "고정 해제" : "게시글 고정"}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '10px 16px',
+                        backgroundColor: selectedPost.isPinned ? '#fef9e7' : '#fffbf0',
+                        color: selectedPost.isPinned ? '#856404' : '#856404',
+                        border: `1px solid ${selectedPost.isPinned ? '#ffeaa7' : '#ffeaa7'}`,
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        transition: 'all 0.2s',
+                        width: '100%',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = selectedPost.isPinned ? '#ffeaa7' : '#fef9e7';
+                        e.currentTarget.style.borderColor = selectedPost.isPinned ? '#fdcb6e' : '#fdcb6e';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = selectedPost.isPinned ? '#fef9e7' : '#fffbf0';
+                        e.currentTarget.style.borderColor = selectedPost.isPinned ? '#ffeaa7' : '#ffeaa7';
+                      }}
+                    >
+                      <Pin size={16} fill={selectedPost.isPinned ? "currentColor" : "none"} />
+                      <span>{selectedPost.isPinned ? "고정 해제" : "게시글 고정"}</span>
+                    </button>
+                  )}
+
+                  {/* 수정/삭제 버튼 (본인 글인 경우만) */}
+                  {selectedPost.author_id === user?.id && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
                   <button 
                     className="post-detail-edit-button"
                     onClick={() => handleEditPost(selectedPost)}
@@ -3469,9 +3553,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                       e.currentTarget.style.borderColor = '#fecaca';
                     }}
                   >
-                    <Trash2 size={16} />
-                    <span>게시글 삭제</span>
-                  </button>
+                      <Trash2 size={16} />
+                      <span>게시글 삭제</span>
+                    </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

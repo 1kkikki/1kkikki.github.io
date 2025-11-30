@@ -85,3 +85,23 @@ export async function getTeamCommonAvailability(teamId) {
     return { error };
   }
 }
+
+// 2시간 연속 가능한 시간을 자동 추천하고 봇이 게시글 올리기
+export async function autoRecommendAndPost(teamId) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  try {
+    const res = await fetch(`${AVAILABLE_URL}/team/${teamId}/auto-recommend`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await res.json();
+    return { status: res.status, ...data };
+  } catch (error) {
+    console.error("자동 추천 게시글 작성 오류:", error);
+    return { message: "서버 오류가 발생했습니다.", status: 500 };
+  }
+}

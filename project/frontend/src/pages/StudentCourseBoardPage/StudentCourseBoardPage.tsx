@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCourses } from "../../contexts/CourseContext";
-import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll, checkPostExists, checkCommentExists } from "../../api/board";
+import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll, togglePinPost, checkPostExists, checkCommentExists} from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
-import { getTeamCommonAvailability } from "../../api/available";
+import { getTeamCommonAvailability, addAvailableTime } from "../../api/available";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import {
   Home,
@@ -101,7 +101,8 @@ interface Post {
   is_professor?: boolean;
   author_profile_image?: string | null;
   timestamp: string;
-  category: string;
+  category: string;  // 표시용 카테고리 (공지, 커뮤니티, 팀 게시판 등)
+  originalCategory?: string;  // 원본 카테고리 (notice, community, team 등)
   tags: string[];
   likes: number;
   comments: Comment[];
@@ -365,11 +366,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
+        originalCategory: p.category,  // 원본 카테고리 저장
         tags: [],
         likes: p.likes || 0,
         comments: [],
         comments_count: p.comments_count || 0,
-        isPinned: false,
+        isPinned: p.is_pinned === true || p.is_pinned === 1,
         isLiked: p.is_liked || false,
         team_board_name: p.team_board_name || null,
         files: p.files || [],
@@ -377,8 +379,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }));
 
       setPosts(mapped);
-      // 로딩 완료 - 어느 강의의 posts인지 기록
-      setLoadedCourseCode(course.code);
+      // 디버깅: poll 데이터 확인
+      mapped.forEach((post, idx) => {
+        if (post.poll) {
+          console.log(`게시글 ${idx + 1} (ID: ${post.id}) poll 데이터:`, post.poll);
+        }
+      });
     } catch (err) {
       console.error("게시글 불러오기 실패:", err);
     }
@@ -693,20 +699,47 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     // 팀 게시판 탭인 경우
     if (activeTab.startsWith("팀 게시판:")) {
       if (currentTeamBoard) {
-        const matchesTeamBoard = post.category === "팀 게시판" && 
-                                 post.team_board_name === currentTeamBoard.team_board_name;
-        const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        // 카테고리가 "팀 게시판"이고, team_board_name이 일치하는지 확인
+        const matchesCategory = post.category === "팀 게시판";
+        // team_board_name을 정확히 비교 (null/undefined 체크 포함)
+        const matchesTeamBoard = post.team_board_name != null && 
+                                 currentTeamBoard.team_board_name != null &&
+                                 post.team_board_name.trim() === currentTeamBoard.team_board_name.trim();
+        const matchesSearch = searchQuery === "" || 
+                             post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                              post.content.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesTeamBoard && matchesSearch;
+        
+        const shouldShow = matchesCategory && matchesTeamBoard && matchesSearch;
+        
+        // 디버깅용 로그 (필터링되지 않는 경우만)
+        if (matchesCategory && !matchesTeamBoard) {
+          console.log("[DEBUG] 카테고리는 맞지만 팀명이 다름:", {
+            postCategory: post.category,
+            postTeamBoard: post.team_board_name,
+            currentTeamBoard: currentTeamBoard.team_board_name,
+            postTitle: post.title,
+            shouldShow: shouldShow
+          });
+        }
+        
+        return shouldShow;
       }
       return false;
     }
     
     // 일반 탭인 경우
     const matchesTab = post.category === activeTab;
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = searchQuery === "" || 
+                         post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          post.content.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
+  }).sort((a, b) => {
+    // 고정된 게시물을 먼저 표시
+    if (a.isPinned !== b.isPinned) {
+      return a.isPinned ? -1 : 1;
+    }
+    // 같은 고정 상태면 최신순 (id가 높을수록 최신)
+    return b.id - a.id;
   });
 
   // 정렬된 모집 목록 (마감 안된 것 우선, 최신순)
@@ -1341,6 +1374,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
+        originalCategory: p.category,  // 원본 카테고리 저장
         tags: [],
         likes: 0,
         comments: [],
@@ -1691,10 +1725,69 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     // 결과가 자동으로 업데이트됨 (useMemo로 계산되므로)
   };
 
-  const handleSubmitAvailableTime = () => {
-    // 제출 버튼 클릭 시 결과 보기 모드로 전환
-    setIsResultView(true);
-    setHasSubmittedOnce(true);
+  const handleSubmitAvailableTime = async () => {
+    if (!currentTeamBoard) return;
+    
+    // 서버에 시간 제출
+    try {
+      let createdPostsCount = 0;
+      const createdPostsInfo: string[] = [];
+      const processedTeams = new Set<number>();
+      
+      // 현재 입력된 시간들을 서버에 제출
+      // 이미 서버에 있는 시간은 중복 체크되어 무시됨
+      console.log(`[DEBUG] 제출할 시간 수: ${myAvailableTimes.length}`);
+      for (const time of myAvailableTimes) {
+        console.log(`[DEBUG] 시간 제출 중: ${time.day} ${time.startTime} ~ ${time.endTime}`);
+        const result = await addAvailableTime(
+          time.day,
+          time.startTime,
+          time.endTime
+        );
+        
+        console.log(`[DEBUG] 시간 제출 응답:`, result);
+        
+        // 응답에 created_posts가 있으면 자동 추천 게시글이 생성된 것
+        if (result.created_posts && Array.isArray(result.created_posts) && result.created_posts.length > 0) {
+          console.log(`[DEBUG] 자동 추천 게시글 생성됨:`, result.created_posts);
+          result.created_posts.forEach((postInfo: any) => {
+            if (postInfo.team_name && postInfo.team_id && !processedTeams.has(postInfo.team_id)) {
+              createdPostsInfo.push(postInfo.team_name);
+              createdPostsCount++;
+              processedTeams.add(postInfo.team_id);
+            }
+          });
+        } else {
+          console.log(`[DEBUG] 자동 추천 게시글 생성되지 않음 (created_posts 없음 또는 빈 배열)`);
+        }
+      }
+      
+      // 제출 완료 후 결과 보기 모드로 전환
+      setIsResultView(true);
+      setHasSubmittedOnce(true);
+      
+      // 자동 추천 게시글이 생성되었으면 알림 표시
+      if (createdPostsCount > 0) {
+        const teamNames = createdPostsInfo.map(name => `• ${name}`).join("\n");
+        setSuccessMessage(
+          `✅ 시간이 제출되었습니다!\n\n🤖 팀원 모두가 시간을 제출하여 자동 추천 게시글이 생성되었습니다:\n\n${teamNames}\n\n팀 게시판에서 확인해보세요!`
+        );
+        setShowSuccess(true);
+        
+        // 게시글 목록 새로고침
+        await loadPosts();
+      } else {
+        setSuccessMessage("시간이 제출되었습니다.");
+        setShowSuccess(true);
+      }
+      
+      // 팀 가능 시간 다시 불러오기
+      await loadTeamAvailability();
+    } catch (error) {
+      console.error("시간 제출 실패:", error);
+      setWarningMessage("시간 제출 중 오류가 발생했습니다.");
+      setShowWarning(true);
+    }
   };
 
   const loadTeamAvailability = useCallback(async () => {
@@ -2226,11 +2319,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         is_professor: p.is_professor || editingPost.is_professor || false,
         timestamp: p.created_at || editingPost.timestamp,
         category: categoryToTabName(p.category) || editingPost.category,
+        originalCategory: p.category || editingPost.originalCategory,  // 원본 카테고리 저장
         tags: [],
         likes: p.likes || editingPost.likes,
         comments: editingPost.comments || [],
         comments_count: editingPost.comments_count || 0,
-        isPinned: false,
+        isPinned: p.is_pinned !== undefined ? p.is_pinned : editingPost.isPinned,
         isLiked: p.is_liked !== undefined ? p.is_liked : editingPost.isLiked,
         files: p.files || [],
         team_board_name: p.team_board_name || editingPost.team_board_name || null,
@@ -2287,6 +2381,29 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }
     });
     setShowConfirm(true);
+  };
+
+  // 게시글 고정/고정 해제 핸들러
+  const handleTogglePinPost = async (postId: number) => {
+    try {
+      const res = await togglePinPost(postId);
+      // 성공하면 게시물 목록을 다시 불러와서 모든 고정 상태를 동기화
+      await loadPosts();
+      // 선택된 게시물도 업데이트
+      if (selectedPost && selectedPost.id === postId) {
+        const updatedPost = posts.find(p => p.id === postId);
+        if (updatedPost) {
+          setSelectedPost({ ...selectedPost, isPinned: updatedPost.isPinned });
+        }
+      }
+      setSuccessMessage(res.is_pinned ? "게시글이 고정되었습니다." : "게시글 고정이 해제되었습니다.");
+      setShowSuccess(true);
+    } catch (err: any) {
+      console.error("게시글 고정 실패:", err);
+      const errorMessage = err.message || "게시글 고정 중 오류가 발생했습니다.";
+      setWarningMessage(errorMessage);
+      setShowWarning(true);
+    }
   };
 
   return (
@@ -2639,6 +2756,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   <div className="course-board__post-content">
                     <h3 className="course-board__post-title">
                       {post.title}
+                      {post.title.includes("🤖 자동 추천:") && (
+                        <span className="course-board__post-auto-badge" title="자동 추천 게시글">
+                          🤖 자동 추천
+                        </span>
+                      )}
                       {post.poll && (
                         <span className="course-board__post-poll-badge" title="투표가 있는 게시글">
                           <BarChart3 size={14} />
@@ -3695,9 +3817,59 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 )}
               </div>
 
-              {/* 수정/삭제 버튼 (본인 글인 경우만) */}
-              {selectedPost.author_id === user?.id && (
-                <div className="post-detail-delete-section" style={{ display: 'flex', gap: '8px' }}>
+              {/* 게시글 관리 버튼 섹션 */}
+              {(((user?.user_type === "professor" && (selectedPost.originalCategory === "notice" || selectedPost.originalCategory === "community")) ||
+                 (user?.user_type === "student" && selectedPost.originalCategory === "team")) ||
+                (selectedPost.author_id === user?.id)) && (
+                <div className="post-detail-actions-section" style={{ 
+                  marginTop: '24px', 
+                  paddingTop: '20px', 
+                  borderTop: '1px solid #e5e7eb',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  {/* 고정 버튼 (카테고리별 권한) */}
+                  {((user?.user_type === "professor" && (selectedPost.originalCategory === "notice" || selectedPost.originalCategory === "community")) ||
+                    (user?.user_type === "student" && selectedPost.originalCategory === "team")) && (
+                    <button
+                      className="post-detail-pin-button"
+                      onClick={() => handleTogglePinPost(selectedPost.id)}
+                      title={selectedPost.isPinned ? "고정 해제" : "게시글 고정"}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '10px 16px',
+                        backgroundColor: selectedPost.isPinned ? '#fef9e7' : '#fffbf0',
+                        color: selectedPost.isPinned ? '#856404' : '#856404',
+                        border: `1px solid ${selectedPost.isPinned ? '#ffeaa7' : '#ffeaa7'}`,
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        transition: 'all 0.2s',
+                        width: '100%',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = selectedPost.isPinned ? '#ffeaa7' : '#fef9e7';
+                        e.currentTarget.style.borderColor = selectedPost.isPinned ? '#fdcb6e' : '#fdcb6e';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = selectedPost.isPinned ? '#fef9e7' : '#fffbf0';
+                        e.currentTarget.style.borderColor = selectedPost.isPinned ? '#ffeaa7' : '#ffeaa7';
+                      }}
+                    >
+                      <Pin size={16} fill={selectedPost.isPinned ? "currentColor" : "none"} />
+                      <span>{selectedPost.isPinned ? "고정 해제" : "게시글 고정"}</span>
+                    </button>
+                  )}
+
+                  {/* 수정/삭제 버튼 (본인 글인 경우만) */}
+                  {selectedPost.author_id === user?.id && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
                   <button 
                     className="post-detail-edit-button"
                     onClick={() => handleEditPost(selectedPost)}
@@ -3761,9 +3933,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                       e.currentTarget.style.borderColor = '#fecaca';
                     }}
                   >
-                    <Trash2 size={18} />
-                    <span>게시글 삭제</span>
-                  </button>
+                      <Trash2 size={18} />
+                      <span>게시글 삭제</span>
+                    </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

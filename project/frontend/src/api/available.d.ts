@@ -44,3 +44,19 @@ export function deleteAvailableTime(id: string | number): Promise<any>;
 
 export function getTeamCommonAvailability(teamId: number): Promise<TeamAvailabilityResponse | { error: any }>;
 
+export interface AutoRecommendResponse {
+  status: number;
+  msg?: string;
+  message?: string;
+  post_id?: number;
+  recommended_slots?: Array<{
+    day_of_week: string;
+    start_time: string;
+    end_time: string;
+    duration_minutes: number;
+  }>;
+  post?: any;
+}
+
+export function autoRecommendAndPost(teamId: number): Promise<AutoRecommendResponse>;
+

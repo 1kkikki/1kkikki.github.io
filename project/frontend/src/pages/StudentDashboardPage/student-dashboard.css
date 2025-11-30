@@ -1793,18 +1793,39 @@
   .dashboard__sidebar-content {
     flex-direction: row;
     overflow-x: auto;
-    flex: 1;
+    flex: 1 1 50%;
     padding: 12px;
     gap: 12px;
+    min-width: 0;
+    max-width: 50%;
   }
 
   .dashboard__course-button {
-    min-width: 160px;
+    min-width: 80px;
     flex-shrink: 0;
+    padding: 8px 10px;
   }
 
   .dashboard__notifications-section {
-    display: none;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 50%;
+    border-top: none;
+    border-left: 2px solid #e5e7eb;
+    padding: 12px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 100%;
+    min-width: 0;
+    max-width: 50%;
+  }
+
+  .dark .dashboard__notifications-section {
+    border-left: 2px solid #334155;
+  }
+
+  .dashboard__notifications-list {
+    max-height: 300px;
   }
 
   .dashboard__main {
@@ -1858,16 +1879,24 @@
   }
 
   .dashboard__course-button {
-    min-width: 140px;
+    min-width: 70px;
+    padding: 6px 8px;
+  }
+
+  .dashboard__notifications-section {
+    padding: 10px;
+  }
+
+  .dashboard__notifications-title {
+    font-size: 13px;
+  }
+
+  .dashboard__notification-card {
     padding: 10px 12px;
   }
 
-  .dashboard__course-code {
-    font-size: 9px;
-  }
-
-  .dashboard__course-title {
-    font-size: 13px;
+  .dashboard__notification-text {
+    font-size: 12px;
   }
 
   .dashboard__main {

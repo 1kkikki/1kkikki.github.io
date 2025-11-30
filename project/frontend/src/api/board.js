@@ -219,3 +219,25 @@ export async function votePoll(post_id, option_id) {
 
   return res.json();
 }
+
+// 게시물 고정/고정 해제
+export async function togglePinPost(post_id) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const res = await fetch(`${BOARD_URL}/post/${post_id}/pin`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    }
+  });
+
+  const data = await res.json();
+  
+  // HTTP 에러 상태 코드 처리
+  if (!res.ok) {
+    throw new Error(data.message || `HTTP error! status: ${res.status}`);
+  }
+  
+  return data;
+}
