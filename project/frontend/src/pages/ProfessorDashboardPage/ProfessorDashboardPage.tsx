@@ -231,8 +231,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         const targetCourse = courses.find((c) => c.code === notification.course_id);
         if (targetCourse) {
           try {
-            // 알림 내용에서 카테고리 정보 추출
-            let category = "공지사항"; // 기본값
+            // 알림 내용에서 카테고리 정보 추출 (실제 탭 이름으로 매핑)
+            let category = "공지"; // 기본값
             let teamBoardName = null;
             
             // 알림 내용에서 카테고리 추출
@@ -244,11 +244,11 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
                 teamBoardName = match[1];
               }
             } else if (notification.content.includes('공지사항')) {
-              category = "공지사항";
+              category = "공지"; // 탭 이름은 "공지"
             } else if (notification.content.includes('자유게시판')) {
-              category = "자유게시판";
+              category = "커뮤니티"; // 탭 이름은 "커뮤니티"
             } else if (notification.content.includes('질문게시판')) {
-              category = "질문게시판";
+              category = "커뮤니티"; // 탭 이름은 "커뮤니티"
             } else if (notification.content.includes('커뮤니티')) {
               category = "커뮤니티";
             }
