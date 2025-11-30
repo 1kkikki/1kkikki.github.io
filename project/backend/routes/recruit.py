@@ -149,6 +149,37 @@ def toggle_join(recruitment_id):
             )
             db.session.add(notification)
             db.session.commit()
+        
+        # ✨ 인원이 다 차면 자동으로 팀 게시판 활성화
+        current_count = TeamRecruitmentMember.query.filter_by(
+            recruitment_id=recruitment_id
+        ).count()
+        
+        if current_count >= recruitment.max_members and not recruitment.is_board_activated:
+            # 팀 게시판 자동 활성화
+            recruitment.is_board_activated = True
+            db.session.commit()
+            
+            # 🔔 팀원 전체에게 활성화 알림 전송
+            course = Course.query.filter_by(code=recruitment.course_id).first()
+            course_title = course.title if course else recruitment.course_id
+            
+            # 모든 팀원에게 알림 전송
+            all_members = TeamRecruitmentMember.query.filter_by(
+                recruitment_id=recruitment_id
+            ).all()
+            
+            for member in all_members:
+                notification = Notification(
+                    user_id=member.user_id,
+                    type="team_board_activated",
+                    content=f"[{course_title}] 모집 \"{recruitment.title[:20]}{'...' if len(recruitment.title) > 20 else ''}\"의 인원이 마감 되어 팀 게시판이 활성화되었습니다!",
+                    related_id=recruitment_id,
+                    course_id=recruitment.course_id
+                )
+                db.session.add(notification)
+            
+            db.session.commit()
 
     # 최신 상태 다시 계산해서 내려주기
     updated = TeamRecruitment.query.get(recruitment_id)
@@ -220,6 +251,27 @@ def activate_team_board(recruitment_id):
     # 팀 게시판 활성화 시 자동으로 마감 처리 (max_members를 현재 인원수로 설정)
     recruitment.max_members = current_members_count
     recruitment.is_board_activated = True
+    
+    db.session.commit()
+    
+    # 🔔 팀원 전체에게 활성화 알림 전송 (수동 활성화)
+    course = Course.query.filter_by(code=recruitment.course_id).first()
+    course_title = course.title if course else recruitment.course_id
+    
+    # 모든 팀원에게 알림 전송 (리더 포함)
+    all_members = TeamRecruitmentMember.query.filter_by(
+        recruitment_id=recruitment_id
+    ).all()
+    
+    for member in all_members:
+        notification = Notification(
+            user_id=member.user_id,
+            type="team_board_activated",
+            content=f"[{course_title}] 모집 \"{recruitment.title[:20]}{'...' if len(recruitment.title) > 20 else ''}\"의 팀 게시판이 활성화되었습니다!",
+            related_id=recruitment_id,
+            course_id=recruitment.course_id
+        )
+        db.session.add(notification)
     
     db.session.commit()
 

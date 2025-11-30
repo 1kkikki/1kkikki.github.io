@@ -239,7 +239,7 @@ def delete_post(post_id):
     CourseBoardComment.query.filter_by(post_id=post_id).delete()
     CourseBoardLike.query.filter_by(post_id=post_id).delete()
     
-    # 게시글 삭제
+    # 게시글 삭제 (알림은 남겨둠 - 삭제된 게시글임을 알리기 위해)
     db.session.delete(post)
     db.session.commit()
     return jsonify({"msg": "삭제 완료"})

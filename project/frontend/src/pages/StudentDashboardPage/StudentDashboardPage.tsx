@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageCircle, FileText } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Calendar, Clock, AlertCircle, CheckCircle, X, User, List, MessageSquare, FileText } from "lucide-react";
 import CourseBoardPage from "../StudentCourseBoardPage/StudentCourseBoardPage";
 import "./student-dashboard.css";
 import { addAvailableTime, getMyAvailableTimes, deleteAvailableTime } from "../../api/available";
@@ -212,6 +212,9 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
         setNotifications(prev => 
           prev.map(n => n.id === detail.notificationId ? { ...n, is_read: true } : n)
         );
+      } else if (detail.type === 'new') {
+        // 새 알림이 생성되면 알림 목록 새로고침
+        loadNotifications();
       }
     });
 
@@ -288,11 +291,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   const getNotificationIcon = (type: string) => {
     switch(type) {
       case 'notice': return AlertCircle;
-      case 'comment': return MessageCircle;
-      case 'reply': return MessageCircle;
+      case 'comment': return MessageSquare;
+      case 'reply': return MessageSquare;
       case 'enrollment': return CheckCircle;
       case 'recruitment_join': return CheckCircle;
       case 'team_post': return FileText;
+      case 'team_board_activated': return CheckCircle;
       default: return Bell;
     }
   };
@@ -306,6 +310,7 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       case 'enrollment': return '#10b981'; // 초록색
       case 'recruitment_join': return '#10b981'; // 초록색
       case 'team_post': return '#a855f7'; // 보라색 (팀 게시판)
+      case 'team_board_activated': return '#10b981'; // 초록색 (팀 게시판 활성화)
       default: return '#3b82f6'; // 파란색
     }
   };
@@ -337,24 +342,45 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       const targetCourse = courses.find((c) => c.code === notification.course_id);
       if (targetCourse) {
         try {
-          // 팀게시판 알림인 경우 팀게시판 이름 추출
+          // 알림 내용에서 카테고리 정보 추출
+          let category = "공지사항"; // 기본값
           let teamBoardName = null;
-          if (notification.type === 'team_post' || notification.type === 'comment' || notification.type === 'reply') {
+          
+          console.log("대시보드 알림 클릭:", notification.content);
+          
+          // 알림 내용에서 카테고리 추출
+          if (notification.type === 'team_post' || notification.content.includes('팀게시판')) {
+            category = "팀 게시판";
             // 알림 내용에서 "팀게시판-{이름}" 패턴 추출
             const match = notification.content.match(/팀게시판-([^\s]+)/);
             if (match && match[1]) {
               teamBoardName = match[1];
             }
+          } else if (notification.content.includes('공지사항')) {
+            category = "공지사항";
+          } else if (notification.content.includes('자유게시판')) {
+            category = "자유게시판";
+          } else if (notification.content.includes('질문게시판')) {
+            category = "질문게시판";
+          } else if (notification.content.includes('커뮤니티')) {
+            category = "커뮤니티";
           }
+          
+          console.log("추출된 카테고리:", category, "팀 이름:", teamBoardName);
+          
+          const targetData = {
+            courseCode: notification.course_id,
+            postId: notification.related_id,
+            commentId: notification.comment_id,
+            category: category,
+            teamBoardName: teamBoardName,
+          };
+          
+          console.log("localStorage에 저장:", targetData);
           
           localStorage.setItem(
             "notificationTarget",
-            JSON.stringify({
-              courseCode: notification.course_id,
-              postId: notification.related_id,
-              commentId: notification.comment_id,
-              teamBoardName: teamBoardName,
-            })
+            JSON.stringify(targetData)
           );
         } catch (e) {
           console.error("알림 타겟 저장 실패:", e);
@@ -393,6 +419,34 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
               courseCode: notification.course_id,
               type: 'recruitment_join',
               recruitmentId: notification.related_id,
+            })
+          );
+        } catch (e) {
+          console.error("알림 타겟 저장 실패:", e);
+        }
+        setSelectedCourse(targetCourse);
+      }
+    }
+
+    // 팀 게시판 활성화 알림이면 해당 강의의 팀 게시판 탭으로 이동
+    if (notification.type === 'team_board_activated' && notification.course_id) {
+      const targetCourse = courses.find((c) => c.code === notification.course_id);
+      if (targetCourse) {
+        try {
+          // 알림 내용에서 팀 게시판 이름 추출 (모집 "제목")
+          let teamBoardName = null;
+          const match = notification.content.match(/모집 "([^"]+)"/);
+          if (match && match[1]) {
+            teamBoardName = match[1];
+          }
+          
+          localStorage.setItem(
+            "notificationTarget",
+            JSON.stringify({
+              courseCode: notification.course_id,
+              type: 'team_board_activated',
+              recruitmentId: notification.related_id,
+              teamBoardName: teamBoardName,
             })
           );
         } catch (e) {

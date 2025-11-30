@@ -3,7 +3,7 @@
 export const NOTIFICATION_UPDATED_EVENT = 'notificationUpdated';
 
 export interface NotificationUpdateDetail {
-  type: 'read' | 'read-all';
+  type: 'read' | 'read-all' | 'new';
   notificationId?: number;
 }
 
