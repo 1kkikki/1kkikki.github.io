@@ -11,13 +11,16 @@ import MyPage from './pages/MyPage/MyPage';
 import CourseJoinLoginPage from './pages/CourseJoinLoginPage/CourseJoinLoginPage';
 
 // CourseJoinLoginPage 라우트 컴포넌트
-function CourseJoinLoginPageRoute({ onNavigate }: { onNavigate: (page: string, type?: 'student' | 'professor') => void }) {
+function CourseJoinLoginPageRoute() {
   const { courseId, courseName, courseCode } = useParams<{ courseId: string; courseName: string; courseCode: string }>();
   
+  // 임시 onNavigate 함수 (NavigationWrapper가 덮어쓸 것임)
+  const tempNavigate = () => {};
+  
   return (
-    <NavigationWrapper onNavigate={onNavigate}>
+    <NavigationWrapper>
       <CourseJoinLoginPage 
-        onNavigate={onNavigate} 
+        onNavigate={tempNavigate}
         courseId={courseId ? decodeURIComponent(courseId) : ''}
         courseName={courseName ? decodeURIComponent(courseName) : '강의'}
         courseCode={courseCode ? decodeURIComponent(courseCode) : ''}
@@ -27,12 +30,31 @@ function CourseJoinLoginPageRoute({ onNavigate }: { onNavigate: (page: string, t
 }
 
 // 네비게이션 래퍼 컴포넌트 (React.memo로 최적화)
-const NavigationWrapper = React.memo(({ children, onNavigate }: { children: React.ReactNode; onNavigate: (page: string, type?: 'student' | 'professor') => void }) => {
+const NavigationWrapper = React.memo(({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   // onNavigate를 URL 기반으로 변환 (useCallback으로 메모이제이션)
-  const wrappedNavigate = React.useCallback((page: string, type?: 'student' | 'professor') => {
+  const wrappedNavigate = React.useCallback((page: string, _type?: 'student' | 'professor') => {
+    // course-join-login인 경우 localStorage에서 강의 정보 확인
+    if (page === 'course-join-login') {
+      const pendingJoin = localStorage.getItem('pendingCourseJoin');
+      if (pendingJoin) {
+        try {
+          const { courseId, courseName, courseCode } = JSON.parse(pendingJoin);
+          navigate(`/course/${courseId}/${encodeURIComponent(courseName)}/${encodeURIComponent(courseCode)}`);
+          return;
+        } catch (e) {
+          console.error("강의 정보 파싱 오류:", e);
+        }
+      }
+      // 강의 정보가 없으면 현재 경로 유지 (이미 강의 참여 페이지에 있는 경우)
+      if (location.pathname.startsWith('/course/')) {
+        navigate(location.pathname);
+        return;
+      }
+    }
+    
     const pathMap: Record<string, string> = {
       'home': '/',
       'login': '/login',
@@ -48,7 +70,7 @@ const NavigationWrapper = React.memo(({ children, onNavigate }: { children: Reac
     navigate(path);
   }, [navigate, location.pathname]);
 
-  return <>{React.cloneElement(children as React.ReactElement, { onNavigate: wrappedNavigate })}</>;
+  return <>{React.cloneElement(children as React.ReactElement<any>, { onNavigate: wrappedNavigate })}</>;
 });
 
 // 로그인 상태 확인 및 자동 리다이렉트 컴포넌트
@@ -98,7 +120,26 @@ function AppContent() {
     }
   }, [navigate]);
 
-  const handleNavigate = (page: string, type?: 'student' | 'professor') => {
+  const handleNavigate = (page: string) => {
+    // course-join-login인 경우 localStorage에서 강의 정보 확인
+    if (page === 'course-join-login') {
+      const pendingJoin = localStorage.getItem('pendingCourseJoin');
+      if (pendingJoin) {
+        try {
+          const { courseId, courseName, courseCode } = JSON.parse(pendingJoin);
+          navigate(`/course/${courseId}/${encodeURIComponent(courseName)}/${encodeURIComponent(courseCode)}`);
+          return;
+        } catch (e) {
+          console.error("강의 정보 파싱 오류:", e);
+        }
+      }
+      // 강의 정보가 없으면 현재 경로 유지 (이미 강의 참여 페이지에 있는 경우)
+      if (location.pathname.startsWith('/course/')) {
+        navigate(location.pathname);
+        return;
+      }
+    }
+    
     const pathMap: Record<string, string> = {
       'home': '/',
       'login': '/login',
@@ -114,8 +155,8 @@ function AppContent() {
     navigate(path);
   };
 
-  // 강의 참여 맥락인지 확인
-  const isCourseJoinContext = location.pathname.startsWith('/course/');
+  // 강의 참여 맥락인지 확인 (경로 또는 localStorage 확인)
+  const isCourseJoinContext = location.pathname.startsWith('/course/') || !!localStorage.getItem('pendingCourseJoin');
 
   // 로딩 중이면 로딩 상태 표시 (깜빡임 방지)
   if (isLoading) {
@@ -149,15 +190,15 @@ function AppContent() {
     <>
       <AuthRedirect />
       <Routes>
-        <Route path="/" element={<NavigationWrapper onNavigate={handleNavigate}><HomePage onNavigate={handleNavigate} /></NavigationWrapper>} />
-        <Route path="/login" element={<NavigationWrapper onNavigate={handleNavigate}><LoginPage onNavigate={handleNavigate} returnToCourseJoin={isCourseJoinContext} /></NavigationWrapper>} />
-        <Route path="/signup" element={<NavigationWrapper onNavigate={handleNavigate}><SignUpPage onNavigate={handleNavigate} returnToCourseJoin={isCourseJoinContext} /></NavigationWrapper>} />
-        <Route path="/student-dashboard/*" element={<NavigationWrapper onNavigate={handleNavigate}><StudentDashboardPage onNavigate={handleNavigate} /></NavigationWrapper>} />
-        <Route path="/professor-dashboard/*" element={<NavigationWrapper onNavigate={handleNavigate}><ProfessorDashboardPage onNavigate={handleNavigate} /></NavigationWrapper>} />
-        <Route path="/mypage" element={<NavigationWrapper onNavigate={handleNavigate}><MyPage onNavigate={handleNavigate} /></NavigationWrapper>} />
+        <Route path="/" element={<NavigationWrapper><HomePage onNavigate={handleNavigate} /></NavigationWrapper>} />
+        <Route path="/login" element={<NavigationWrapper><LoginPage onNavigate={handleNavigate} returnToCourseJoin={isCourseJoinContext} /></NavigationWrapper>} />
+        <Route path="/signup" element={<NavigationWrapper><SignUpPage onNavigate={handleNavigate} returnToCourseJoin={isCourseJoinContext} /></NavigationWrapper>} />
+        <Route path="/student-dashboard/*" element={<NavigationWrapper><StudentDashboardPage onNavigate={handleNavigate} /></NavigationWrapper>} />
+        <Route path="/professor-dashboard/*" element={<NavigationWrapper><ProfessorDashboardPage onNavigate={handleNavigate} /></NavigationWrapper>} />
+        <Route path="/mypage" element={<NavigationWrapper><MyPage onNavigate={handleNavigate} /></NavigationWrapper>} />
         <Route 
           path="/course/:courseId/:courseName/:courseCode" 
-          element={<CourseJoinLoginPageRoute onNavigate={handleNavigate} />} 
+          element={<CourseJoinLoginPageRoute />} 
         />
       </Routes>
     </>

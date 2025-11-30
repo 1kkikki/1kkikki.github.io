@@ -27,12 +27,10 @@ import {
   File,
   FileText
 } from "lucide-react";
-import { getProfile } from "../../api/profile";
 import "./professor-courseboard.css";
 import "../StudentCourseBoardPage/student-courseboard.css";
 import {
   readProfileImageFromStorage,
-  writeProfileImageToStorage,
   PROFILE_IMAGE_UPDATED_EVENT,
   ProfileImageEventDetail,
 } from "../../utils/profileImage";

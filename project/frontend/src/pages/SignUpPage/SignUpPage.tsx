@@ -72,8 +72,21 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
       setShowAlert(true);
       // 강의 참여 중이었다면 강의 참여 로그인 페이지로, 아니면 일반 로그인으로
       setTimeout(() => {
-        if (returnToCourseJoin) {
-          onNavigate("course-join-login");
+        // localStorage에서 강의 정보 확인
+        const pendingJoin = localStorage.getItem('pendingCourseJoin');
+        if (pendingJoin || returnToCourseJoin) {
+          // 강의 정보가 있으면 강의 참여 로그인 페이지로 이동
+          if (pendingJoin) {
+            try {
+              const { courseId, courseName, courseCode } = JSON.parse(pendingJoin);
+              navigate(`/course/${courseId}/${encodeURIComponent(courseName)}/${encodeURIComponent(courseCode)}`);
+            } catch (e) {
+              console.error("강의 정보 파싱 오류:", e);
+              onNavigate("course-join-login");
+            }
+          } else {
+            onNavigate("course-join-login");
+          }
         } else {
           onNavigate("login");
         }
@@ -229,7 +242,26 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
             </span>
             <button
               type="button"
-              onClick={() => onNavigate(returnToCourseJoin ? "course-join-login" : "login")}
+              onClick={() => {
+                // localStorage에서 강의 정보 확인
+                const pendingJoin = localStorage.getItem('pendingCourseJoin');
+                if (pendingJoin || returnToCourseJoin) {
+                  // 강의 정보가 있으면 강의 참여 로그인 페이지로 이동
+                  if (pendingJoin) {
+                    try {
+                      const { courseId, courseName, courseCode } = JSON.parse(pendingJoin);
+                      navigate(`/course/${courseId}/${encodeURIComponent(courseName)}/${encodeURIComponent(courseCode)}`);
+                    } catch (e) {
+                      console.error("강의 정보 파싱 오류:", e);
+                      onNavigate("course-join-login");
+                    }
+                  } else {
+                    onNavigate("course-join-login");
+                  }
+                } else {
+                  onNavigate("login");
+                }
+              }}
               className="signup-page__footer-link"
             >
               로그인

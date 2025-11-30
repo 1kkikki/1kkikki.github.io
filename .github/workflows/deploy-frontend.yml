@@ -1,0 +1,66 @@
+name: Deploy Frontend to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'project/frontend/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: project/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./project/frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: ./project/frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://allmeet-backend.onrender.com' }}
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Prepare deployment
+        run: |
+          # dist 폴더를 allmeet 폴더로 복사
+          mkdir -p deploy/allmeet
+          cp -r project/frontend/dist/* deploy/allmeet/
+          # 404.html을 루트에도 복사 (GitHub Pages SPA 라우팅)
+          cp project/frontend/public/404.html deploy/404.html || echo "404.html not found, skipping"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './deploy'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

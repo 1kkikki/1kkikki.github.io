@@ -17,17 +17,7 @@ def create_app():
     # 데이터베이스 설정
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     DB_PATH = os.path.join(BASE_DIR, "instance", "project.db")
-    
-    # 환경 변수에서 데이터베이스 URL 가져오기 (Render 등)
-    database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        # PostgreSQL URL 형식인 경우 (Render 등)
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace("postgres://", "postgresql://", 1)
-        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-    else:
-        # 로컬 개발 환경 (SQLite)
-        app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
 
     # 기본 설정
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -110,6 +100,3 @@ if __name__ == "__main__":
     app = create_app()
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_ENV") == "development")
-
-# Render 배포용
-app = create_app()
