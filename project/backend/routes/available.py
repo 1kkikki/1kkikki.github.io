@@ -147,13 +147,18 @@ def find_2hour_continuous_slots(daily_blocks):
 
 def check_all_members_submitted(team_id):
     """팀의 모든 멤버가 가능한 시간을 제출했는지 확인"""
+    team_recruitment = TeamRecruitment.query.get(team_id)
+    if not team_recruitment:
+        print(f"[DEBUG] 팀 {team_id}를 찾을 수 없음")
+        return False
+    
     team_members = TeamRecruitmentMember.query.filter_by(recruitment_id=team_id).all()
     if not team_members:
         print(f"[DEBUG] 팀 {team_id} 멤버가 없음")
         return False
     
     member_ids = [m.user_id for m in team_members]
-    print(f"[DEBUG] 팀 {team_id} 멤버 수: {len(member_ids)}, 멤버 IDs: {member_ids}")
+    print(f"[DEBUG] 팀 {team_id} ({team_recruitment.team_board_name}) 멤버 수: {len(member_ids)}, 멤버 IDs: {member_ids}")
     
     # 각 멤버가 최소 1개 이상의 시간을 제출했는지 확인
     all_submitted = True
@@ -164,8 +169,9 @@ def check_all_members_submitted(team_id):
         print(f"[DEBUG]   - 멤버 {user_name} (ID: {member_id}): 제출한 시간 수 = {times_count}")
         if times_count == 0:
             all_submitted = False
+            print(f"[DEBUG]   - 멤버 {user_name} (ID: {member_id})가 시간을 제출하지 않음")
     
-    print(f"[DEBUG] 팀 {team_id} 모든 멤버 제출 완료 여부: {all_submitted}")
+    print(f"[DEBUG] 팀 {team_id} ({team_recruitment.team_board_name}) 모든 멤버 제출 완료 여부: {all_submitted}")
     return all_submitted
 
 def create_auto_recommend_post(team_id):
@@ -266,17 +272,23 @@ def create_auto_recommend_post(team_id):
     
     # 게시글 생성
     import json as json_module
+    # team_board_name이 None이거나 빈 문자열이면 게시글 생성하지 않음
+    if not team_recruitment.team_board_name or not team_recruitment.team_board_name.strip():
+        print(f"[DEBUG] 팀 {team_id}의 team_board_name이 없거나 비어있음: '{team_recruitment.team_board_name}'")
+        return None
+    
     post = CourseBoardPost(
         course_id=team_recruitment.course_id,
         author_id=post_author_id,
         title=title,
         content=content,
         category="team",
-        team_board_name=team_recruitment.team_board_name,
+        team_board_name=team_recruitment.team_board_name.strip(),  # 공백 제거하여 저장
         files=None
     )
     db.session.add(post)
     db.session.flush()
+    print(f"[DEBUG] 게시글 생성됨: post_id={post.id}, team_board_name='{post.team_board_name}', course_id='{post.course_id}'")
     
     # 투표 생성 (각 추천 시간을 옵션으로)
     poll_question = "원하는 만남 시간을 선택해주세요"
@@ -578,17 +590,23 @@ def auto_recommend_and_post(team_id):
     
     # 게시글 생성
     import json as json_module
+    # team_board_name이 None이거나 빈 문자열이면 게시글 생성하지 않음
+    if not team_recruitment.team_board_name or not team_recruitment.team_board_name.strip():
+        print(f"[DEBUG] 팀 {team_id}의 team_board_name이 없거나 비어있음: '{team_recruitment.team_board_name}'")
+        return jsonify({"msg": "팀 게시판 이름이 없습니다."}), 400
+    
     post = CourseBoardPost(
         course_id=team_recruitment.course_id,
         author_id=post_author_id,
         title=title,
         content=content,
         category="team",
-        team_board_name=team_recruitment.team_board_name,
+        team_board_name=team_recruitment.team_board_name.strip(),  # 공백 제거하여 저장
         files=None
     )
     db.session.add(post)
     db.session.flush()
+    print(f"[DEBUG] 게시글 생성됨: post_id={post.id}, team_board_name='{post.team_board_name}', course_id='{post.course_id}'")
     
     # 투표 생성 (각 추천 시간을 옵션으로)
     poll_question = "가장 적합한 시간을 선택해주세요"
