@@ -15,8 +15,8 @@ export async function getProfile() {
     });
 
     if (!res.ok) {
-      // 401 Unauthorized 또는 422 Unprocessable Entity일 때 인증 에러로 처리
-      if (res.status === 401 || res.status === 422) {
+      // 401, 403, 404, 422 등 인증/권한 관련 에러는 UNAUTHORIZED로 처리
+      if (res.status === 401 || res.status === 403 || res.status === 404 || res.status === 422) {
         return { error: "UNAUTHORIZED", status: res.status };
       }
       throw new Error(`HTTP ${res.status}`);

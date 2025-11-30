@@ -32,6 +32,10 @@ export function createBoardPost(
   poll?: any
 ): Promise<any>;
 export function getBoardPosts(course_id: string): Promise<any>;
+
+export function checkPostExists(postId: number): Promise<{ exists: boolean }>;
+
+export function checkCommentExists(commentId: number): Promise<{ exists: boolean }>;
 export function deleteBoardPost(post_id: number): Promise<any>;
 export function updateBoardPost(
   post_id: number,

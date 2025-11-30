@@ -8,6 +8,26 @@ from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseB
 
 board_bp = Blueprint("board", __name__, url_prefix="/board")
 
+# =====================================================
+# 게시물 존재 확인 (알림용)
+# =====================================================
+@board_bp.route("/posts/<int:post_id>/exists", methods=["GET"])
+@jwt_required()
+def check_post_exists(post_id):
+    """게시물 존재 여부 확인"""
+    post = CourseBoardPost.query.get(post_id)
+    return jsonify({"exists": post is not None}), 200
+
+# =====================================================
+# 댓글 존재 확인 (알림용)
+# =====================================================
+@board_bp.route("/comments/<int:comment_id>/exists", methods=["GET"])
+@jwt_required()
+def check_comment_exists(comment_id):
+    """댓글 존재 여부 확인"""
+    comment = CourseBoardComment.query.get(comment_id)
+    return jsonify({"exists": comment is not None}), 200
+
 # 파일 업로드 설정
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 ALLOWED_EXTENSIONS = {
@@ -217,7 +237,7 @@ def create_post():
                     notification = Notification(
                         user_id=member.user_id,
                         type="team_post",
-                        content=f"[{course_title}] 팀게시판-{data['team_board_name']} 새 글이 작성되었습니다: {data['title']}",
+                        content=f"[{course_title}] {data['team_board_name']} 새 글이 작성되었습니다: {data['title']}",
                         related_id=post.id,
                         course_id=data["course_id"]
                     )
@@ -480,17 +500,9 @@ def delete_comment(comment_id):
     CourseBoardCommentLike.query.filter_by(comment_id=comment_id).delete()
     
     # 답글도 함께 삭제
-    reply_comments = CourseBoardComment.query.filter_by(parent_comment_id=comment_id).all()
-    reply_comment_ids = [rc.id for rc in reply_comments]
     CourseBoardComment.query.filter_by(parent_comment_id=comment_id).delete()
     
-    # 삭제된 댓글과 관련된 알림도 삭제
-    from models import Notification
-    Notification.query.filter_by(comment_id=comment_id).delete()
-    
-    # 답글의 알림도 삭제
-    for reply_id in reply_comment_ids:
-        Notification.query.filter_by(comment_id=reply_id).delete()
+    # 알림은 삭제하지 않음 (사용자가 "삭제된 댓글" 메시지를 볼 수 있도록)
     
     db.session.delete(comment)
     db.session.commit()

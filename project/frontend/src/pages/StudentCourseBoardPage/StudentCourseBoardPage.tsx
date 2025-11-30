@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll } from "../../api/board";
+import { useCourses } from "../../contexts/CourseContext";
+import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll, checkPostExists, checkCommentExists } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
 import { getTeamCommonAvailability } from "../../api/available";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
@@ -172,9 +174,12 @@ interface Notification {
 
 export default function CourseBoardPage({ course, onBack, onNavigate, availableTimes = [] }: CourseBoardPageProps) {
   const { user } = useAuth();
-  const [profileImage, setProfileImage] = useState<string | null>(() =>
-    readProfileImageFromStorage(user?.id)
-  );
+  const navigate = useNavigate();
+  const { courses } = useCourses();
+  // 프로필 이미지 초기값을 localStorage에서 바로 읽어서 설정 (깜빡임 방지)
+  const [profileImage, setProfileImage] = useState<string | null>(() => {
+    return user?.id ? readProfileImageFromStorage(user.id) : null;
+  });
 
   const [activeTab, setActiveTab] = useState("공지");
   const [searchQuery, setSearchQuery] = useState("");
@@ -267,6 +272,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 팀 게시판 목록 (활성화된 팀 게시판들)
   const [teamBoards, setTeamBoards] = useState<TeamRecruitment[]>([]);
   
+  // 로드된 teamBoards가 어느 강의의 것인지 추적
+  const [loadedTeamBoardsCourseCode, setLoadedTeamBoardsCourseCode] = useState<string>("");
+  
   // 선택된 팀 게시판 (팀 게시판 내부로 들어갔을 때)
   const [selectedTeamBoard, setSelectedTeamBoard] = useState<TeamRecruitment | null>(null);
 
@@ -328,12 +336,23 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 샘플 게시글 데이터
   const [posts, setPosts] = useState<Post[]>([]);
+  // 현재 로드된 posts가 어느 강의의 것인지 추적
+  const [loadedCourseCode, setLoadedCourseCode] = useState<string>("");
 
   // 서버에서 게시글 목록 가져오기
-  async function loadPosts() {
+  async function loadPosts(signal?: AbortSignal) {
     try {
+      // 다른 강의로 전환할 때만 posts 초기화 (같은 강의는 기존 posts 유지 - 깜빡임 방지)
+      if (loadedCourseCode !== course.code) {
+        setPosts([]);
+        setLoadedCourseCode("");
+      }
+      
       // 여기서 course.id 쓰는 건 그대로 놔두기 (지금 백엔드에서 Integer course_id 쓰고 있으니까)
       const data = await getBoardPosts(course.code);
+
+      // 컴포넌트가 unmount되었으면 중단
+      if (signal?.aborted) return;
 
       const mapped: Post[] = data.map((p: any) => ({
         id: p.id,
@@ -358,12 +377,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }));
 
       setPosts(mapped);
-      // 디버깅: poll 데이터 확인
-      mapped.forEach((post, idx) => {
-        if (post.poll) {
-          console.log(`게시글 ${idx + 1} (ID: ${post.id}) poll 데이터:`, post.poll);
-        }
-      });
+      // 로딩 완료 - 어느 강의의 posts인지 기록
+      setLoadedCourseCode(course.code);
     } catch (err) {
       console.error("게시글 불러오기 실패:", err);
     }
@@ -401,7 +416,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
   // 탭이 바뀔 때마다, 처음 렌더링 할 때 서버에서 게시글 다시 불러오기
   useEffect(() => {
-    loadPosts();
+    const abortController = new AbortController();
+    loadPosts(abortController.signal);
+    
+    return () => {
+      abortController.abort();
+    };
   }, [activeTab, course.id]);
 
   // 강의가 바뀔 때 모집글 불러오기
@@ -413,6 +433,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   // 팀 게시판 목록 불러오기
   async function loadTeamBoards() {
     try {
+      // 강의가 바뀌면 이전 teamBoards 초기화
+      if (loadedTeamBoardsCourseCode !== course.code) {
+        setTeamBoards([]);
+        setLoadedTeamBoardsCourseCode("");
+      }
+      
       const data = await getTeamBoards(course.code);
       const mapped: TeamRecruitment[] = data.map((r: any) => ({
         id: r.id,
@@ -433,6 +459,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         is_board_activated: r.is_board_activated || false,
       }));
       setTeamBoards(mapped);
+      // 로딩 완료 - 어느 강의의 teamBoards인지 기록
+      setLoadedTeamBoardsCourseCode(course.code);
     } catch (err) {
       console.error("팀 게시판 목록 불러오기 실패:", err);
     }
@@ -464,21 +492,25 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
     try {
       const target = JSON.parse(stored);
+      
       if (target.courseCode === course.code) {
         // 게시글 관련 알림
         if (typeof target.postId === "number") {
+          // posts가 로드될 때까지 대기
+          if (loadedCourseCode !== course.code) return;
+          if (!posts || posts.length === 0) return;
+          
           // 댓글 ID가 있으면 저장
           if (target.commentId) {
             setNotificationTargetCommentId(target.commentId);
           }
           
           // 게시글 ID만 설정 (탭 전환은 notificationTargetPostId useEffect에서 처리)
-          console.log("대시보드→강의: 게시글 ID 설정:", target.postId);
           setNotificationTargetPostId(target.postId);
         }
         // 강의 참여 알림 - 이미 해당 강의 게시판에 있으므로 아무것도 하지 않음
         else if (target.type === 'enrollment') {
-          // 이미 해당 강의 게시판에 있으므로 아무것도 하지 않음
+          localStorage.removeItem("notificationTarget");
         }
         // 팀 모집 참여 알림 - 모집 상세 모달 바로 열기
         else if (target.type === 'recruitment_join') {
@@ -489,31 +521,41 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         }
         // 팀 게시판 활성화 알림 - 해당 팀 게시판 탭으로 이동
         else if (target.type === 'team_board_activated') {
-          if (target.recruitmentId && teamBoards.length > 0) {
-            // recruitmentId로 teamBoard 찾기
-            const targetTeamBoard = teamBoards.find(tb => tb.id === target.recruitmentId);
+          if (target.recruitmentId) {
+            // teamBoards가 현재 강의의 것이 아니면 대기
+            if (loadedTeamBoardsCourseCode !== course.code) {
+              return; // useEffect가 teamBoards 로드 후 다시 실행됨
+            }
+            
+            // recruitmentId로 teamBoard 찾기 (타입 변환 시도)
+            const targetTeamBoard = teamBoards.find(tb => 
+              tb.id === target.recruitmentId || 
+              tb.id === Number(target.recruitmentId) ||
+              String(tb.id) === String(target.recruitmentId)
+            );
+            
             if (targetTeamBoard && targetTeamBoard.team_board_name) {
               // 팀 게시판 탭으로 전환
               setActiveTab(`팀 게시판: ${targetTeamBoard.team_board_name}`);
               setSelectedTeamBoard(targetTeamBoard);
+              // 성공적으로 처리했으면 localStorage 정리
+              localStorage.removeItem("notificationTarget");
+            } else {
+              // teamBoard를 찾지 못했으면 localStorage 정리
+              localStorage.removeItem("notificationTarget");
             }
+          } else {
+            // recruitmentId가 없으면 localStorage 정리
+            localStorage.removeItem("notificationTarget");
           }
-          // localStorage 정리
-          localStorage.removeItem("notificationTarget");
         }
       }
     } catch (err) {
       console.error("알림 타겟 파싱 실패:", err);
     }
-    // localStorage는 삭제하지 않음 - 삭제된 게시글 처리 useEffect에서 필요할 수 있음
-  }, [course.code, recruitments, teamBoards]);
+  }, [course.code, recruitments, teamBoards, posts, loadedCourseCode, loadedTeamBoardsCourseCode]);
 
-  // 프로필 이미지 가져오기
-  // 프로필 이미지 초기화 (localStorage에서만 읽기, API 호출 제거로 성능 개선)
-  useEffect(() => {
-    setProfileImage(readProfileImageFromStorage(user?.id) || null);
-  }, [user?.id]);
-
+  // 프로필 이미지 업데이트 이벤트 리스너
   useEffect(() => {
     const handleProfileChange = (event: Event) => {
       const { detail } = event as CustomEvent<ProfileImageEventDetail>;
@@ -626,6 +668,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [notificationTargetPostId, setNotificationTargetPostId] = useState<number | null>(null);
   const [notificationTargetCommentId, setNotificationTargetCommentId] = useState<number | null>(null);
   const [notificationTargetRecruitmentId, setNotificationTargetRecruitmentId] = useState<number | null>(null);
+  const [pendingPostOpen, setPendingPostOpen] = useState<Post | null>(null);
 
   // 현재 선택된 팀 게시판 정보 가져오기
   const currentTeamBoard = useMemo(() => {
@@ -687,60 +730,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (!notificationTargetPostId) return;
     if (!posts || posts.length === 0) return;
 
+    // posts가 현재 강의의 것인지 확인
+    if (loadedCourseCode !== course.code) return;
+
     const targetPost = posts.find((p) => p.id === notificationTargetPostId);
     
-    // 게시글을 찾지 못한 경우 (삭제된 게시글)
+    // 게시글을 찾지 못한 경우 (알림 클릭 시점에 존재 확인 완료했으므로 조용히 무시)
     if (!targetPost) {
-      console.log("게시글을 찾을 수 없음:", notificationTargetPostId);
-      
-      // localStorage에서 삭제된 게시글의 카테고리 정보 확인
-      const stored = localStorage.getItem("notificationTarget");
-      let targetTab = "공지사항"; // 기본값
-      
-      console.log("localStorage 읽기:", stored);
-      
-      if (stored) {
-        try {
-          const target = JSON.parse(stored);
-          console.log("파싱된 타겟:", target);
-          
-          // 카테고리 정보가 있으면 사용
-          if (target.category) {
-            targetTab = target.category;
-            
-            // 팀 게시판인 경우 팀 이름 추가
-            if (target.category === "팀 게시판" && target.teamBoardName) {
-              targetTab = `팀 게시판: ${target.teamBoardName}`;
-            }
-          }
-          // 하위 호환성: teamBoardName만 있는 경우
-          else if (target.teamBoardName) {
-            targetTab = `팀 게시판: ${target.teamBoardName}`;
-          }
-          
-          console.log("최종 타겟 탭:", targetTab);
-        } catch (e) {
-          console.error("알림 타겟 파싱 실패:", e);
-        }
-      }
-      
-      // 해당 탭으로 이동 후 메시지 표시
-      if (activeTab !== targetTab) {
-        console.log("탭 전환:", activeTab, "→", targetTab);
-        setActiveTab(targetTab);
-      }
-      
-      setWarningMessage("삭제된 게시글입니다.");
-      setShowWarning(true);
       setNotificationTargetPostId(null);
       setNotificationTargetCommentId(null);
-      
-      // localStorage 정리
       localStorage.removeItem("notificationTarget");
       return;
     }
-
-    console.log("알림 게시글:", targetPost.category, targetPost.team_board_name, "현재 탭:", activeTab);
 
     // 게시글을 찾았으므로 이전 경고 메시지 초기화
     setShowWarning(false);
@@ -752,29 +753,41 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       targetTab = `팀 게시판: ${targetPost.team_board_name}`;
     }
     
-    console.log("목표 탭:", targetTab);
-    
     // notificationTargetPostId를 먼저 null로 설정 (useEffect 중복 실행 방지)
     setNotificationTargetPostId(null);
     
     // 이미 올바른 탭에 있으면 바로 게시글 열기
     if (activeTab === targetTab) {
-      console.log("이미 올바른 탭에 있음, 바로 게시글 열기");
-      handlePostClick(targetPost);
       // localStorage 정리
       localStorage.removeItem("notificationTarget");
+      // 최소 딜레이로 게시물 열기 (깜빡임 최소화)
+      setTimeout(() => {
+        handlePostClick(targetPost);
+      }, 30);
       return;
     }
     
-    // 탭이 다르면 전환하고, setTimeout으로 게시글 열기
-    console.log("탭 전환 후 게시글 열기");
-    setActiveTab(targetTab);
-    setTimeout(() => {
-      handlePostClick(targetPost);
+    // 탭이 다르면 전환하고, pendingPostOpen 설정
       // localStorage 정리
       localStorage.removeItem("notificationTarget");
-    }, 200);
-  }, [notificationTargetPostId, posts, activeTab]);
+    setPendingPostOpen(targetPost);
+    setActiveTab(targetTab);
+  }, [notificationTargetPostId, posts, course.code, loadedCourseCode]); // loadedCourseCode 추가 - posts 로딩 완료 확인
+
+  // 탭 전환 후 대기 중인 게시물 열기
+  useEffect(() => {
+    if (!pendingPostOpen) return;
+    if (posts.length === 0) return;
+    
+    // pendingPostOpen을 null로 설정 (한 번만 실행)
+    const postToOpen = pendingPostOpen;
+    setPendingPostOpen(null);
+    
+    // 최소 딜레이로 게시물 열기 (깜빡임 최소화)
+    setTimeout(() => {
+      handlePostClick(postToOpen);
+    }, 50);
+  }, [pendingPostOpen, posts, activeTab]);
 
   // 알림으로 지정된 모집 자동 선택
   useEffect(() => {
@@ -793,34 +806,22 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       setWarningMessage("삭제된 모집입니다.");
       setShowWarning(true);
     }
+    
+    // ✅ localStorage와 state 정리 (다른 탭 이동 시 다시 열리지 않도록)
     setNotificationTargetRecruitmentId(null);
+    localStorage.removeItem("notificationTarget");
   }, [notificationTargetRecruitmentId, recruitments]);
 
-  // 댓글/답글 알림에서 댓글이 삭제되었는지 확인
+  // 댓글/답글 알림 처리 (알림 클릭 시점에 존재 확인 완료)
   useEffect(() => {
     if (!notificationTargetCommentId) return;
     if (!selectedPost) return;
     
-    // selectedPost.comments에서 해당 댓글이 있는지 확인 (답글 포함)
-    const findComment = (comments: Comment[]): boolean => {
-      for (const comment of comments) {
-        if (comment.id === notificationTargetCommentId) return true;
-        if (comment.replies && findComment(comment.replies)) return true;
-      }
-      return false;
-    };
-    
-    const commentExists = findComment(selectedPost.comments);
-    if (!commentExists) {
-      console.log("댓글을 찾을 수 없음:", notificationTargetCommentId);
-      setWarningMessage("삭제된 댓글입니다.");
-      setShowWarning(true);
-    } else {
-      // 댓글을 찾았으므로 이전 경고 메시지 초기화
+    // 이전 경고 메시지 초기화
       setShowWarning(false);
       setWarningMessage("");
-    }
     
+    // commentId 처리 완료
     setNotificationTargetCommentId(null);
   }, [notificationTargetCommentId, selectedPost]);
 
@@ -846,36 +847,40 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }
     }
 
-    // 게시판 관련 알림이면 해당 게시글로 이동
+    // 게시판 관련 알림이면 먼저 존재 여부 확인
     if (
       (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply' || notification.type === 'team_post') &&
       notification.related_id
     ) {
-      // 알림 내용에서 카테고리 정보 추출 (현재 강의든 다른 강의든 항상 저장)
-      let category = "공지사항"; // 기본값
-      let teamBoardName = null;
-      
-      // 알림 내용에서 카테고리 추출
-      if (notification.type === 'team_post' || notification.content.includes('팀게시판')) {
-        category = "팀 게시판";
-        // 알림 내용에서 "팀게시판-{이름}" 패턴 추출
-        const match = notification.content.match(/팀게시판-([^\s]+)/);
-        if (match && match[1]) {
-          teamBoardName = match[1];
+      try {
+        // 게시물 존재 확인 (게시물이 삭제되었으면 우선적으로 표시)
+        const postCheck = await checkPostExists(notification.related_id);
+        if (!postCheck.exists) {
+          setWarningMessage("삭제된 게시물입니다.");
+          setShowWarning(true);
+          return; // 현재 위치에서 메시지만 표시
         }
-      } else if (notification.content.includes('공지사항')) {
-        category = "공지사항";
-      } else if (notification.content.includes('자유게시판')) {
-        category = "자유게시판";
-      } else if (notification.content.includes('질문게시판')) {
-        category = "질문게시판";
-      } else if (notification.content.includes('커뮤니티')) {
-        category = "커뮤니티";
-      }
-      
+        
+        // 게시물이 존재하고, 댓글/답글 알림이면 댓글 존재 확인
+        if ((notification.type === 'comment' || notification.type === 'reply') && notification.comment_id) {
+          const commentCheck = await checkCommentExists(notification.comment_id);
+          if (!commentCheck.exists) {
+            setWarningMessage("삭제된 댓글입니다.");
+            setShowWarning(true);
+            return; // 현재 위치에서 메시지만 표시
+          }
+        }
+        
+        // 게시물과 댓글이 존재하면 기존 로직 실행
       // 현재 강의에 대한 알림이면 바로 게시글 열기
       if (notification.course_id === course.code) {
-        // 카테고리 정보 저장 (삭제된 게시글 처리용)
+          // 댓글 ID가 있으면 저장
+          if (notification.comment_id) {
+            setNotificationTargetCommentId(notification.comment_id);
+          }
+          setNotificationTargetPostId(notification.related_id);
+        } else if (notification.course_id) {
+          // 다른 강의 알림이면 직접 해당 강의로 이동
         try {
           localStorage.setItem(
             "notificationTarget",
@@ -883,34 +888,49 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               courseCode: notification.course_id,
               postId: notification.related_id,
               commentId: notification.comment_id,
-              category: category,
-              teamBoardName: teamBoardName,
             })
           );
         } catch (e) {
           console.error("알림 타겟 저장 실패:", e);
         }
         
+          // 해당 강의로 직접 이동 (대시보드를 거치지 않음)
+          const targetCourse = courses.find(c => c.code === notification.course_id);
+          if (targetCourse) {
+            navigate(`/student-dashboard/course/${targetCourse.id}`, { replace: true });
+          } else {
+            // 강의를 찾지 못하면 대시보드로
+            onBack();
+          }
+        }
+      } catch (err) {
+        console.error("게시물/댓글 존재 확인 실패:", err);
+        // API 오류 시 기존 로직 실행 (하위 호환성)
+        if (notification.course_id === course.code) {
         if (notification.comment_id) {
           setNotificationTargetCommentId(notification.comment_id);
         }
         setNotificationTargetPostId(notification.related_id);
       } else if (notification.course_id) {
-        // 다른 강의 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
         try {
           localStorage.setItem(
             "notificationTarget",
             JSON.stringify({
               courseCode: notification.course_id,
               postId: notification.related_id,
+                commentId: notification.comment_id,
             })
           );
         } catch (e) {
           console.error("알림 타겟 저장 실패:", e);
         }
-
-        // 대시보드(강의 목록 화면)로 이동
+          const targetCourse = courses.find(c => c.code === notification.course_id);
+          if (targetCourse) {
+            navigate(`/student-dashboard/course/${targetCourse.id}`, { replace: true });
+          } else {
         onBack();
+          }
+        }
       }
     }
 
@@ -918,7 +938,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (notification.type === 'enrollment' && notification.course_id === course.code) {
       // 이미 해당 강의 게시판에 있으므로 아무것도 하지 않음
     } else if (notification.type === 'enrollment' && notification.course_id) {
-      // 다른 강의 참여 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
+      // 다른 강의 참여 알림이면 직접 해당 강의로 이동
       try {
         localStorage.setItem(
           "notificationTarget",
@@ -930,7 +950,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       } catch (e) {
         console.error("알림 타겟 저장 실패:", e);
       }
+      
+      const targetCourse = courses.find(c => c.code === notification.course_id);
+      if (targetCourse) {
+        navigate(`/student-dashboard/course/${targetCourse.id}`, { replace: true });
+      } else {
       onBack();
+      }
     }
 
     // 팀 모집 참여 알림이면 모집 상세 모달 바로 열기
@@ -942,7 +968,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
           setNotificationTargetRecruitmentId(notification.related_id);
         }
       } else if (notification.course_id) {
-        // 다른 강의 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
+        // 다른 강의 알림이면 직접 해당 강의로 이동
         try {
           localStorage.setItem(
             "notificationTarget",
@@ -955,7 +981,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         } catch (e) {
           console.error("알림 타겟 저장 실패:", e);
         }
+        
+        const targetCourse = courses.find(c => c.code === notification.course_id);
+        if (targetCourse) {
+          navigate(`/student-dashboard/course/${targetCourse.id}`, { replace: true });
+        } else {
         onBack();
+        }
       }
     }
 
@@ -963,15 +995,37 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (notification.type === 'team_board_activated') {
       // 현재 강의에 대한 알림이면 팀 게시판 탭으로 이동
       if (notification.course_id === course.code && notification.related_id) {
-        // recruitmentId로 teamBoard 찾기
-        const targetTeamBoard = teamBoards.find(tb => tb.id === notification.related_id);
+        // recruitmentId로 teamBoard 찾기 (타입 변환 시도)
+        const targetTeamBoard = teamBoards.find(tb => 
+          tb.id === notification.related_id || 
+          tb.id === Number(notification.related_id) ||
+          String(tb.id) === String(notification.related_id)
+        );
+        
         if (targetTeamBoard && targetTeamBoard.team_board_name) {
           // 팀 게시판 탭으로 전환
           setActiveTab(`팀 게시판: ${targetTeamBoard.team_board_name}`);
           setSelectedTeamBoard(targetTeamBoard);
+        } else if (teamBoards.length === 0) {
+          // teamBoards가 로드되지 않았으면 localStorage에 저장하고 대기
+          try {
+            localStorage.setItem(
+              "notificationTarget",
+              JSON.stringify({
+                courseCode: notification.course_id,
+                type: 'team_board_activated',
+                recruitmentId: notification.related_id,
+              })
+            );
+          } catch (e) {
+            console.error("알림 타겟 저장 실패:", e);
+          }
+          // 알림 패널 닫기
+          setIsNotificationOpen(false);
+          return;
         }
       } else if (notification.course_id) {
-        // 다른 강의 알림이면 대시보드에서 처리하도록 저장 후 돌아가기
+        // 다른 강의 알림이면 직접 해당 강의로 이동
         try {
           // 알림 내용에서 팀 게시판 이름 추출
           let teamBoardName = null;
@@ -992,7 +1046,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         } catch (e) {
           console.error("알림 타겟 저장 실패:", e);
         }
-        onBack();
+        
+        const targetCourse = courses.find(c => c.code === notification.course_id);
+        if (targetCourse) {
+          navigate(`/student-dashboard/course/${targetCourse.id}`, { replace: true });
+        } else {
+          onBack();
+        }
       }
     }
 
@@ -1133,7 +1193,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         if (isEditMode) {
           setEditPostFiles(prev => [...prev, fileData]);
         } else {
-          setPostFiles(prev => [...prev, fileData]);
+        setPostFiles(prev => [...prev, fileData]);
         }
       } else {
         setWarningMessage(res.message || "파일 업로드에 실패했습니다.");

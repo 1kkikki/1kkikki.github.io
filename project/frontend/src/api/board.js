@@ -2,6 +2,34 @@ import { BASE_URL } from "./config";
 
 const BOARD_URL = `${BASE_URL}/board`;
 
+// 게시물 존재 확인
+export async function checkPostExists(postId) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  
+  const res = await fetch(`${BOARD_URL}/posts/${postId}/exists`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  
+  return res.json();
+}
+
+// 댓글 존재 확인
+export async function checkCommentExists(commentId) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  
+  const res = await fetch(`${BOARD_URL}/comments/${commentId}/exists`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  
+  return res.json();
+}
+
 // 파일 업로드
 export async function uploadFile(file) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");

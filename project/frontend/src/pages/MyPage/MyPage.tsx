@@ -18,12 +18,10 @@ interface MyPageProps {
 type MenuSection = 'profile' | 'security' | 'notifications' | 'appearance' | 'legal';
 
 export default function MyPage({ onNavigate }: MyPageProps) {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<MenuSection>('profile');
-  const [profileImage, setProfileImage] = useState<string | null>(() =>
-    readProfileImageFromStorage(user?.id)
-  );
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   // profileColor는 현재 사용되지 않지만 향후 사용을 위해 유지
   const [, setProfileColor] = useState("#a855f7");
   const [customColor, setCustomColor] = useState("#a855f7");
@@ -41,10 +39,11 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     announcements: true,
     scheduleChanges: true
   });
-  const [appearance, setAppearance] = useState({
-    compactView: false,
-    showAvatars: true
-  });
+  // appearance는 향후 사용을 위해 주석 처리
+  // const [appearance, setAppearance] = useState({
+  //   compactView: false,
+  //   showAvatars: true
+  // });
   const [isSaved, setIsSaved] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteIdentifier, setDeleteIdentifier] = useState("");
@@ -52,6 +51,7 @@ export default function MyPage({ onNavigate }: MyPageProps) {
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [showAlert, setShowAlert] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     setProfileImage(readProfileImageFromStorage(user?.id) || null);
@@ -62,37 +62,50 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     if (user) {
       setName(user.name || "");
       setEmail(user.email || "");
-      setStudentId(user.student_id || user.username || "");
+      setStudentId(user.student_id || "");
     }
   }, [user]);
 
-  // 프로필 상세 정보 로드 (백그라운드에서 업데이트)
+  // 프로필 상세 정보 로드 (초기 마운트 시에만)
   useEffect(() => {
-    // AuthContext가 로딩 중이면 대기 (초기 로드 시 user가 아직 설정되지 않았을 수 있음)
-    if (authLoading) {
-      return;
-    }
+    let isMounted = true;
 
     async function fetchProfile() {
+      // AuthContext가 로딩 중이면 대기
+      if (authLoading) {
+        return;
+      }
+
+      // 회원탈퇴 진행 중이면 리다이렉트 방지
+      if (isDeletingAccount) {
+        return;
+      }
+
       // user가 없으면 로그인 필요
       if (!user) {
-        setAlertMessage("로그인이 필요합니다.");
-        setShowAlert(true);
-        setTimeout(() => onNavigate("login"), 1500);
+        if (isMounted) {
+          setAlertMessage("로그인이 필요합니다.");
+          setShowAlert(true);
+          setTimeout(() => onNavigate("login"), 1500);
+        }
         return;
       }
 
       const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
       
       if (!token) {
-        setAlertMessage("로그인이 필요합니다.");
-        setShowAlert(true);
-        setTimeout(() => onNavigate("login"), 1500);
+        if (isMounted) {
+          setAlertMessage("로그인이 필요합니다.");
+          setShowAlert(true);
+          setTimeout(() => onNavigate("login"), 1500);
+        }
         return;
       }
 
       try {
         const data = await getProfile();
+        if (!isMounted) return; // 컴포넌트 unmount되면 중단
+
         if (data.profile) {
           // 서버에서 받은 최신 정보로 업데이트
           setName(data.profile.name);
@@ -107,6 +120,7 @@ export default function MyPage({ onNavigate }: MyPageProps) {
               profileImage: data.profile.profile_image,
             });
           } else {
+            setProfileImage(null);
             writeProfileImageToStorage(user.id, null);
             notifyProfileImageUpdated({ userId: user.id, profileImage: null });
           }
@@ -120,15 +134,19 @@ export default function MyPage({ onNavigate }: MyPageProps) {
           setTimeout(() => onNavigate("login"), 1500);
         }
       } catch (error) {
+        if (!isMounted) return;
         console.error("프로필 로드 오류:", error);
-        // 에러 발생 시에도 사용자에게 알림
         setAlertMessage("프로필을 불러오는 중 오류가 발생했습니다.");
         setShowAlert(true);
       }
     }
     
     fetchProfile();
-  }, [onNavigate, user, authLoading]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []); // 빈 배열 - 초기 마운트 시에만 실행
 
 
   const presetAvatars = [
@@ -267,15 +285,17 @@ export default function MyPage({ onNavigate }: MyPageProps) {
     try {
       const res = await deleteAccount(deleteIdentifier, deletePassword);
       if (res.message) {
+        // 회원탈퇴 진행 중 플래그 설정
+        setIsDeletingAccount(true);
         setAlertMessage(res.message);
         setShowAlert(true);
-        // 로그아웃 처리
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        writeProfileImageToStorage(user?.id, null);
-        notifyProfileImageUpdated({ userId: user?.id, profileImage: null });
+        setShowDeleteModal(false);
+        // AuthContext의 logout 함수로 모든 세션 정리
+        logout();
         // 홈페이지로 이동
-        setTimeout(() => onNavigate("home"), 1500);
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
       } else {
         setAlertMessage(res.error || "회원탈퇴 실패");
         setShowAlert(true);
@@ -332,11 +352,11 @@ export default function MyPage({ onNavigate }: MyPageProps) {
                   const courseInfo = JSON.parse(returnToCourseboard);
                   localStorage.removeItem('returnToCourseboard');
                   
-                  // React Router로 부드럽게 이동 (깜빡임 방지)
+                  // React Router로 부드럽게 이동 (replace로 대시보드 히스토리 건너뛰기)
                   if (user?.user_type === 'student') {
-                    navigate(`/student-dashboard/course/${courseInfo.courseId}`);
+                    navigate(`/student-dashboard/course/${courseInfo.courseId}`, { replace: true });
                   } else if (user?.user_type === 'professor') {
-                    navigate(`/professor-dashboard/course/${courseInfo.courseId}`);
+                    navigate(`/professor-dashboard/course/${courseInfo.courseId}`, { replace: true });
                   }
                   return;
                 } catch (e) {
@@ -347,11 +367,11 @@ export default function MyPage({ onNavigate }: MyPageProps) {
               
               // 일반적인 경우 - Dashboard로 이동
               if (user?.user_type === 'student') {
-                navigate('/student-dashboard');
+                navigate('/student-dashboard', { replace: true });
               } else if (user?.user_type === 'professor') {
-                navigate('/professor-dashboard');
+                navigate('/professor-dashboard', { replace: true });
               } else {
-                navigate('/');
+                navigate('/', { replace: true });
               }
             }}
             title="뒤로가기"

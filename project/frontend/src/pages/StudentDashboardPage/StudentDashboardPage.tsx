@@ -6,6 +6,7 @@ import "./student-dashboard.css";
 import { addAvailableTime, getMyAvailableTimes, deleteAvailableTime } from "../../api/available";
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from "../../api/schedule";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
+import { checkPostExists, checkCommentExists } from "../../api/board";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCourses } from "../../contexts/CourseContext";
 import { onNotificationUpdated, notifyNotificationUpdated } from "../../utils/notificationSync";
@@ -59,12 +60,11 @@ interface Notification {
 }
 
 export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps) {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { courses: contextCourses, isLoading: coursesLoading } = useCourses(); // Context에서 강의 목록 가져오기
   const courses = contextCourses as Course[]; // 타입 단언
   const navigate = useNavigate();
   const location = useLocation();
-  console.log("현재 로그인 유저:", user);
 
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -256,24 +256,31 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
 
   // 다른 화면(교수/학생 게시판 등)에서 저장한 알림 타겟이 있는 경우 처리
   useEffect(() => {
+    // selectedCourse가 null일 때만 처리 (대시보드로 돌아왔을 때)
+    if (selectedCourse !== null) return;
+    
     const stored = localStorage.getItem("notificationTarget");
     if (!stored) return;
 
     try {
       const target = JSON.parse(stored);
-      if (!target.courseCode || typeof target.postId !== "number") return;
+      // courseCode는 필수, postId는 선택 (enrollment, recruitment_join, team_board_activated 등은 postId가 없음)
+      if (!target.courseCode) return;
 
       const course = courses.find((c) => c.code === target.courseCode);
       if (course) {
         setSelectedCourse(course);
         navigate(`/student-dashboard/course/${course.id}`, { replace: false });
+        // localStorage는 강의 페이지에서 처리 후 삭제하므로 여기서 삭제하지 않음
+      } else {
+        // 강의를 찾지 못한 경우에만 localStorage 정리
+        localStorage.removeItem("notificationTarget");
       }
     } catch (err) {
       console.error("알림 타겟 파싱 실패:", err);
-    } finally {
       localStorage.removeItem("notificationTarget");
     }
-  }, [courses]);
+  }, [courses, selectedCourse, navigate]);
 
   // 캘린더 날짜 생성 (2025년 1월 - 수요일 시작)
   const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();
@@ -333,59 +340,93 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       }
     }
 
-    // 게시판 관련 알림이면 해당 강의의 게시판으로 이동
+    // 게시판 관련 알림이면 먼저 존재 여부 확인
     if (
       (notification.type === 'notice' || notification.type === 'comment' || notification.type === 'reply' || notification.type === 'team_post') &&
       notification.course_id &&
       notification.related_id
     ) {
-      const targetCourse = courses.find((c) => c.code === notification.course_id);
-      if (targetCourse) {
-        try {
-          // 알림 내용에서 카테고리 정보 추출
-          let category = "공지사항"; // 기본값
-          let teamBoardName = null;
-          
-          console.log("대시보드 알림 클릭:", notification.content);
-          
-          // 알림 내용에서 카테고리 추출
-          if (notification.type === 'team_post' || notification.content.includes('팀게시판')) {
-            category = "팀 게시판";
-            // 알림 내용에서 "팀게시판-{이름}" 패턴 추출
-            const match = notification.content.match(/팀게시판-([^\s]+)/);
-            if (match && match[1]) {
-              teamBoardName = match[1];
-            }
-          } else if (notification.content.includes('공지사항')) {
-            category = "공지사항";
-          } else if (notification.content.includes('자유게시판')) {
-            category = "자유게시판";
-          } else if (notification.content.includes('질문게시판')) {
-            category = "질문게시판";
-          } else if (notification.content.includes('커뮤니티')) {
-            category = "커뮤니티";
-          }
-          
-          console.log("추출된 카테고리:", category, "팀 이름:", teamBoardName);
-          
-          const targetData = {
-            courseCode: notification.course_id,
-            postId: notification.related_id,
-            commentId: notification.comment_id,
-            category: category,
-            teamBoardName: teamBoardName,
-          };
-          
-          console.log("localStorage에 저장:", targetData);
-          
-          localStorage.setItem(
-            "notificationTarget",
-            JSON.stringify(targetData)
-          );
-        } catch (e) {
-          console.error("알림 타겟 저장 실패:", e);
+      try {
+        // 게시물 존재 확인 (게시물이 삭제되었으면 우선적으로 표시)
+        const postCheck = await checkPostExists(notification.related_id);
+        if (!postCheck.exists) {
+          setAlertMessage("삭제된 게시물입니다.");
+          setShowAlert(true);
+          return;
         }
-        setSelectedCourse(targetCourse);
+        
+        // 게시물이 존재하고, 댓글/답글 알림이면 댓글 존재 확인
+        if ((notification.type === 'comment' || notification.type === 'reply') && notification.comment_id) {
+          const commentCheck = await checkCommentExists(notification.comment_id);
+          if (!commentCheck.exists) {
+            setAlertMessage("삭제된 댓글입니다.");
+            setShowAlert(true);
+            return;
+          }
+        }
+        
+        // 게시물과 댓글이 존재하면 기존 로직 실행
+        const targetCourse = courses.find((c) => c.code === notification.course_id);
+        if (targetCourse) {
+          try {
+            // 알림 내용에서 카테고리 정보 추출
+            let category = "공지사항"; // 기본값
+            let teamBoardName = null;
+            
+            // 알림 내용에서 카테고리 추출
+            if (notification.type === 'team_post' || notification.content.includes('팀게시판')) {
+              category = "팀 게시판";
+              // 알림 내용에서 "팀게시판-{이름}" 패턴 추출
+              const match = notification.content.match(/팀게시판-([^\s]+)/);
+              if (match && match[1]) {
+                teamBoardName = match[1];
+              }
+            } else if (notification.content.includes('공지사항')) {
+              category = "공지사항";
+            } else if (notification.content.includes('자유게시판')) {
+              category = "자유게시판";
+            } else if (notification.content.includes('질문게시판')) {
+              category = "질문게시판";
+            } else if (notification.content.includes('커뮤니티')) {
+              category = "커뮤니티";
+            }
+            
+            const targetData = {
+              courseCode: notification.course_id,
+              postId: notification.related_id,
+              commentId: notification.comment_id,
+              category: category,
+              teamBoardName: teamBoardName,
+            };
+            
+            localStorage.setItem(
+              "notificationTarget",
+              JSON.stringify(targetData)
+            );
+          } catch (e) {
+            console.error("알림 타겟 저장 실패:", e);
+          }
+          setSelectedCourse(targetCourse);
+        }
+      } catch (err) {
+        console.error("게시물/댓글 존재 확인 실패:", err);
+        // API 오류 시에도 기존 로직 실행 (하위 호환성)
+        const targetCourse = courses.find((c) => c.code === notification.course_id);
+        if (targetCourse) {
+          try {
+            localStorage.setItem(
+              "notificationTarget",
+              JSON.stringify({
+                courseCode: notification.course_id,
+                postId: notification.related_id,
+                commentId: notification.comment_id,
+              })
+            );
+          } catch (e) {
+            console.error("알림 타겟 저장 실패:", e);
+          }
+          setSelectedCourse(targetCourse);
+        }
       }
     }
 
@@ -751,12 +792,12 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   }, [location.pathname, courses]); // selectedCourse 제거로 무한 루프 방지
 
   // 강의 목록 로딩 중이고 URL에 강의 ID가 있으면 로딩 표시 (깜빡임 방지)
-  // 또는 URL에 강의 ID가 있지만 아직 selectedCourse가 설정되지 않은 경우에도 로딩 표시
   const pathParts = location.pathname.split('/');
   const courseIndex = pathParts.indexOf('course');
   const hasCourseInUrl = courseIndex !== -1 && pathParts[courseIndex + 1];
   
-  if ((coursesLoading || !selectedCourse) && hasCourseInUrl) {
+  // URL에 강의 ID가 있으면 selectedCourse가 설정될 때까지 로딩 표시 (대시보드 깜빡임 방지)
+  if (hasCourseInUrl && (coursesLoading || !selectedCourse)) {
     return (
       <div style={{
         display: 'flex',

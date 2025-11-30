@@ -52,7 +52,7 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
   const [showAlert, setShowAlert] = useState(false);
   const [pendingUserType, setPendingUserType] = useState<'student' | 'professor' | null>(null);
 
-  const { login: saveLogin } = useAuth();
+  const { login: saveLogin, user } = useAuth();
 
   // 컴포넌트 마운트 시 저장된 사용자 이름 불러오기
   useEffect(() => {
@@ -177,6 +177,15 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
       <button 
         className="login-page__back-button"
         onClick={() => {
+          // 로그인되지 않은 상태에서는 무조건 홈으로
+          if (!user) {
+            // pendingCourseJoin도 정리
+            localStorage.removeItem('pendingCourseJoin');
+            onNavigate("home");
+            return;
+          }
+          
+          // 로그인된 상태에서만 강의 참여 페이지로 이동 가능
           if (hasPendingCourseJoin || returnToCourseJoin) {
             // localStorage에서 강의 정보 가져오기
             const pendingJoin = localStorage.getItem('pendingCourseJoin');
@@ -196,7 +205,7 @@ export default function LoginPage({ onNavigate, returnToCourseJoin = false }: Lo
             onNavigate("home");
           }
         }}
-        title={hasPendingCourseJoin || returnToCourseJoin ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
+        title={user && (hasPendingCourseJoin || returnToCourseJoin) ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
       >
         <ArrowLeft size={20} />
       </button>
