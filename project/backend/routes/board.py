@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 from flask import Blueprint, request, jsonify, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User, Course, Enrollment, Notification, TeamRecruitment, TeamRecruitmentMember
+from models import CourseBoardPost, CourseBoardComment, CourseBoardLike, CourseBoardCommentLike, User, Course, Enrollment, Notification, TeamRecruitment, TeamRecruitmentMember, Poll, PollOption, PollVote
 
 board_bp = Blueprint("board", __name__, url_prefix="/board")
 
@@ -141,6 +141,36 @@ def create_post():
         files=files_json
     )
     db.session.add(post)
+    db.session.flush()  # post.id를 얻기 위해 flush
+
+    # Poll 데이터 처리
+    poll_data = data.get("poll")
+    if poll_data and poll_data.get("question") and poll_data.get("options"):
+        from datetime import datetime as dt
+        expires_at = None
+        if poll_data.get("expires_at"):
+            try:
+                expires_at = dt.fromisoformat(poll_data["expires_at"].replace('Z', '+00:00'))
+            except:
+                pass
+        
+        poll = Poll(
+            post_id=post.id,
+            question=poll_data["question"],
+            expires_at=expires_at
+        )
+        db.session.add(poll)
+        db.session.flush()  # poll.id를 얻기 위해 flush
+        
+        # Poll 옵션 추가
+        for opt in poll_data["options"]:
+            if opt.get("text") and opt["text"].strip():
+                poll_option = PollOption(
+                    poll_id=poll.id,
+                    text=opt["text"].strip()
+                )
+                db.session.add(poll_option)
+    
     db.session.commit()
 
     # 🔔 공지사항인 경우 수강생 전원에게 알림
@@ -195,7 +225,7 @@ def create_post():
             
             db.session.commit()
 
-    return jsonify({"msg": "글 작성 완료", "post": post.to_dict()}), 201
+    return jsonify({"msg": "글 작성 완료", "post": post.to_dict(user_id=int(user_id))}), 201
 
 
 # 글 목록 조회
@@ -207,42 +237,118 @@ def get_posts(course_id):
     return jsonify([p.to_dict(user_id=int(user_id)) for p in posts])
 
 
-# 글 삭제
-@board_bp.route("/post/<int:post_id>", methods=["DELETE"])
+# 글 수정 및 삭제 (같은 경로, 다른 메서드)
+@board_bp.route("/post/<int:post_id>", methods=["PUT", "DELETE"])
 @jwt_required()
-def delete_post(post_id):
+def update_or_delete_post(post_id):
     user_id = get_jwt_identity()
     post = CourseBoardPost.query.get(post_id)
+    
     if not post:
-        return jsonify({"msg": "존재하지 않는 글"}), 404
+        return jsonify({"message": "존재하지 않는 글"}), 404
     
-    # 본인이 작성한 글만 삭제 가능
+    # 본인이 작성한 글만 수정/삭제 가능
     if post.author_id != int(user_id):
-        return jsonify({"msg": "본인의 글만 삭제할 수 있습니다."}), 403
-
-    # 첨부파일 삭제
-    if post.files:
-        try:
-            files_data = json.loads(post.files)
-            for file_info in files_data:
-                filename = file_info.get('filename')
-                if filename:
-                    file_path = os.path.join(UPLOAD_FOLDER, filename)
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        print(f"파일 삭제됨: {filename}")
-        except Exception as e:
-            print(f"파일 삭제 중 오류: {e}")
-            # 파일 삭제 실패해도 게시글은 삭제 진행
-
-    # 관련된 댓글과 좋아요 먼저 삭제
-    CourseBoardComment.query.filter_by(post_id=post_id).delete()
-    CourseBoardLike.query.filter_by(post_id=post_id).delete()
+        return jsonify({"message": "본인의 글만 수정/삭제할 수 있습니다."}), 403
     
-    # 게시글 삭제 (알림은 남겨둠 - 삭제된 게시글임을 알리기 위해)
-    db.session.delete(post)
+    # DELETE 메서드인 경우
+    if request.method == "DELETE":
+        # 첨부파일 삭제
+        if post.files:
+            try:
+                files_data = json.loads(post.files)
+                for file_info in files_data:
+                    filename = file_info.get('filename')
+                    if filename:
+                        file_path = os.path.join(UPLOAD_FOLDER, filename)
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                            print(f"파일 삭제됨: {filename}")
+            except Exception as e:
+                print(f"파일 삭제 중 오류: {e}")
+                # 파일 삭제 실패해도 게시글은 삭제 진행
+
+        # 관련된 댓글과 좋아요 먼저 삭제
+        CourseBoardComment.query.filter_by(post_id=post_id).delete()
+        CourseBoardLike.query.filter_by(post_id=post_id).delete()
+        
+        # Poll 관련 데이터 삭제
+        poll = Poll.query.filter_by(post_id=post_id).first()
+        if poll:
+            PollVote.query.filter_by(poll_id=poll.id).delete()
+            PollOption.query.filter_by(poll_id=poll.id).delete()
+            db.session.delete(poll)
+        
+        # 게시글 삭제
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"msg": "삭제 완료"})
+    
+    # PUT 메서드인 경우 (수정)
+    data = request.get_json()
+    
+    # 제목과 내용 업데이트
+    if "title" in data:
+        post.title = data["title"]
+    if "content" in data:
+        post.content = data["content"]
+    
+    # 파일 정보 업데이트
+    if "files" in data:
+        files_data = data.get("files", [])
+        files_json = json.dumps(files_data) if files_data else None
+        post.files = files_json
+    
+    # Poll 데이터 업데이트
+    if "poll" in data:
+        poll_data = data.get("poll")
+        existing_poll = Poll.query.filter_by(post_id=post_id).first()
+        
+        if poll_data and poll_data.get("question") and poll_data.get("options"):
+            # Poll 업데이트 또는 생성
+            from datetime import datetime as dt
+            expires_at = None
+            if poll_data.get("expires_at"):
+                try:
+                    expires_at = dt.fromisoformat(poll_data["expires_at"].replace('Z', '+00:00'))
+                except:
+                    pass
+            
+            if existing_poll:
+                # 기존 Poll 업데이트
+                existing_poll.question = poll_data["question"]
+                existing_poll.expires_at = expires_at
+                # 기존 옵션 삭제 후 새로 추가
+                PollVote.query.filter_by(poll_id=existing_poll.id).delete()
+                PollOption.query.filter_by(poll_id=existing_poll.id).delete()
+            else:
+                # 새 Poll 생성
+                existing_poll = Poll(
+                    post_id=post_id,
+                    question=poll_data["question"],
+                    expires_at=expires_at
+                )
+                db.session.add(existing_poll)
+            
+            db.session.flush()
+            
+            # Poll 옵션 추가
+            for opt in poll_data["options"]:
+                if opt.get("text") and opt["text"].strip():
+                    poll_option = PollOption(
+                        poll_id=existing_poll.id,
+                        text=opt["text"].strip()
+                    )
+                    db.session.add(poll_option)
+        elif existing_poll:
+            # Poll 제거
+            PollVote.query.filter_by(poll_id=existing_poll.id).delete()
+            PollOption.query.filter_by(poll_id=existing_poll.id).delete()
+            db.session.delete(existing_poll)
+    
     db.session.commit()
-    return jsonify({"msg": "삭제 완료"})
+    
+    return jsonify({"message": "글 수정 완료", "post": post.to_dict(user_id=int(user_id))}), 200
 
 
 # 댓글 목록 조회
@@ -467,3 +573,102 @@ def toggle_comment_like(comment_id):
             "is_liked": True,
             "likes": likes_count
         }), 200
+
+# 투표하기
+@board_bp.route("/post/<int:post_id>/poll/vote", methods=["POST"])
+@jwt_required()
+def vote_poll(post_id):
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    option_id = data.get("option_id")
+    
+    if not option_id:
+        return jsonify({"message": "옵션 ID가 필요합니다."}), 400
+    
+    # 게시글 존재 확인
+    post = CourseBoardPost.query.get(post_id)
+    if not post:
+        return jsonify({"message": "존재하지 않는 게시글입니다."}), 404
+    
+    # Poll 존재 확인
+    poll = Poll.query.filter_by(post_id=post_id).first()
+    if not poll:
+        return jsonify({"message": "투표가 존재하지 않습니다."}), 404
+    
+    # Poll 옵션 존재 확인
+    option = PollOption.query.filter_by(id=option_id, poll_id=poll.id).first()
+    if not option:
+        return jsonify({"message": "유효하지 않은 투표 옵션입니다."}), 400
+    
+    # 마감 시간 확인
+    from datetime import datetime
+    if poll.expires_at and poll.expires_at < datetime.now():
+        return jsonify({"message": "마감된 투표입니다."}), 400
+    
+    # 이미 투표했는지 확인
+    existing_vote = PollVote.query.filter_by(poll_id=poll.id, user_id=user_id).first()
+    if existing_vote:
+        # 기존 투표 수정
+        existing_vote.option_id = option_id
+        db.session.commit()
+    else:
+        # 새 투표 추가
+        new_vote = PollVote(
+            poll_id=poll.id,
+            option_id=option_id,
+            user_id=user_id
+        )
+        db.session.add(new_vote)
+        db.session.commit()
+    
+    # 업데이트된 투표 결과 반환
+    options_data = []
+    total_votes = 0
+    for opt in poll.options_relation:
+        votes = PollVote.query.filter_by(option_id=opt.id).all()
+        votes_count = len(votes)
+        total_votes += votes_count
+        
+        # 투표한 사용자 정보
+        voters = []
+        for vote in votes:
+            user = User.query.get(vote.user_id)
+            if user:
+                # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+                author_student_id = None
+                if getattr(user, "user_type", None) == "student":
+                    author_student_id = user.student_id
+                
+                is_professor = getattr(user, "user_type", None) == "professor"
+                
+                voters.append({
+                    "id": user.id,
+                    "name": user.name,
+                    "student_id": author_student_id,
+                    "is_professor": is_professor,
+                    "profile_image": user.profile_image
+                })
+        
+        options_data.append({
+            "id": opt.id,
+            "text": opt.text,
+            "votes": votes_count,
+            "voters": voters
+        })
+    
+    vote = PollVote.query.filter_by(poll_id=poll.id, user_id=user_id).first()
+    user_vote = vote.option_id if vote else None
+    
+    poll_result = {
+        "id": poll.id,
+        "question": poll.question,
+        "options": options_data,
+        "total_votes": total_votes,
+        "user_vote": user_vote,
+        "expires_at": poll.expires_at.isoformat() if poll.expires_at else None
+    }
+    
+    return jsonify({
+        "message": "투표 완료",
+        "poll": poll_result
+    }), 200

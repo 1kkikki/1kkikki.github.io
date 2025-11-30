@@ -63,6 +63,7 @@ def create_app():
             User,
             Course,
             Enrollment,
+            CourseBoardPost,
             CourseBoardComment,
             CourseBoardLike,
             CourseBoardCommentLike,
@@ -70,6 +71,9 @@ def create_app():
             TeamRecruitmentMember,
             Schedule,
             Notification,
+            Poll,
+            PollOption,
+            PollVote,
         )
 
         db.create_all()

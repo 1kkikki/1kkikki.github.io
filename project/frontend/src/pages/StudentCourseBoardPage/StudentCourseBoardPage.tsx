@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getBoardPosts, createBoardPost, deleteBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile } from "../../api/board";
+import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
 import { getTeamCommonAvailability } from "../../api/available";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
@@ -25,7 +25,10 @@ import {
   Image,
   Video,
   File,
-  FileText
+  FileText,
+  BarChart3,
+  Minus,
+  Edit
 } from "lucide-react";
 import "./student-courseboard.css";
 import {
@@ -70,6 +73,22 @@ interface TeamMemberAvailability {
   times: TeamMemberTime[];
 }
 
+interface PollOption {
+  id?: number;
+  text: string;
+  votes?: number;
+  percentage?: number;
+}
+
+interface Poll {
+  id?: number;
+  question: string;
+  options: PollOption[];
+  total_votes?: number;
+  user_vote?: number | null; // 사용자가 선택한 옵션 ID
+  expires_at?: string | null;
+}
+
 interface Post {
   id: number;
   title: string;
@@ -95,6 +114,7 @@ interface Post {
     size: number;
     url: string;
   }>;
+  poll?: Poll | null;
 }
 
 interface Comment {
@@ -160,6 +180,18 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+  const [isEditPostOpen, setIsEditPostOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [editPostTitle, setEditPostTitle] = useState("");
+  const [editPostContent, setEditPostContent] = useState("");
+  const [editPostFiles, setEditPostFiles] = useState<Array<{
+    filename: string;
+    original_name: string;
+    type: 'image' | 'video' | 'file';
+    size: number;
+    url: string;
+    preview?: string;
+  }>>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostContent, setNewPostContent] = useState("");
@@ -174,9 +206,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     preview?: string;
   }>>([]);
   const [isDragging, setIsDragging] = useState(false);
+  
+  // 투표 관련 상태
+  const [newPostPoll, setNewPostPoll] = useState<Poll | null>(null);
+  const [editPostPoll, setEditPostPoll] = useState<Poll | null>(null);
   const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
   const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
   const [isResultView, setIsResultView] = useState(false);
+  const [hasSubmittedOnce, setHasSubmittedOnce] = useState(false);
   const SCHEDULE_START_HOUR = 9;
   const SCHEDULE_END_HOUR = 20;
   const SCHEDULE_ROW_COUNT = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR + 1;
@@ -317,9 +354,16 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         isLiked: p.is_liked || false,
         team_board_name: p.team_board_name || null,
         files: p.files || [],
+        poll: p.poll || null,
       }));
 
       setPosts(mapped);
+      // 디버깅: poll 데이터 확인
+      mapped.forEach((post, idx) => {
+        if (post.poll) {
+          console.log(`게시글 ${idx + 1} (ID: ${post.id}) poll 데이터:`, post.poll);
+        }
+      });
     } catch (err) {
       console.error("게시글 불러오기 실패:", err);
     }
@@ -1078,7 +1122,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   };
 
   // 파일 업로드 핸들러
-  const handleFileUpload = async (file: File, fileType: 'image' | 'video' | 'file') => {
+  const handleFileUpload = async (file: File, fileType: 'image' | 'video' | 'file', isEditMode: boolean = false) => {
     try {
       const res = await uploadFile(file);
       if (res.file) {
@@ -1086,7 +1130,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
           ...res.file,
           preview: fileType === 'image' ? URL.createObjectURL(file) : undefined
         };
-        setPostFiles(prev => [...prev, fileData]);
+        if (isEditMode) {
+          setEditPostFiles(prev => [...prev, fileData]);
+        } else {
+          setPostFiles(prev => [...prev, fileData]);
+        }
       } else {
         setWarningMessage(res.message || "파일 업로드에 실패했습니다.");
         setShowWarning(true);
@@ -1099,7 +1147,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   };
 
   // 파일 선택 핸들러
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, fileType: 'image' | 'video' | 'file') => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, fileType: 'image' | 'video' | 'file', isEditMode: boolean = false) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -1110,7 +1158,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         setShowWarning(true);
         return;
       }
-      handleFileUpload(file, fileType);
+      handleFileUpload(file, fileType, isEditMode);
     });
 
     // 같은 파일을 다시 선택할 수 있도록 input 초기화
@@ -1130,7 +1178,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent, isEditMode: boolean = false) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -1145,7 +1193,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         return;
       }
       const fileType = getFileType(file.name);
-      handleFileUpload(file, fileType);
+      handleFileUpload(file, fileType, isEditMode);
     });
   };
 
@@ -1168,6 +1216,21 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       return;
     }
 
+    // 투표 검증
+    if (newPostPoll) {
+      if (!newPostPoll.question.trim()) {
+        setWarningMessage("투표 질문을 입력해주세요.");
+        setShowWarning(true);
+        return;
+      }
+      const validOptions = newPostPoll.options.filter(opt => opt.text.trim());
+      if (validOptions.length < 2) {
+        setWarningMessage("투표 옵션은 최소 2개 이상 필요합니다.");
+        setShowWarning(true);
+        return;
+      }
+    }
+
     try {
       // 탭(공지/모집/커뮤니티/팀 게시판)을 백엔드 category 값으로 변환
       const categoryForApi = tabNameToCategory(activeTab);
@@ -1186,6 +1249,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         ? activeTab.replace("팀 게시판: ", "")
         : null;
 
+      // 투표 정보 준비 (유효한 옵션만)
+      const pollData = newPostPoll ? {
+        question: newPostPoll.question,
+        options: newPostPoll.options.filter(opt => opt.text.trim()).map(opt => ({ text: opt.text })),
+        expires_at: newPostPoll.expires_at || null
+      } : null;
+
       // 서버에 글 생성 요청 보내기
       const res = await createBoardPost(
         course.code,
@@ -1193,7 +1263,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         newPostContent,  
         categoryForApi,
         filesData,
-        teamBoardName
+        teamBoardName,
+        pollData
       );
 
       const p = res.post;
@@ -1207,6 +1278,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         author_id: p.author_id || user?.id,
         author_student_id: (user?.user_type === 'professor') ? null : (p.author_student_id || user?.student_id || null),
         is_professor: p.is_professor || (user?.user_type === 'professor') || false,
+        author_profile_image: p.author_profile_image || null,
         timestamp: p.created_at,
         category: categoryToTabName(p.category),
         tags: [],
@@ -1216,6 +1288,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         isLiked: false,
         team_board_name: p.team_board_name || null,
         files: p.files || filesData || [],
+        poll: p.poll || (newPostPoll ? {
+          ...newPostPoll,
+          options: newPostPoll.options.filter(opt => opt.text.trim()).map((opt, idx) => ({
+            id: idx,
+            text: opt.text,
+            votes: 0
+          }))
+        } : null),
       };
 
       // 맨 앞에 추가
@@ -1225,6 +1305,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       setNewPostTitle("");
       setNewPostContent("");
       setPostFiles([]);
+      setNewPostPoll(null);
       setIsCreatePostOpen(false);
     } catch (err) {
       console.error("게시글 작성 실패:", err);
@@ -1258,6 +1339,42 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       }
     } catch (err) {
       console.error("좋아요 실패:", err);
+    }
+  };
+
+  const handleVotePoll = async (postId: number, optionId: number) => {
+    try {
+      const res = await votePoll(postId, optionId);
+      
+      // 투표 상태 업데이트
+      setPosts(posts.map(post => {
+        if (post.id === postId && post.poll) {
+          return {
+            ...post,
+            poll: {
+              ...post.poll,
+              ...res.poll,
+              user_vote: optionId
+            }
+          };
+        }
+        return post;
+      }));
+
+      if (selectedPost && selectedPost.id === postId && selectedPost.poll) {
+        setSelectedPost({
+          ...selectedPost,
+          poll: {
+            ...selectedPost.poll,
+            ...res.poll,
+            user_vote: optionId
+          }
+        });
+      }
+    } catch (err) {
+      console.error("투표 실패:", err);
+      setWarningMessage("투표 중 오류가 발생했습니다.");
+      setShowWarning(true);
     }
   };
 
@@ -1499,15 +1616,25 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
 
     setMyAvailableTimes([...myAvailableTimes, time]);
     setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
+    
+    // 시간 추가 시 자동으로 결과 뷰로 전환하고 제출 상태 표시
+    if (!isResultView) {
+      setIsResultView(true);
+      setHasSubmittedOnce(true);
+    }
   };
 
   const handleRemoveTime = (id: string) => {
     setMyAvailableTimes(myAvailableTimes.filter(t => t.id !== id));
+    
+    // 시간 제거 시에도 결과 뷰 유지 (이미 결과 뷰인 경우)
+    // 결과가 자동으로 업데이트됨 (useMemo로 계산되므로)
   };
 
   const handleSubmitAvailableTime = () => {
-    // 서버에 제출하고 결과 보기 모드로 전환
+    // 제출 버튼 클릭 시 결과 보기 모드로 전환
     setIsResultView(true);
+    setHasSubmittedOnce(true);
   };
 
   const loadTeamAvailability = useCallback(async () => {
@@ -1540,7 +1667,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     if (!currentTeamBoard) return;
 
     setMyAvailableTimes([...availableTimes]);
-    setIsResultView(false);
+    // 이전에 제출한 적이 있으면 결과 뷰로 시작, 없으면 입력 뷰로 시작
+    setIsResultView(hasSubmittedOnce);
     setTeamSlotsError("");
     setTeamModalName(currentTeamBoard.team_board_name ?? null);
     setIsAvailableTimeModalOpen(true);
@@ -1948,6 +2076,136 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     setShowConfirm(true);
   };
 
+  // 게시글 수정 핸들러
+  const handleEditPost = (post: Post) => {
+    setEditingPost(post);
+    setEditPostTitle(post.title);
+    setEditPostContent(post.content);
+    setEditPostFiles(post.files ? post.files.map(f => ({
+      ...f,
+      preview: f.type === 'image' ? `http://127.0.0.1:5000${f.url}` : undefined
+    })) : []);
+    setEditPostPoll(post.poll ? { ...post.poll } : null);
+    setIsEditPostOpen(true);
+    setSelectedPost(null); // 상세 모달 닫기
+  };
+
+  const handleUpdatePost = async () => {
+    if (!editingPost) return;
+    
+    if (!editPostTitle.trim() || !editPostContent.trim()) {
+      setWarningMessage("제목과 내용을 입력해주세요.");
+      setShowWarning(true);
+      return;
+    }
+
+    // 투표 검증
+    if (editPostPoll) {
+      if (!editPostPoll.question.trim()) {
+        setWarningMessage("투표 질문을 입력해주세요.");
+        setShowWarning(true);
+        return;
+      }
+      const validOptions = editPostPoll.options.filter(opt => opt.text.trim());
+      if (validOptions.length < 2) {
+        setWarningMessage("투표 옵션은 최소 2개 이상 필요합니다.");
+        setShowWarning(true);
+        return;
+      }
+    }
+
+    try {
+      // 파일 정보 준비
+      const filesData = editPostFiles.map(f => ({
+        filename: f.filename,
+        original_name: f.original_name,
+        type: f.type,
+        size: f.size,
+        url: f.url
+      }));
+
+      // 투표 정보 준비 (유효한 옵션만)
+      const pollData = editPostPoll ? {
+        question: editPostPoll.question,
+        options: editPostPoll.options.filter(opt => opt.text.trim()).map(opt => ({ text: opt.text })),
+        expires_at: editPostPoll.expires_at || null
+      } : null;
+
+      // 서버에 수정 요청 보내기
+      const res = await updateBoardPost(
+        editingPost.id,
+        editPostTitle,
+        editPostContent,
+        filesData,
+        pollData
+      );
+
+      // 에러 응답 확인
+      if (res.message && (res.message.includes("오류") || res.message.includes("실패"))) {
+        setWarningMessage(res.message || "게시글 수정 중 오류가 발생했습니다.");
+        setShowWarning(true);
+        return;
+      }
+
+      if (!res.post) {
+        setWarningMessage("게시글 수정 응답이 올바르지 않습니다.");
+        setShowWarning(true);
+        return;
+      }
+
+      const p = res.post;
+
+      // 서버에서 돌아온 데이터 → 화면에서 쓰는 Post 타입으로 변환
+      const updatedPost: Post = {
+        id: p.id,
+        title: p.title,
+        content: p.content,
+        author: p.author || editingPost.author,
+        author_id: p.author_id || editingPost.author_id,
+        author_student_id: p.author_student_id || editingPost.author_student_id || null,
+        is_professor: p.is_professor || editingPost.is_professor || false,
+        timestamp: p.created_at || editingPost.timestamp,
+        category: categoryToTabName(p.category) || editingPost.category,
+        tags: [],
+        likes: p.likes || editingPost.likes,
+        comments: editingPost.comments || [],
+        comments_count: editingPost.comments_count || 0,
+        isPinned: false,
+        isLiked: p.is_liked !== undefined ? p.is_liked : editingPost.isLiked,
+        files: p.files || [],
+        team_board_name: p.team_board_name || editingPost.team_board_name || null,
+        poll: p.poll || editPostPoll || editingPost.poll || null,
+      };
+
+      // 목록 업데이트
+      setPosts((prev) =>
+        prev.map((post) => (post.id === editingPost.id ? updatedPost : post))
+      );
+
+      // 상세 모달이 열려있으면 업데이트
+      if (selectedPost && selectedPost.id === editingPost.id) {
+        setSelectedPost(updatedPost);
+      }
+
+      // 폼 초기화 & 모달 닫기
+      setEditPostTitle("");
+      setEditPostContent("");
+      setEditPostFiles([]);
+      setEditPostPoll(null);
+      setEditingPost(null);
+      setIsEditPostOpen(false);
+      
+      // 성공 메시지 표시
+      setSuccessMessage("게시글이 수정되었습니다.");
+      setShowSuccess(true);
+    } catch (err: any) {
+      console.error("게시글 수정 실패:", err);
+      const errorMessage = err.message || err.response?.data?.message || "게시글 수정 중 오류가 발생했습니다.";
+      setWarningMessage(errorMessage);
+      setShowWarning(true);
+    }
+  };
+
   // 게시글 삭제 핸들러
   const handleDeletePost = async (postId: number) => {
     setConfirmMessage("이 게시글을 삭제하시겠습니까?");
@@ -2319,8 +2577,24 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   </div>
 
                   <div className="course-board__post-content">
-                    <h3 className="course-board__post-title">{post.title}</h3>
+                    <h3 className="course-board__post-title">
+                      {post.title}
+                      {post.poll && (
+                        <span className="course-board__post-poll-badge" title="투표가 있는 게시글">
+                          <BarChart3 size={14} />
+                        </span>
+                      )}
+                    </h3>
                     <p className="course-board__post-preview">{post.content}</p>
+                    {post.poll && (
+                      <div className="course-board__post-poll-preview">
+                        <BarChart3 size={14} />
+                        <span>{post.poll.question}</span>
+                        {post.poll.total_votes && post.poll.total_votes > 0 && (
+                          <span className="course-board__post-poll-count">{post.poll.total_votes}명 투표</span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="course-board__post-footer">
@@ -2368,6 +2642,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
               <h2>게시글 작성</h2>
               <button onClick={() => {
                 setPostFiles([]);
+                setNewPostPoll(null);
                 setIsCreatePostOpen(false);
               }}>
                 <X size={20} />
@@ -2394,7 +2669,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 className={`course-board__file-upload-area ${isDragging ? 'course-board__file-upload-area--dragging' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
+                onDrop={(e) => handleDrop(e, false)}
               >
                 <div className="course-board__file-upload-buttons">
                   <input
@@ -2402,7 +2677,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     id="image-upload"
                     accept="image/*"
                     style={{ display: 'none' }}
-                    onChange={(e) => handleFileSelect(e, 'image')}
+                    onChange={(e) => handleFileSelect(e, 'image', false)}
                     multiple
                   />
                   <input
@@ -2410,14 +2685,14 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     id="video-upload"
                     accept="video/*"
                     style={{ display: 'none' }}
-                    onChange={(e) => handleFileSelect(e, 'video')}
+                    onChange={(e) => handleFileSelect(e, 'video', false)}
                     multiple
                   />
                   <input
                     type="file"
                     id="file-upload"
                     style={{ display: 'none' }}
-                    onChange={(e) => handleFileSelect(e, 'file')}
+                    onChange={(e) => handleFileSelect(e, 'file', false)}
                     multiple
                   />
                   
@@ -2448,10 +2723,29 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     <File size={20} />
                     <span>파일</span>
                   </button>
+                  <button
+                    type="button"
+                    className={`course-board__file-upload-button ${newPostPoll ? 'course-board__file-upload-button--active' : ''}`}
+                    onClick={() => {
+                      if (!newPostPoll) {
+                        setNewPostPoll({
+                          question: "",
+                          options: [
+                            { text: "", votes: 0 },
+                            { text: "", votes: 0 }
+                          ],
+                          total_votes: 0
+                        });
+                      } else {
+                        setNewPostPoll(null);
+                      }
+                    }}
+                    title="투표 추가"
+                  >
+                    <BarChart3 size={20} />
+                    <span>투표</span>
+                  </button>
                 </div>
-                <p className="course-board__file-upload-hint">
-                  또는 파일을 여기에 드래그하세요
-                </p>
               </div>
 
               {/* 업로드된 파일 미리보기 */}
@@ -2494,12 +2788,156 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   ))}
                 </div>
               )}
+
+              {/* 투표 설정 UI */}
+              {newPostPoll && (
+                <div className="course-board__poll-editor">
+                  <div className="course-board__poll-editor-header">
+                    <h4>투표 추가</h4>
+                    <button
+                      type="button"
+                      className="course-board__poll-editor-remove"
+                      onClick={() => setNewPostPoll(null)}
+                      title="투표 제거"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="투표 질문을 입력하세요"
+                    className="course-board__poll-question-input"
+                    value={newPostPoll.question}
+                    onChange={(e) => setNewPostPoll({
+                      ...newPostPoll,
+                      question: e.target.value
+                    })}
+                  />
+                  <div className="course-board__poll-options">
+                    {newPostPoll.options.map((option, index) => (
+                      <div key={index} className="course-board__poll-option-input-wrapper">
+                        <input
+                          type="text"
+                          placeholder={`옵션 ${index + 1}`}
+                          className="course-board__poll-option-input"
+                          value={option.text}
+                          onChange={(e) => {
+                            const newOptions = [...newPostPoll.options];
+                            newOptions[index] = { ...option, text: e.target.value };
+                            setNewPostPoll({ ...newPostPoll, options: newOptions });
+                          }}
+                        />
+                        {newPostPoll.options.length > 2 && (
+                          <button
+                            type="button"
+                            className="course-board__poll-option-remove"
+                            onClick={() => {
+                              const newOptions = newPostPoll.options.filter((_, i) => i !== index);
+                              setNewPostPoll({ ...newPostPoll, options: newOptions });
+                            }}
+                            title="옵션 제거"
+                          >
+                            <Minus size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {newPostPoll.options.length < 10 && (
+                      <button
+                        type="button"
+                        className="course-board__poll-add-option"
+                        onClick={() => {
+                          setNewPostPoll({
+                            ...newPostPoll,
+                            options: [...newPostPoll.options, { text: "", votes: 0 }]
+                          });
+                        }}
+                      >
+                        <Plus size={16} />
+                        <span>옵션 추가</span>
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* 마감 날짜 및 시간 설정 */}
+                  <div className="course-board__poll-deadline">
+                    <label className="course-board__poll-deadline-label">
+                      <Clock size={16} />
+                      <span>마감 날짜 및 시간</span>
+                    </label>
+                    <div className="course-board__poll-deadline-inputs">
+                      <input
+                        type="date"
+                        className="course-board__poll-deadline-date"
+                        value={newPostPoll.expires_at ? newPostPoll.expires_at.split('T')[0] : ''}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const selectedDate = e.target.value;
+                          if (selectedDate) {
+                            const currentTime = newPostPoll.expires_at 
+                              ? newPostPoll.expires_at.split('T')[1]?.split(':')[0] || '23'
+                              : '23';
+                            setNewPostPoll({
+                              ...newPostPoll,
+                              expires_at: `${selectedDate}T${currentTime}:00:00`
+                            });
+                          } else {
+                            setNewPostPoll({
+                              ...newPostPoll,
+                              expires_at: null
+                            });
+                          }
+                        }}
+                      />
+                      <select
+                        className="course-board__poll-deadline-time"
+                        value={newPostPoll.expires_at ? newPostPoll.expires_at.split('T')[1]?.split(':')[0] || '23' : ''}
+                        onChange={(e) => {
+                          const selectedTime = e.target.value;
+                          if (selectedTime) {
+                            const currentDate = newPostPoll.expires_at 
+                              ? newPostPoll.expires_at.split('T')[0] 
+                              : new Date().toISOString().split('T')[0];
+                            setNewPostPoll({
+                              ...newPostPoll,
+                              expires_at: `${currentDate}T${selectedTime}:00:00`
+                            });
+                          }
+                        }}
+                      >
+                        <option value="">시간 선택</option>
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={String(i).padStart(2, '0')}>
+                            {i}시
+                          </option>
+                        ))}
+                      </select>
+                      {(newPostPoll.expires_at || '').includes('T') && (
+                        <button
+                          type="button"
+                          className="course-board__poll-deadline-remove"
+                          onClick={() => {
+                            setNewPostPoll({
+                              ...newPostPoll,
+                              expires_at: null
+                            });
+                          }}
+                          title="마감 시간 제거"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="course-board__modal-footer">
               <button
                 className="course-board__modal-button course-board__modal-button--cancel"
                 onClick={() => {
                   setPostFiles([]);
+                  setNewPostPoll(null);
                   setIsCreatePostOpen(false);
                 }}
               >
@@ -2510,6 +2948,336 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 onClick={handleCreatePost}
               >
                 작성
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 게시글 수정 모달 */}
+      {isEditPostOpen && editingPost && (
+        <div className="course-board__modal-overlay">
+          <div className="course-board__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="course-board__modal-header">
+              <h2>게시글 수정</h2>
+              <button onClick={() => {
+                setEditPostFiles([]);
+                setIsEditPostOpen(false);
+                setEditingPost(null);
+              }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="course-board__modal-body">
+              <input
+                type="text"
+                placeholder="제목을 입력하세요"
+                className="course-board__modal-input"
+                value={editPostTitle}
+                onChange={(e) => setEditPostTitle(e.target.value)}
+              />
+              <textarea
+                placeholder="내용을 입력하세요"
+                className="course-board__modal-textarea"
+                value={editPostContent}
+                onChange={(e) => setEditPostContent(e.target.value)}
+                rows={10}
+              />
+              
+              {/* 파일 업로드 영역 */}
+              <div 
+                className={`course-board__file-upload-area ${isDragging ? 'course-board__file-upload-area--dragging' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, true)}
+              >
+                <div className="course-board__file-upload-buttons">
+                  <input
+                    type="file"
+                    id="image-upload-edit"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e, 'image', true)}
+                    multiple
+                  />
+                  <input
+                    type="file"
+                    id="video-upload-edit"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e, 'video', true)}
+                    multiple
+                  />
+                  <input
+                    type="file"
+                    id="file-upload-edit"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileSelect(e, 'file', true)}
+                    multiple
+                  />
+                  
+                  <button
+                    type="button"
+                    className="course-board__file-upload-button"
+                    onClick={() => document.getElementById('image-upload-edit')?.click()}
+                    title="사진 추가"
+                  >
+                    <Image size={20} />
+                    <span>사진</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="course-board__file-upload-button"
+                    onClick={() => document.getElementById('video-upload-edit')?.click()}
+                    title="동영상 추가"
+                  >
+                    <Video size={20} />
+                    <span>동영상</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="course-board__file-upload-button"
+                    onClick={() => document.getElementById('file-upload-edit')?.click()}
+                    title="파일 추가"
+                  >
+                    <File size={20} />
+                    <span>파일</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`course-board__file-upload-button ${editPostPoll ? 'course-board__file-upload-button--active' : ''}`}
+                    onClick={() => {
+                      if (!editPostPoll) {
+                        setEditPostPoll({
+                          question: "",
+                          options: [
+                            { text: "", votes: 0 },
+                            { text: "", votes: 0 }
+                          ],
+                          total_votes: 0
+                        });
+                      } else {
+                        setEditPostPoll(null);
+                      }
+                    }}
+                    title="투표 추가"
+                  >
+                    <BarChart3 size={20} />
+                    <span>투표</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 업로드된 파일 미리보기 */}
+              {editPostFiles.length > 0 && (
+                <div className="course-board__file-preview-list">
+                  {editPostFiles.map((file, index) => (
+                    <div key={index} className="course-board__file-preview-item">
+                      {file.type === 'image' && (file.preview || file.url) && (
+                        <img 
+                          src={file.preview || `http://127.0.0.1:5000${file.url}`} 
+                          alt={file.original_name}
+                          className="course-board__file-preview-image"
+                        />
+                      )}
+                      {file.type === 'video' && (
+                        <div className="course-board__file-preview-video">
+                          <Video size={24} />
+                        </div>
+                      )}
+                      {file.type === 'file' && (
+                        <div className="course-board__file-preview-file">
+                          <File size={24} />
+                        </div>
+                      )}
+                      <div className="course-board__file-preview-info">
+                        <span className="course-board__file-preview-name">{file.original_name}</span>
+                        <span className="course-board__file-preview-size">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="course-board__file-preview-remove"
+                        onClick={() => {
+                          setEditPostFiles(prev => {
+                            const newFiles = [...prev];
+                            if (newFiles[index].preview && newFiles[index].preview?.startsWith('blob:')) {
+                              URL.revokeObjectURL(newFiles[index].preview!);
+                            }
+                            newFiles.splice(index, 1);
+                            return newFiles;
+                          });
+                        }}
+                        title="삭제"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 투표 설정 UI (수정 모달) */}
+              {editPostPoll && (
+                <div className="course-board__poll-editor">
+                  <div className="course-board__poll-editor-header">
+                    <h4>투표 수정</h4>
+                    <button
+                      type="button"
+                      className="course-board__poll-editor-remove"
+                      onClick={() => setEditPostPoll(null)}
+                      title="투표 제거"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="투표 질문을 입력하세요"
+                    className="course-board__poll-question-input"
+                    value={editPostPoll.question}
+                    onChange={(e) => setEditPostPoll({
+                      ...editPostPoll,
+                      question: e.target.value
+                    })}
+                  />
+                  <div className="course-board__poll-options">
+                    {editPostPoll.options.map((option, index) => (
+                      <div key={index} className="course-board__poll-option-input-wrapper">
+                        <input
+                          type="text"
+                          placeholder={`옵션 ${index + 1}`}
+                          className="course-board__poll-option-input"
+                          value={option.text}
+                          onChange={(e) => {
+                            const newOptions = [...editPostPoll.options];
+                            newOptions[index] = { ...option, text: e.target.value };
+                            setEditPostPoll({ ...editPostPoll, options: newOptions });
+                          }}
+                        />
+                        {editPostPoll.options.length > 2 && (
+                          <button
+                            type="button"
+                            className="course-board__poll-option-remove"
+                            onClick={() => {
+                              const newOptions = editPostPoll.options.filter((_, i) => i !== index);
+                              setEditPostPoll({ ...editPostPoll, options: newOptions });
+                            }}
+                            title="옵션 제거"
+                          >
+                            <Minus size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {editPostPoll.options.length < 10 && (
+                      <button
+                        type="button"
+                        className="course-board__poll-add-option"
+                        onClick={() => {
+                          setEditPostPoll({
+                            ...editPostPoll,
+                            options: [...editPostPoll.options, { text: "", votes: 0 }]
+                          });
+                        }}
+                      >
+                        <Plus size={16} />
+                        <span>옵션 추가</span>
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* 마감 날짜 및 시간 설정 (수정 모달) */}
+                  <div className="course-board__poll-deadline">
+                    <label className="course-board__poll-deadline-label">
+                      <Clock size={16} />
+                      <span>마감 날짜 및 시간</span>
+                    </label>
+                    <div className="course-board__poll-deadline-inputs">
+                      <input
+                        type="date"
+                        className="course-board__poll-deadline-date"
+                        value={editPostPoll.expires_at ? editPostPoll.expires_at.split('T')[0] : ''}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const selectedDate = e.target.value;
+                          if (selectedDate) {
+                            const currentTime = editPostPoll.expires_at 
+                              ? editPostPoll.expires_at.split('T')[1]?.split(':')[0] || '23'
+                              : '23';
+                            setEditPostPoll({
+                              ...editPostPoll,
+                              expires_at: `${selectedDate}T${currentTime}:00:00`
+                            });
+                          } else {
+                            setEditPostPoll({
+                              ...editPostPoll,
+                              expires_at: null
+                            });
+                          }
+                        }}
+                      />
+                      <select
+                        className="course-board__poll-deadline-time"
+                        value={editPostPoll.expires_at ? editPostPoll.expires_at.split('T')[1]?.split(':')[0] || '23' : ''}
+                        onChange={(e) => {
+                          const selectedTime = e.target.value;
+                          if (selectedTime) {
+                            const currentDate = editPostPoll.expires_at 
+                              ? editPostPoll.expires_at.split('T')[0] 
+                              : new Date().toISOString().split('T')[0];
+                            setEditPostPoll({
+                              ...editPostPoll,
+                              expires_at: `${currentDate}T${selectedTime}:00:00`
+                            });
+                          }
+                        }}
+                      >
+                        <option value="">시간 선택</option>
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={String(i).padStart(2, '0')}>
+                            {i}시
+                          </option>
+                        ))}
+                      </select>
+                      {(editPostPoll.expires_at || '').includes('T') && (
+                        <button
+                          type="button"
+                          className="course-board__poll-deadline-remove"
+                          onClick={() => {
+                            setEditPostPoll({
+                              ...editPostPoll,
+                              expires_at: null
+                            });
+                          }}
+                          title="마감 시간 제거"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="course-board__modal-footer">
+              <button 
+                className="course-board__modal-button course-board__modal-button--cancel"
+                onClick={() => {
+                  setEditPostFiles([]);
+                  setEditPostPoll(null);
+                  setIsEditPostOpen(false);
+                  setEditingPost(null);
+                }}
+              >
+                취소
+              </button>
+              <button 
+                className="course-board__modal-button course-board__modal-button--submit"
+                onClick={handleUpdatePost}
+              >
+                수정
               </button>
             </div>
           </div>
@@ -2619,6 +3387,79 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                           )}
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 투표 표시 */}
+                {selectedPost.poll && selectedPost.poll.question && (
+                  <div className="course-board__poll-display">
+                    <div className="course-board__poll-question">
+                      <BarChart3 size={20} />
+                      <h4>{selectedPost.poll.question}</h4>
+                    </div>
+                    <div className="course-board__poll-options-list">
+                      {(selectedPost.poll.options || []).map((option, index) => {
+                        const hasVoted = Boolean(selectedPost.poll?.user_vote !== null && selectedPost.poll?.user_vote !== undefined);
+                        const isSelected = selectedPost.poll?.user_vote === option.id;
+                        const percentage = selectedPost.poll?.total_votes && selectedPost.poll.total_votes > 0
+                          ? ((option.votes || 0) / selectedPost.poll.total_votes * 100).toFixed(1)
+                          : 0;
+                        const isExpired = Boolean(selectedPost.poll?.expires_at && new Date(selectedPost.poll.expires_at) <= new Date());
+                        
+                        const hasVotes = (option.votes || 0) > 0;
+                        const showResults = selectedPost.poll?.total_votes && selectedPost.poll.total_votes > 0;
+                        
+                        return (
+                          <button
+                            key={option.id || index}
+                            className={`course-board__poll-option ${isSelected ? 'course-board__poll-option--selected' : ''} ${showResults ? 'course-board__poll-option--voted' : ''}`}
+                            onClick={() => {
+                              if (!hasVoted && !isExpired) {
+                                handleVotePoll(selectedPost.id, option.id || index);
+                              }
+                            }}
+                            disabled={hasVoted || isExpired}
+                          >
+                            <div className="course-board__poll-option-content">
+                              <span className="course-board__poll-option-text">{option.text}</span>
+                              {showResults && (
+                                <span className="course-board__poll-option-percentage">{percentage}%</span>
+                              )}
+                            </div>
+                            {showResults && hasVotes && (
+                              <div 
+                                className="course-board__poll-option-bar"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="course-board__poll-info">
+                      {selectedPost.poll.expires_at && (
+                        <div className="course-board__poll-deadline-display">
+                          <Clock size={14} />
+                          <span>
+                            마감: {new Date(selectedPost.poll.expires_at).toLocaleString('ko-KR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              hour12: false
+                            }).replace('일', '일').replace('시', '시')}
+                            {new Date(selectedPost.poll.expires_at) < new Date() && (
+                              <span className="course-board__poll-deadline-expired"> (마감됨)</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {selectedPost.poll.total_votes !== undefined && selectedPost.poll.total_votes > 0 && (
+                        <div className="course-board__poll-total-votes">
+                          총 {selectedPost.poll.total_votes}명 투표
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2794,13 +3635,71 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 )}
               </div>
 
-              {/* 삭제 버튼 (본인 글인 경우만) */}
+              {/* 수정/삭제 버튼 (본인 글인 경우만) */}
               {selectedPost.author_id === user?.id && (
-                <div className="post-detail-delete-section">
+                <div className="post-detail-delete-section" style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    className="post-detail-edit-button"
+                    onClick={() => handleEditPost(selectedPost)}
+                    title="게시글 수정"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '10px 16px',
+                      backgroundColor: '#f3f4f6',
+                      color: '#4b5563',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s',
+                      flex: 1,
+                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = '#e5e7eb';
+                      e.currentTarget.style.borderColor = '#d1d5db';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f3f4f6';
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                    }}
+                  >
+                    <Edit size={16} />
+                    <span>게시글 수정</span>
+                  </button>
                   <button
                     className="post-detail-delete-button"
                     onClick={() => handleDeletePost(selectedPost.id)}
                     title="게시글 삭제"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      color: '#dc2626',
+                      border: '2px solid #fecaca',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s',
+                      flex: 1,
+                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = '#fee2e2';
+                      e.currentTarget.style.borderColor = '#fca5a5';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderColor = '#fecaca';
+                    }}
                   >
                     <Trash2 size={18} />
                     <span>게시글 삭제</span>

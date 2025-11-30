@@ -28,10 +28,18 @@ export function createBoardPost(
   content: string,
   category: string,
   files?: any[],
-  team_board_name?: string | null
+  team_board_name?: string | null,
+  poll?: any
 ): Promise<any>;
 export function getBoardPosts(course_id: string): Promise<any>;
 export function deleteBoardPost(post_id: number): Promise<any>;
+export function updateBoardPost(
+  post_id: number,
+  title: string,
+  content: string,
+  files?: any[],
+  poll?: any
+): Promise<any>;
 export function getComments(post_id: number): Promise<any>;
 export function createComment(
   post_id: number,
@@ -41,4 +49,5 @@ export function createComment(
 export function deleteComment(comment_id: number): Promise<any>;
 export function toggleLike(post_id: number): Promise<any>;
 export function toggleCommentLike(comment_id: number): Promise<any>;
+export function votePoll(post_id: number, option_id: number): Promise<any>;
 

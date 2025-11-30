@@ -27,10 +27,16 @@ export async function uploadFile(file) {
  * @param {string} category 
  * @param {Array} files 
  * @param {string | null} team_board_name 
+ * @param {Object | null} poll 
  * @returns {Promise<any>}
  */
-export async function createBoardPost(course_id, title, content, category, files = [], team_board_name = null) {
+export async function createBoardPost(course_id, title, content, category, files = [], team_board_name = null, poll = null) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const body = { course_id, title, content, category, files, team_board_name };
+  if (poll) {
+    body.poll = poll;
+  }
 
   const res = await fetch(`${BOARD_URL}/`, {
     method: "POST",
@@ -38,7 +44,7 @@ export async function createBoardPost(course_id, title, content, category, files
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ course_id, title, content, category, files, team_board_name })
+    body: JSON.stringify(body)
   });
 
   return res.json();
@@ -64,6 +70,41 @@ export async function deleteBoardPost(post_id) {
   });
 
   return res.json();
+}
+
+/**
+ * @param {number} post_id 
+ * @param {string} title 
+ * @param {string} content 
+ * @param {Array} files 
+ * @param {Object | null} poll 
+ * @returns {Promise<any>}
+ */
+export async function updateBoardPost(post_id, title, content, files = [], poll = null) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const body = { title, content, files };
+  if (poll !== null) {
+    body.poll = poll;
+  }
+
+  const res = await fetch(`${BOARD_URL}/post/${post_id}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  
+  // HTTP 에러 상태 코드 처리
+  if (!res.ok) {
+    throw new Error(data.message || `HTTP error! status: ${res.status}`);
+  }
+  
+  return data;
 }
 
 // 댓글 목록 조회
@@ -130,6 +171,22 @@ export async function toggleCommentLike(comment_id) {
   const res = await fetch(`${BOARD_URL}/comment/${comment_id}/like`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` }
+  });
+
+  return res.json();
+}
+
+// 투표하기
+export async function votePoll(post_id, option_id) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+  const res = await fetch(`${BOARD_URL}/post/${post_id}/poll/vote`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ option_id })
   });
 
   return res.json();

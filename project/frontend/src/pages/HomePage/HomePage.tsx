@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, Calendar, Users, Bell, CheckCircle, ArrowRight, Sparkles, Layout, Clock3 } from "lucide-react";
+import { Clock, Calendar, Users, CheckCircle, ArrowRight, Sparkles, Layout, Clock3 } from "lucide-react";
 import "./home-page.css";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 
@@ -124,32 +124,12 @@ export default function HomePage({ onNavigate }: HomePageProps) {
             </div>
 
             <div className="home-page__feature-card">
-              <div className="home-page__feature-icon home-page__feature-icon--orange">
-                <Bell size={28} />
-              </div>
-              <h3 className="home-page__feature-title">실시간 알림</h3>
-              <p className="home-page__feature-description">
-                팀 활동 게시판의 새 글, 일정 변경사항, 공지사항을 실시간으로 알림받아 놓치지 마세요
-              </p>
-            </div>
-
-            <div className="home-page__feature-card">
               <div className="home-page__feature-icon home-page__feature-icon--pink">
                 <Layout size={28} />
               </div>
               <h3 className="home-page__feature-title">직관적인 대시보드</h3>
               <p className="home-page__feature-description">
                 강의 목록, 월간 캘린더, 팀 활동 알림을 하나의 화면에서 확인하는 효율적인 레이아웃
-              </p>
-            </div>
-
-            <div className="home-page__feature-card">
-              <div className="home-page__feature-icon home-page__feature-icon--indigo">
-                <CheckCircle size={28} />
-              </div>
-              <h3 className="home-page__feature-title">간편한 일정 추가</h3>
-              <p className="home-page__feature-description">
-                캘린더 날짜 클릭만으로 즉시 일정을 추가하고, 일정 유형을 자유롭게 커스터마이징하세요
               </p>
             </div>
           </div>

@@ -133,6 +133,76 @@ class CourseBoardPost(db.Model):
             except:
                 files_data = []
         
+        # Poll 데이터 조회 (Poll 모델이 파일 끝에 정의되어 있어서 동적으로 가져오기)
+        poll_data = None
+        try:
+            # Poll 모델이 정의되어 있는지 확인
+            import sys
+            current_module = sys.modules[__name__]
+            Poll = getattr(current_module, 'Poll', None)
+            PollOption = getattr(current_module, 'PollOption', None)
+            PollVote = getattr(current_module, 'PollVote', None)
+            
+            if Poll:
+                poll = Poll.query.filter_by(post_id=self.id).first()
+                if poll:
+                    # 현재 사용자의 투표 여부 확인
+                    user_vote = None
+                    if user_id and PollVote:
+                        vote = PollVote.query.filter_by(poll_id=poll.id, user_id=user_id).first()
+                        if vote:
+                            user_vote = vote.option_id
+                    
+                    # 투표 옵션과 득표 수, 투표한 사용자 정보
+                    options_data = []
+                    total_votes = 0
+                    if hasattr(poll, 'options_relation') and PollVote:
+                        for option in poll.options_relation:
+                            votes = PollVote.query.filter_by(option_id=option.id).all()
+                            votes_count = len(votes)
+                            total_votes += votes_count
+                            
+                            # 투표한 사용자 정보
+                            voters = []
+                            for vote in votes:
+                                user = User.query.get(vote.user_id)
+                                if user:
+                                    # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+                                    author_student_id = None
+                                    if getattr(user, "user_type", None) == "student":
+                                        author_student_id = user.student_id
+                                    
+                                    is_professor = getattr(user, "user_type", None) == "professor"
+                                    
+                                    voters.append({
+                                        "id": user.id,
+                                        "name": user.name,
+                                        "student_id": author_student_id,
+                                        "is_professor": is_professor,
+                                        "profile_image": user.profile_image
+                                    })
+                            
+                            options_data.append({
+                                "id": option.id,
+                                "text": option.text,
+                                "votes": votes_count,
+                                "voters": voters
+                            })
+                    
+                    poll_data = {
+                        "id": poll.id,
+                        "question": poll.question,
+                        "options": options_data,
+                        "total_votes": total_votes,
+                        "user_vote": user_vote,
+                        "expires_at": poll.expires_at.isoformat() if poll.expires_at else None
+                    }
+        except Exception as e:
+            # Poll 모델이 없거나 오류 발생 시 None 반환
+            import traceback
+            print(f"Poll 데이터 조회 오류 (게시글 ID: {self.id}): {str(e)}")
+            poll_data = None
+        
         return {
             "id": self.id,
             "course_id": self.course_id,
@@ -146,6 +216,7 @@ class CourseBoardPost(db.Model):
             "category": self.category,
             "team_board_name": self.team_board_name,
             "files": files_data,
+            "poll": poll_data,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
             "likes": likes_count,
             "is_liked": is_liked,
@@ -390,3 +461,42 @@ class Notification(db.Model):
             "is_read": self.is_read,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
         }
+
+# 투표
+class Poll(db.Model):
+    __tablename__ = "polls"
+
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("course_board_posts.id"), nullable=False)
+    question = db.Column(db.String(500), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    post = db.relationship("CourseBoardPost", backref=db.backref("poll_relation", lazy=True))
+
+# 투표 옵션
+class PollOption(db.Model):
+    __tablename__ = "poll_options"
+
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, db.ForeignKey("polls.id"), nullable=False)
+    text = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    poll = db.relationship("Poll", backref=db.backref("options_relation", lazy=True, cascade="all, delete-orphan"))
+
+# 투표 기록
+class PollVote(db.Model):
+    __tablename__ = "poll_votes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, db.ForeignKey("polls.id"), nullable=False)
+    option_id = db.Column(db.Integer, db.ForeignKey("poll_options.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    poll = db.relationship("Poll", backref=db.backref("votes_relation", lazy=True))
+    option = db.relationship("PollOption", backref=db.backref("votes_relation", lazy=True))
+    user = db.relationship("User", backref=db.backref("poll_votes", lazy=True))
+
+    __table_args__ = (db.UniqueConstraint('poll_id', 'user_id', name='unique_poll_user_vote'),)
