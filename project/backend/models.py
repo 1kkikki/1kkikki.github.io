@@ -100,6 +100,7 @@ class CourseBoardPost(db.Model):
     category = db.Column(db.String(50), nullable=False)
     team_board_name = db.Column(db.String(100), nullable=True)  # 팀 게시판 이름 (team 카테고리인 경우)
     files = db.Column(db.Text, nullable=True)  # JSON 문자열로 파일 정보 저장
+    is_pinned = db.Column(db.Boolean, default=False, nullable=False)  # 게시물 고정 여부
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     author = db.relationship("User")
@@ -115,10 +116,15 @@ class CourseBoardPost(db.Model):
         # 댓글 개수 계산
         comments_count = CourseBoardComment.query.filter_by(post_id=self.id).count()
         
-        # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+        # 교수/봇 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
         author_student_id = None
-        if self.author and getattr(self.author, "user_type", None) == "student":
-            author_student_id = self.author.student_id
+        if self.author:
+            user_type = getattr(self.author, "user_type", None)
+            if user_type == "student":
+                author_student_id = self.author.student_id
+            # 봇 계정의 경우 student_id 숨김
+            elif user_type == "bot":
+                author_student_id = None
 
         # 교수 여부 확인
         is_professor = False
@@ -167,12 +173,16 @@ class CourseBoardPost(db.Model):
                             for vote in votes:
                                 user = User.query.get(vote.user_id)
                                 if user:
-                                    # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+                                    # 교수/봇 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
                                     author_student_id = None
-                                    if getattr(user, "user_type", None) == "student":
+                                    user_type = getattr(user, "user_type", None)
+                                    if user_type == "student":
                                         author_student_id = user.student_id
+                                    # 봇 계정의 경우 student_id 숨김
+                                    elif user_type == "bot":
+                                        author_student_id = None
                                     
-                                    is_professor = getattr(user, "user_type", None) == "professor"
+                                    is_professor = user_type == "professor"
                                     
                                     voters.append({
                                         "id": user.id,
@@ -220,7 +230,8 @@ class CourseBoardPost(db.Model):
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
             "likes": likes_count,
             "is_liked": is_liked,
-            "comments_count": comments_count
+            "comments_count": comments_count,
+            "is_pinned": self.is_pinned
         }
 
 # 게시판 댓글
@@ -238,10 +249,15 @@ class CourseBoardComment(db.Model):
     post = db.relationship("CourseBoardPost", backref=db.backref("board_comments", lazy=True))
 
     def to_dict(self, user_id=None):
-        # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+        # 교수/봇 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
         author_student_id = None
-        if self.author and getattr(self.author, "user_type", None) == "student":
-            author_student_id = self.author.student_id
+        if self.author:
+            user_type = getattr(self.author, "user_type", None)
+            if user_type == "student":
+                author_student_id = self.author.student_id
+            # 봇 계정의 경우 student_id 숨김
+            elif user_type == "bot":
+                author_student_id = None
         
         # 교수 여부 확인
         is_professor = False
@@ -358,10 +374,15 @@ class TeamRecruitment(db.Model):
                 recruitment_id=self.id, user_id=user_id
             ).first() is not None
 
-        # 교수 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
+        # 교수/봇 아이디(학번)는 숨기고, 학생인 경우에만 student_id 노출
         author_student_id = None
-        if self.author and getattr(self.author, "user_type", None) == "student":
-            author_student_id = self.author.student_id
+        if self.author:
+            user_type = getattr(self.author, "user_type", None)
+            if user_type == "student":
+                author_student_id = self.author.student_id
+            # 봇 계정의 경우 student_id 숨김
+            elif user_type == "bot":
+                author_student_id = None
         
         # 교수 여부 확인
         is_professor = False

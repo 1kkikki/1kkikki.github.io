@@ -7,6 +7,7 @@ export interface BoardPost {
   files?: string[];
   team_board_name?: string | null;
   author_id: number;
+  is_pinned?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -50,4 +51,5 @@ export function deleteComment(comment_id: number): Promise<any>;
 export function toggleLike(post_id: number): Promise<any>;
 export function toggleCommentLike(comment_id: number): Promise<any>;
 export function votePoll(post_id: number, option_id: number): Promise<any>;
+export function togglePinPost(post_id: number): Promise<any>;
 

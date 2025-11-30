@@ -233,7 +233,11 @@ def create_post():
 @jwt_required()
 def get_posts(course_id):
     user_id = get_jwt_identity()
-    posts = CourseBoardPost.query.filter_by(course_id=course_id).order_by(CourseBoardPost.id.desc()).all()
+    # 고정된 게시물을 먼저, 그 다음 최신순으로 정렬
+    posts = CourseBoardPost.query.filter_by(course_id=course_id).order_by(
+        CourseBoardPost.is_pinned.desc(),  # 고정된 게시물이 먼저
+        CourseBoardPost.id.desc()  # 그 다음 최신순
+    ).all()
     return jsonify([p.to_dict(user_id=int(user_id)) for p in posts])
 
 
@@ -672,3 +676,72 @@ def vote_poll(post_id):
         "message": "투표 완료",
         "poll": poll_result
     }), 200
+
+# 게시물 고정/고정 해제
+@board_bp.route("/post/<int:post_id>/pin", methods=["POST"])
+@jwt_required()
+def toggle_pin_post(post_id):
+    try:
+        user_id = int(get_jwt_identity())
+        post = CourseBoardPost.query.get(post_id)
+        
+        if not post:
+            return jsonify({"message": "존재하지 않는 게시글입니다."}), 404
+        
+        # 강의 정보 가져오기 (선택적 - 권한 체크에 필요 없을 수도 있음)
+        # course = Course.query.filter_by(code=post.course_id).first()
+        # if not course:
+        #     return jsonify({"message": "강의를 찾을 수 없습니다."}), 404
+        
+        # 사용자 정보 가져오기
+        current_user = User.query.get(user_id)
+        if not current_user:
+            return jsonify({"message": "사용자를 찾을 수 없습니다."}), 404
+        
+        user_type = getattr(current_user, "user_type", None)
+        
+        # 카테고리별 권한 체크
+        # 교수: notice(공지), community(커뮤니티)만 고정 가능
+        # 학생: team(팀 게시판)만 고정 가능
+        if user_type == "professor":
+            if post.category not in ["notice", "community"]:
+                return jsonify({"message": "교수는 공지사항과 커뮤니티 게시글만 고정할 수 있습니다."}), 403
+        elif user_type == "student":
+            if post.category != "team":
+                return jsonify({"message": "학생은 팀 게시판 게시글만 고정할 수 있습니다."}), 403
+        else:
+            return jsonify({"message": "고정 권한이 없습니다."}), 403
+        
+        # 고정 상태 토글
+        # 새로 고정하는 경우, 같은 카테고리와 강의의 다른 고정된 게시물들을 먼저 고정 해제
+        # 계정 상관 없이 같은 카테고리 내에서 하나만 고정 가능
+        if not post.is_pinned:
+            # 같은 카테고리, 같은 강의의 다른 고정된 게시물들 찾기 (계정 상관 없이)
+            # 팀 게시판인 경우에도 team_board_name 상관 없이 같은 카테고리 내에서 하나만 고정
+            other_pinned_posts = CourseBoardPost.query.filter(
+                CourseBoardPost.course_id == post.course_id,
+                CourseBoardPost.category == post.category,
+                CourseBoardPost.id != post_id,
+                CourseBoardPost.is_pinned == True
+            ).all()
+            
+            # 다른 고정된 게시물들 모두 고정 해제 (계정 상관 없이)
+            for other_post in other_pinned_posts:
+                other_post.is_pinned = False
+                print(f"게시물 {other_post.id} 고정 해제됨 (새 게시물 {post_id} 고정으로 인해)")
+        
+        # 현재 게시물 고정 상태 토글
+        post.is_pinned = not post.is_pinned
+        db.session.commit()
+        
+        return jsonify({
+            "message": "고정 완료" if post.is_pinned else "고정 해제 완료",
+            "is_pinned": post.is_pinned,
+            "post": post.to_dict(user_id=user_id)
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"게시물 고정 오류: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"message": f"게시물 고정 중 오류가 발생했습니다: {str(e)}"}), 500
