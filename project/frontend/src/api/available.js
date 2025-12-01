@@ -4,16 +4,22 @@ import { BASE_URL } from "./config";
 const AVAILABLE_URL = `${BASE_URL}/available`;
 
 // 가능한 시간 추가
-export async function addAvailableTime(day_of_week, start_time, end_time) {
+// teamId 를 전달하면 "특정 팀 게시판에서의 제출"로 서버에서 인식한다.
+export async function addAvailableTime(day_of_week, start_time, end_time, teamId) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
+    const body = { day_of_week, start_time, end_time };
+    if (typeof teamId !== "undefined" && teamId !== null) {
+      body.team_id = teamId;
+    }
+
     const res = await fetch(`${AVAILABLE_URL}/`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ day_of_week, start_time, end_time }),
+      body: JSON.stringify(body),
     });
 
     const data = await res.json();

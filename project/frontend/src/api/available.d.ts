@@ -35,7 +35,8 @@ export interface TeamAvailabilityResponse {
 export function addAvailableTime(
   day_of_week: string,
   start_time: string,
-  end_time: string
+  end_time: string,
+  teamId?: number
 ): Promise<AddAvailableTimeResponse>;
 
 export function getMyAvailableTimes(): Promise<AvailableTimeResponse[]>;

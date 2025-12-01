@@ -1,7 +1,18 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db, bcrypt
-from models import AvailableTime, User, TeamRecruitmentMember, TeamRecruitment, CourseBoardPost, Poll, PollOption, Notification, Course
+from models import (
+    AvailableTime,
+    User,
+    TeamRecruitmentMember,
+    TeamRecruitment,
+    CourseBoardPost,
+    Poll,
+    PollOption,
+    Notification,
+    Course,
+)
+from team_availability_submission import TeamAvailabilitySubmission
 from datetime import datetime
 from collections import defaultdict
 
@@ -146,25 +157,38 @@ def find_2hour_continuous_slots(daily_blocks):
     return two_hour_slots
 
 def check_all_members_submitted(team_id):
-    """팀의 모든 멤버가 가능한 시간을 제출했는지 확인"""
+    """
+    팀 게시판 모달 기준으로,
+    해당 팀의 모든 멤버가 '팀 게시판에서 가능한 시간을 제출'했는지 확인.
+
+    실제 가능한 시간 데이터는 AvailableTime 에 쌓이고,
+    제출 여부는 TeamAvailabilitySubmission 에서 team_id / user_id 조합으로만 판단한다.
+    """
     team_members = TeamRecruitmentMember.query.filter_by(recruitment_id=team_id).all()
     if not team_members:
         print(f"[DEBUG] 팀 {team_id} 멤버가 없음")
         return False
-    
+
     member_ids = [m.user_id for m in team_members]
     print(f"[DEBUG] 팀 {team_id} 멤버 수: {len(member_ids)}, 멤버 IDs: {member_ids}")
-    
-    # 각 멤버가 최소 1개 이상의 시간을 제출했는지 확인
+
+    # 이 팀에 대해 제출을 완료한 멤버 목록
+    submissions = TeamAvailabilitySubmission.query.filter(
+        TeamAvailabilitySubmission.team_id == team_id,
+        TeamAvailabilitySubmission.user_id.in_(member_ids),
+    ).all()
+    submitted_user_ids = {s.user_id for s in submissions}
+
+    # 각 멤버가 최소 1번이라도 제출 버튼을 눌렀는지 확인
     all_submitted = True
     for member_id in member_ids:
-        times_count = AvailableTime.query.filter_by(user_id=member_id).count()
         user = User.query.get(member_id)
         user_name = user.name if user else f"User{member_id}"
-        print(f"[DEBUG]   - 멤버 {user_name} (ID: {member_id}): 제출한 시간 수 = {times_count}")
-        if times_count == 0:
+        is_submitted = member_id in submitted_user_ids
+        print(f"[DEBUG]   - 멤버 {user_name} (ID: {member_id}): 팀 제출 여부 = {is_submitted}")
+        if not is_submitted:
             all_submitted = False
-    
+
     print(f"[DEBUG] 팀 {team_id} 모든 멤버 제출 완료 여부: {all_submitted}")
     return all_submitted
 
@@ -325,6 +349,9 @@ def add_available_time():
     user_id = get_jwt_identity()
     data = request.get_json()
 
+    # 팀 게시판에서의 제출인지 여부 (대시보드에서는 team_id 를 보내지 않음)
+    team_id_from_request = data.get("team_id")
+
     existing = AvailableTime.query.filter_by(
         user_id=user_id,
         day_of_week=data["day_of_week"],
@@ -347,42 +374,90 @@ def add_available_time():
         db.session.commit()  # 먼저 커밋하여 시간이 저장되도록 함
         is_new_time = True
         response_msg = "시간 저장 완료"
-    
-    # 사용자가 속한 모든 팀 찾기 (새로 추가했든 기존 것이든 체크)
-    user_teams = TeamRecruitmentMember.query.filter_by(user_id=user_id).all()
-    
-    print(f"[DEBUG] 사용자 {user_id}가 속한 팀 수: {len(user_teams)}")
-    
+
     created_posts = []
-    for team_member in user_teams:
-        team_id = team_member.recruitment_id
-        team_name = team_member.recruitment.team_board_name if team_member.recruitment else None
-        
-        print(f"[DEBUG] 팀 {team_id} ({team_name}) 확인 중...")
-        
-        # 해당 팀의 모든 멤버가 시간을 제출했는지 확인
-        all_submitted = check_all_members_submitted(team_id)
-        print(f"[DEBUG] 팀 {team_id} 모든 멤버 제출 여부: {all_submitted}")
-        
-        if all_submitted:
-            # 자동 추천 게시글 생성
-            print(f"[DEBUG] 팀 {team_id} 자동 추천 게시글 생성 시도...")
-            post = create_auto_recommend_post(team_id)
-            if post:
-                print(f"[DEBUG] ✅ 팀 {team_id} 자동 추천 게시글 생성 성공! post_id={post.id}")
-                created_posts.append({
-                    "team_id": team_id,
-                    "post_id": post.id,
-                    "team_name": team_name
-                })
+
+    # team_id 가 있는 경우에만 "팀 게시판용 제출"로 간주하고,
+    # 이 팀에 대한 제출 여부를 기록한 후 자동 추천 여부를 판단한다.
+    if team_id_from_request is not None:
+        try:
+            team_id_int = int(team_id_from_request)
+        except (TypeError, ValueError):
+            team_id_int = None
+
+        if team_id_int is not None:
+            # 사용자가 이 팀의 멤버인지 확인
+            is_member = (
+                TeamRecruitmentMember.query.filter_by(
+                    recruitment_id=team_id_int, user_id=user_id
+                ).first()
+                is not None
+            )
+            print(f"[DEBUG] team_id={team_id_int} 에 대한 제출, 팀 멤버 여부: {is_member}")
+
+            if is_member:
+                # 제출 이력 기록 (이미 있으면 무시)
+                existing_submission = TeamAvailabilitySubmission.query.filter_by(
+                    team_id=team_id_int, user_id=user_id
+                ).first()
+                if not existing_submission:
+                    submission = TeamAvailabilitySubmission(
+                        team_id=team_id_int, user_id=user_id
+                    )
+                    db.session.add(submission)
+                    db.session.commit()
+                    print(
+                        f"[DEBUG] 팀 {team_id_int} 에 대한 제출 이력 생성 (user_id={user_id})"
+                    )
+                else:
+                    print(
+                        f"[DEBUG] 팀 {team_id_int} 에 대한 제출 이력 이미 존재 (user_id={user_id})"
+                    )
+
+                # 이 팀에 대해 모든 멤버가 제출을 완료했는지 확인
+                team_recruitment = TeamRecruitment.query.get(team_id_int)
+                team_name = (
+                    team_recruitment.team_board_name if team_recruitment else None
+                )
+
+                all_submitted = check_all_members_submitted(team_id_int)
+                print(
+                    f"[DEBUG] 팀 {team_id_int} ({team_name}) 모든 멤버 제출 여부: {all_submitted}"
+                )
+
+                if all_submitted:
+                    # 자동 추천 게시글 생성
+                    print(f"[DEBUG] 팀 {team_id_int} 자동 추천 게시글 생성 시도...")
+                    post = create_auto_recommend_post(team_id_int)
+                    if post:
+                        print(
+                            f"[DEBUG] ✅ 팀 {team_id_int} 자동 추천 게시글 생성 성공! post_id={post.id}"
+                        )
+                        created_posts.append(
+                            {
+                                "team_id": team_id_int,
+                                "post_id": post.id,
+                                "team_name": team_name,
+                            }
+                        )
+                    else:
+                        print(
+                            f"[DEBUG] ❌ 팀 {team_id_int} 자동 추천 게시글 생성 실패 (create_auto_recommend_post가 None 반환)"
+                        )
+                else:
+                    print(
+                        f"[DEBUG] ⏳ 팀 {team_id_int} 아직 모든 멤버가 시간을 제출하지 않음"
+                    )
             else:
-                print(f"[DEBUG] ❌ 팀 {team_id} 자동 추천 게시글 생성 실패 (create_auto_recommend_post가 None 반환)")
+                print(
+                    f"[DEBUG] team_id={team_id_int} 에 대해 제출 요청이 왔지만, 사용자 {user_id} 는 이 팀의 멤버가 아님"
+                )
         else:
-            print(f"[DEBUG] ⏳ 팀 {team_id} 아직 모든 멤버가 시간을 제출하지 않음")
-    
+            print(f"[DEBUG] 잘못된 team_id 값: {team_id_from_request}")
+
     if created_posts:
         response_msg += f" (자동 추천 게시글 {len(created_posts)}개 생성됨)"
-    
+
     status_code = 201 if is_new_time else 200
     return jsonify({
         "msg": response_msg,

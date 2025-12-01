@@ -1990,7 +1990,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         const result = await addAvailableTime(
           time.day,
           time.startTime,
-          time.endTime
+          time.endTime,
+          currentTeamBoard.id
         );
         
         console.log(`[DEBUG] 시간 제출 응답:`, result);
