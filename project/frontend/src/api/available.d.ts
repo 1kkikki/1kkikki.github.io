@@ -39,7 +39,7 @@ export function addAvailableTime(
   teamId?: number
 ): Promise<AddAvailableTimeResponse>;
 
-export function getMyAvailableTimes(): Promise<AvailableTimeResponse[]>;
+export function getMyAvailableTimes(teamId?: number | null): Promise<AvailableTimeResponse[]>;
 
 export function deleteAvailableTime(id: string | number): Promise<any>;
 
@@ -60,4 +60,17 @@ export interface AutoRecommendResponse {
 }
 
 export function autoRecommendAndPost(teamId: number): Promise<AutoRecommendResponse>;
+
+export interface SubmitTeamAvailabilityResponse {
+  status: number;
+  msg: string;
+  all_submitted: boolean;
+  created_posts: Array<{
+    team_id: number;
+    post_id: number;
+    team_name?: string | null;
+  }>;
+}
+
+export function submitTeamAvailability(teamId: number): Promise<SubmitTeamAvailabilityResponse>;
 

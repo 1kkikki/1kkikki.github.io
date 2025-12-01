@@ -31,10 +31,16 @@ export async function addAvailableTime(day_of_week, start_time, end_time, teamId
 }
 
 // 가능한 시간 목록 조회
-export async function getMyAvailableTimes() {
+// teamId가 있으면 해당 팀의 시간만, 없으면 대시보드용 시간만 조회
+export async function getMyAvailableTimes(teamId = null) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   try {
-    const res = await fetch(`${AVAILABLE_URL}/`, {
+    let url = `${AVAILABLE_URL}/`;
+    if (teamId !== null && teamId !== undefined) {
+      url += `?team_id=${teamId}`;
+    }
+    
+    const res = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -89,6 +95,26 @@ export async function getTeamCommonAvailability(teamId) {
   } catch (error) {
     console.error("팀 가능 시간 조회 오류:", error);
     return { error };
+  }
+}
+
+// 팀 게시판 시간 제출 (제출 버튼 클릭 시)
+export async function submitTeamAvailability(teamId) {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  try {
+    const res = await fetch(`${AVAILABLE_URL}/team/${teamId}/submit`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await res.json();
+    return { status: res.status, ...data };
+  } catch (error) {
+    console.error("시간 제출 오류:", error);
+    return { error: "서버 오류가 발생했습니다.", status: 500 };
   }
 }
 

@@ -12,7 +12,7 @@ from models import (
     Notification,
     Course,
 )
-from team_availability_submission import TeamAvailabilitySubmission
+from models import TeamAvailabilitySubmission
 from datetime import datetime
 from collections import defaultdict
 
@@ -133,7 +133,7 @@ def build_daily_blocks_from_slots(slots):
     return blocks
 
 def find_2hour_continuous_slots(daily_blocks):
-    """2시간(120분) 이상 연속 가능한 시간대를 찾는 함수"""
+    """1시간(60분) 이상 연속 가능한 시간대를 찾는 함수"""
     two_hour_slots = []
     
     for day_name, blocks in daily_blocks.items():
@@ -145,8 +145,8 @@ def find_2hour_continuous_slots(daily_blocks):
             end_minutes = _time_to_minutes(end_time)
             duration = end_minutes - start_minutes
             
-            # 2시간(120분) 이상인 경우
-            if duration >= 120:
+            # 1시간(60분) 이상인 경우
+            if duration >= 60:
                 two_hour_slots.append({
                     "day_of_week": day_name,
                     "start_time": block["start_time"],
@@ -220,48 +220,90 @@ def create_auto_recommend_post(team_id):
         return None
     
     member_ids = [m.user_id for m in team_members]
-    all_times = AvailableTime.query.filter(AvailableTime.user_id.in_(member_ids)).all()
     
-    print(f"[DEBUG] 팀 멤버 수: {len(team_members)}, 제출된 시간 수: {len(all_times)}")
+    # 각 멤버가 이 팀에 제출했는지 확인
+    submissions = TeamAvailabilitySubmission.query.filter(
+        TeamAvailabilitySubmission.team_id == team_id,
+        TeamAvailabilitySubmission.user_id.in_(member_ids),
+    ).all()
+    submitted_user_ids = {s.user_id for s in submissions}
     
-    user_times = defaultdict(list)
-    for time_slot in all_times:
-        user_times[time_slot.user_id].append(time_slot)
+    # 해당 팀에 제출한 시간 가져오기
+    team_submitted_times = AvailableTime.query.filter(
+        AvailableTime.user_id.in_(member_ids),
+        AvailableTime.team_id == team_id
+    ).all()
+    
+    # 대시보드 시간 가져오기
+    dashboard_times = AvailableTime.query.filter(
+        AvailableTime.user_id.in_(member_ids),
+        AvailableTime.team_id.is_(None)  # team_id가 None인 것 (대시보드용)
+    ).all()
+    
+    # 각 멤버별로 팀 제출 시간 또는 대시보드 시간 매핑
+    team_user_times = defaultdict(list)
+    dashboard_user_times = defaultdict(list)
+    
+    for time_slot in team_submitted_times:
+        team_user_times[time_slot.user_id].append(time_slot)
+    
+    for time_slot in dashboard_times:
+        dashboard_user_times[time_slot.user_id].append(time_slot)
+    
+    print(f"[DEBUG] 팀 멤버 수: {len(team_members)}, 팀 제출 시간 수: {len(team_submitted_times)}, 대시보드 시간 수: {len(dashboard_times)}")
     
     member_slot_sets = []
     for member in team_members:
         user = member.user
         if not user:
             continue
-        times_for_user = user_times.get(user.id, [])
+        
+        # 해당 팀에 제출했으면: 대시보드 연동 시간 + 팀에서 추가한 시간 모두 사용
+        # 제출하지 않았으면: 대시보드 시간만 사용
+        if member.user_id in submitted_user_ids:
+            # 제출한 경우: 대시보드 시간 + 팀 제출 시간 모두 합치기
+            dashboard_times_for_user = dashboard_user_times.get(user.id, [])
+            team_times_for_user = team_user_times.get(user.id, [])
+            times_for_user = dashboard_times_for_user + team_times_for_user
+        else:
+            # 제출하지 않은 경우: 대시보드 시간만 사용
+            times_for_user = dashboard_user_times.get(user.id, [])
+        
         slot_set = build_time_slots(times_for_user)
         member_slot_sets.append(slot_set)
-        print(f"[DEBUG] 멤버 {user.name} (ID: {user.id})의 시간 슬롯 수: {len(slot_set)}")
+        print(f"[DEBUG] 멤버 {user.name} (ID: {user.id})의 시간 슬롯 수: {len(slot_set)} (제출 여부: {member.user_id in submitted_user_ids})")
     
     if len(member_slot_sets) == 0:
         print(f"[DEBUG] 멤버 슬롯 세트가 없음: team_id={team_id}")
         return None
     
-    # 공통 시간 계산
-    if any(len(s) == 0 for s in member_slot_sets):
-        print(f"[DEBUG] 일부 멤버가 시간을 제출하지 않음: team_id={team_id}")
+    # 시간이 있는 멤버만 필터링 (시간이 없는 멤버는 제외하고 공통 시간 계산)
+    member_slot_sets_with_time = [s for s in member_slot_sets if len(s) > 0]
+    
+    if len(member_slot_sets_with_time) == 0:
+        print(f"[DEBUG] 시간이 있는 멤버가 없음: team_id={team_id}")
         return None
     
-    member_slot_sets.sort(key=len)
-    base_slots = member_slot_sets[0]
-    optimal_slots = {slot for slot in base_slots if all(slot in slots for slots in member_slot_sets)}
+    # 공통 시간 계산 (시간이 있는 멤버들 간의 공통 시간)
+    member_slot_sets_with_time.sort(key=len)
+    base_slots = member_slot_sets_with_time[0]
+    optimal_slots = {slot for slot in base_slots if all(slot in slots for slots in member_slot_sets_with_time)}
     
     print(f"[DEBUG] 공통 시간 슬롯 수: {len(optimal_slots)}")
     
+    if len(optimal_slots) == 0:
+        print(f"[DEBUG] 공통 시간이 없음: team_id={team_id}")
+        return None
+    
     daily_blocks = build_daily_blocks_from_slots(optimal_slots)
     
-    # 2시간 연속 가능한 시간 찾기
+    # 1시간 연속 가능한 시간 찾기
     two_hour_slots = find_2hour_continuous_slots(daily_blocks)
     
-    print(f"[DEBUG] 2시간 연속 가능한 시간 수: {len(two_hour_slots)}")
+    print(f"[DEBUG] 1시간 연속 가능한 시간 수: {len(two_hour_slots)}")
     
     if not two_hour_slots:
-        print(f"[DEBUG] 2시간 연속 가능한 시간이 없음: team_id={team_id}")
+        print(f"[DEBUG] 1시간 연속 가능한 시간이 없음: team_id={team_id}")
         return None
     
     # 게시글 작성자: 봇 계정 사용
@@ -274,7 +316,7 @@ def create_auto_recommend_post(team_id):
     
     title = title_pattern
     
-    content = f"팀원들의 가능한 시간을 분석한 결과, 2시간 이상 연속으로 만날 수 있는 시간을 찾았습니다.\n\n"
+    content = f"팀원들의 가능한 시간을 분석한 결과, 1시간 이상 연속으로 만날 수 있는 시간을 찾았습니다.\n\n"
     content += f"추천 시간:\n"
     
     for slot in two_hour_slots:
@@ -351,9 +393,19 @@ def add_available_time():
 
     # 팀 게시판에서의 제출인지 여부 (대시보드에서는 team_id 를 보내지 않음)
     team_id_from_request = data.get("team_id")
+    
+    # team_id를 정수로 변환 (없으면 None)
+    team_id_int = None
+    if team_id_from_request is not None:
+        try:
+            team_id_int = int(team_id_from_request)
+        except (TypeError, ValueError):
+            team_id_int = None
 
+    # 중복 체크: 같은 user_id, team_id, day_of_week, start_time, end_time 조합이 있는지 확인
     existing = AvailableTime.query.filter_by(
         user_id=user_id,
+        team_id=team_id_int,  # team_id도 포함하여 중복 체크
         day_of_week=data["day_of_week"],
         start_time=parse_time_str(data["start_time"]),
         end_time=parse_time_str(data["end_time"])
@@ -361,11 +413,12 @@ def add_available_time():
 
     is_new_time = False
     if existing:
-        print(f"[DEBUG] 이미 같은 시간이 존재함 (ID: {existing.id})")
+        print(f"[DEBUG] 이미 같은 시간이 존재함 (ID: {existing.id}, team_id: {team_id_int})")
         response_msg = "이미 같은 시간이 존재합니다."
     else:
         new_time = AvailableTime(
             user_id=user_id,
+            team_id=team_id_int,  # team_id 저장 (None이면 대시보드용)
             day_of_week=data["day_of_week"],
             start_time=parse_time_str(data["start_time"]),
             end_time=parse_time_str(data["end_time"]),
@@ -379,81 +432,24 @@ def add_available_time():
 
     # team_id 가 있는 경우에만 "팀 게시판용 제출"로 간주하고,
     # 이 팀에 대한 제출 여부를 기록한 후 자동 추천 여부를 판단한다.
-    if team_id_from_request is not None:
-        try:
-            team_id_int = int(team_id_from_request)
-        except (TypeError, ValueError):
-            team_id_int = None
+    if team_id_int is not None:
+        # 사용자가 이 팀의 멤버인지 확인
+        is_member = (
+            TeamRecruitmentMember.query.filter_by(
+                recruitment_id=team_id_int, user_id=user_id
+            ).first()
+            is not None
+        )
+        print(f"[DEBUG] team_id={team_id_int} 에 대한 제출, 팀 멤버 여부: {is_member}")
 
-        if team_id_int is not None:
-            # 사용자가 이 팀의 멤버인지 확인
-            is_member = (
-                TeamRecruitmentMember.query.filter_by(
-                    recruitment_id=team_id_int, user_id=user_id
-                ).first()
-                is not None
-            )
-            print(f"[DEBUG] team_id={team_id_int} 에 대한 제출, 팀 멤버 여부: {is_member}")
-
-            if is_member:
-                # 제출 이력 기록 (이미 있으면 무시)
-                existing_submission = TeamAvailabilitySubmission.query.filter_by(
-                    team_id=team_id_int, user_id=user_id
-                ).first()
-                if not existing_submission:
-                    submission = TeamAvailabilitySubmission(
-                        team_id=team_id_int, user_id=user_id
-                    )
-                    db.session.add(submission)
-                    db.session.commit()
-                    print(
-                        f"[DEBUG] 팀 {team_id_int} 에 대한 제출 이력 생성 (user_id={user_id})"
-                    )
-                else:
-                    print(
-                        f"[DEBUG] 팀 {team_id_int} 에 대한 제출 이력 이미 존재 (user_id={user_id})"
-                    )
-
-                # 이 팀에 대해 모든 멤버가 제출을 완료했는지 확인
-                team_recruitment = TeamRecruitment.query.get(team_id_int)
-                team_name = (
-                    team_recruitment.team_board_name if team_recruitment else None
-                )
-
-                all_submitted = check_all_members_submitted(team_id_int)
-                print(
-                    f"[DEBUG] 팀 {team_id_int} ({team_name}) 모든 멤버 제출 여부: {all_submitted}"
-                )
-
-                if all_submitted:
-                    # 자동 추천 게시글 생성
-                    print(f"[DEBUG] 팀 {team_id_int} 자동 추천 게시글 생성 시도...")
-                    post = create_auto_recommend_post(team_id_int)
-                    if post:
-                        print(
-                            f"[DEBUG] ✅ 팀 {team_id_int} 자동 추천 게시글 생성 성공! post_id={post.id}"
-                        )
-                        created_posts.append(
-                            {
-                                "team_id": team_id_int,
-                                "post_id": post.id,
-                                "team_name": team_name,
-                            }
-                        )
-                    else:
-                        print(
-                            f"[DEBUG] ❌ 팀 {team_id_int} 자동 추천 게시글 생성 실패 (create_auto_recommend_post가 None 반환)"
-                        )
-                else:
-                    print(
-                        f"[DEBUG] ⏳ 팀 {team_id_int} 아직 모든 멤버가 시간을 제출하지 않음"
-                    )
-            else:
-                print(
-                    f"[DEBUG] team_id={team_id_int} 에 대해 제출 요청이 왔지만, 사용자 {user_id} 는 이 팀의 멤버가 아님"
-                )
+        if is_member:
+            # 시간 추가 시에는 제출 이력을 기록하지 않음
+            # 제출 이력은 "제출" 버튼을 눌렀을 때만 기록됨
+            print(f"[DEBUG] team_id={team_id_int} 시간 추가 완료 (제출 이력은 제출 버튼 클릭 시 기록됨)")
         else:
-            print(f"[DEBUG] 잘못된 team_id 값: {team_id_from_request}")
+            print(
+                f"[DEBUG] team_id={team_id_int} 에 대해 제출 요청이 왔지만, 사용자 {user_id} 는 이 팀의 멤버가 아님"
+            )
 
     if created_posts:
         response_msg += f" (자동 추천 게시글 {len(created_posts)}개 생성됨)"
@@ -469,12 +465,19 @@ def add_available_time():
 @jwt_required()
 def get_my_available_times():
     user_id = get_jwt_identity()
-    times = (
-        AvailableTime.query
-        .filter_by(user_id=user_id)
-        .order_by(AvailableTime.day_of_week, AvailableTime.start_time)
-        .all()
-    )
+    # team_id 파라미터가 있으면 해당 팀의 시간만, 없으면 대시보드용(team_id=None) 시간만
+    team_id_param = request.args.get("team_id", type=int)
+    
+    query = AvailableTime.query.filter_by(user_id=user_id)
+    
+    if team_id_param is not None:
+        # 특정 팀의 시간만 조회
+        query = query.filter_by(team_id=team_id_param)
+    else:
+        # 대시보드용 시간만 조회 (team_id가 None인 것만)
+        query = query.filter_by(team_id=None)
+    
+    times = query.order_by(AvailableTime.day_of_week, AvailableTime.start_time).all()
     return jsonify([t.to_dict() for t in times])
 
 # 가능한 시간 삭제
@@ -512,11 +515,35 @@ def get_team_common_times(team_id):
         })
 
     member_ids = [m.user_id for m in team_members]
-    all_times = AvailableTime.query.filter(AvailableTime.user_id.in_(member_ids)).all()
+    
+    # 각 멤버가 이 팀에 제출했는지 확인
+    submissions = TeamAvailabilitySubmission.query.filter(
+        TeamAvailabilitySubmission.team_id == team_id,
+        TeamAvailabilitySubmission.user_id.in_(member_ids),
+    ).all()
+    submitted_user_ids = {s.user_id for s in submissions}
+    
+    # 해당 팀에 제출한 시간 가져오기
+    team_submitted_times = AvailableTime.query.filter(
+        AvailableTime.user_id.in_(member_ids),
+        AvailableTime.team_id == team_id
+    ).all()
+    
+    # 대시보드 시간 가져오기 (제출하지 않은 멤버용)
+    dashboard_times = AvailableTime.query.filter(
+        AvailableTime.user_id.in_(member_ids),
+        AvailableTime.team_id.is_(None)  # team_id가 None인 것 (대시보드용)
+    ).all()
 
-    user_times = defaultdict(list)
-    for time_slot in all_times:
-        user_times[time_slot.user_id].append(time_slot)
+    # 각 멤버별로 팀 제출 시간 또는 대시보드 시간 매핑
+    team_user_times = defaultdict(list)
+    dashboard_user_times = defaultdict(list)
+    
+    for time_slot in team_submitted_times:
+        team_user_times[time_slot.user_id].append(time_slot)
+    
+    for time_slot in dashboard_times:
+        dashboard_user_times[time_slot.user_id].append(time_slot)
 
     members_payload = []
     member_slot_sets = []
@@ -528,13 +555,26 @@ def get_team_common_times(team_id):
         if not user:
             continue
 
-        times_for_user = user_times.get(user.id, [])
+        # 해당 팀에 제출했으면: 대시보드 연동 시간 + 팀에서 추가한 시간 모두 사용
+        # 제출하지 않았으면: 대시보드 시간만 사용
+        if member.user_id in submitted_user_ids:
+            # 제출한 경우: 대시보드 시간 + 팀 제출 시간 모두 합치기
+            dashboard_times_for_user = dashboard_user_times.get(user.id, [])
+            team_times_for_user = team_user_times.get(user.id, [])
+            times_for_user = dashboard_times_for_user + team_times_for_user
+            time_source = "dashboard+team"
+        else:
+            # 제출하지 않은 경우: 대시보드 시간만 사용
+            times_for_user = dashboard_user_times.get(user.id, [])
+            time_source = "dashboard"
+        
         payload = {
             "user_id": user.id,
             "name": user.name,
             "student_id": user.student_id if user.user_type == "student" else None,
             "user_type": user.user_type,
-            "times": [t.to_dict() for t in times_for_user]
+            "times": [t.to_dict() for t in times_for_user],
+            "time_source": time_source  # 어디서 온 시간인지 표시 (선택사항)
         }
         members_payload.append(payload)
 
@@ -569,7 +609,7 @@ def get_team_common_times(team_id):
         "daily_blocks": daily_blocks,
     })
 
-# 2시간 연속 가능한 시간을 자동 추천하고 봇이 게시글 올리기
+# 1시간 연속 가능한 시간을 자동 추천하고 봇이 게시글 올리기
 @available_bp.route("/team/<int:team_id>/auto-recommend", methods=["POST"])
 @jwt_required()
 def auto_recommend_and_post(team_id):
@@ -621,11 +661,11 @@ def auto_recommend_and_post(team_id):
     
     daily_blocks = build_daily_blocks_from_slots(optimal_slots)
     
-    # 2시간 연속 가능한 시간 찾기
+    # 1시간 연속 가능한 시간 찾기
     two_hour_slots = find_2hour_continuous_slots(daily_blocks)
     
     if not two_hour_slots:
-        return jsonify({"msg": "2시간 연속으로 만날 수 있는 시간이 없습니다."}), 400
+        return jsonify({"msg": "1시간 연속으로 만날 수 있는 시간이 없습니다."}), 400
     
     # 게시글 작성자: 봇 계정 사용
     bot_user = get_or_create_bot_user()
@@ -637,7 +677,7 @@ def auto_recommend_and_post(team_id):
     
     title = f"🤖 자동 추천: {team_recruitment.team_board_name} 팀 만남 시간 추천"
     
-    content = f"팀원들의 가능한 시간을 분석한 결과, 2시간 이상 연속으로 만날 수 있는 시간을 찾았습니다.\n\n"
+    content = f"팀원들의 가능한 시간을 분석한 결과, 1시간 이상 연속으로 만날 수 있는 시간을 찾았습니다.\n\n"
     content += f"**추천 시간:**\n\n"
     
     for slot in two_hour_slots:
@@ -709,3 +749,69 @@ def auto_recommend_and_post(team_id):
         "recommended_slots": two_hour_slots,
         "post": post.to_dict()
     }), 201
+
+# 팀 게시판 시간 제출 (제출 버튼 클릭 시 호출)
+@available_bp.route("/team/<int:team_id>/submit", methods=["POST"])
+@jwt_required()
+def submit_team_availability(team_id):
+    """팀 게시판에서 시간 제출 버튼을 눌렀을 때 호출되는 엔드포인트"""
+    user_id = get_jwt_identity()
+    
+    # 사용자가 이 팀의 멤버인지 확인
+    is_member = (
+        TeamRecruitmentMember.query.filter_by(
+            recruitment_id=team_id, user_id=user_id
+        ).first()
+        is not None
+    )
+    
+    if not is_member:
+        return jsonify({"error": "이 팀의 멤버가 아닙니다."}), 403
+    
+    # 제출 이력 기록 (이미 있으면 무시)
+    existing_submission = TeamAvailabilitySubmission.query.filter_by(
+        team_id=team_id, user_id=user_id
+    ).first()
+    
+    if not existing_submission:
+        submission = TeamAvailabilitySubmission(
+            team_id=team_id, user_id=user_id
+        )
+        db.session.add(submission)
+        db.session.commit()
+        print(f"[DEBUG] 팀 {team_id} 에 대한 제출 이력 생성 (user_id={user_id})")
+    else:
+        print(f"[DEBUG] 팀 {team_id} 에 대한 제출 이력 이미 존재 (user_id={user_id})")
+    
+    # 이 팀에 대해 모든 멤버가 제출을 완료했는지 확인
+    team_recruitment = TeamRecruitment.query.get(team_id)
+    team_name = (
+        team_recruitment.team_board_name if team_recruitment else None
+    )
+    
+    all_submitted = check_all_members_submitted(team_id)
+    print(f"[DEBUG] 팀 {team_id} ({team_name}) 모든 멤버 제출 여부: {all_submitted}")
+    
+    created_posts = []
+    
+    # 모든 멤버가 제출했으면 게시글 생성 시도
+    if all_submitted:
+        print(f"[DEBUG] 팀 {team_id} 자동 추천 게시글 생성 시도...")
+        post = create_auto_recommend_post(team_id)
+        if post:
+            print(f"[DEBUG] ✅ 팀 {team_id} 자동 추천 게시글 생성 성공! post_id={post.id}")
+            created_posts.append({
+                "team_id": team_id,
+                "post_id": post.id,
+                "team_name": team_name,
+            })
+        else:
+            print(f"[DEBUG] ❌ 팀 {team_id} 자동 추천 게시글 생성 실패 (create_auto_recommend_post가 None 반환)")
+    else:
+        print(f"[DEBUG] ⏳ 팀 {team_id} 아직 모든 멤버가 시간을 제출하지 않음")
+    
+    return jsonify({
+        "msg": "시간이 제출되었습니다.",
+        "all_submitted": all_submitted,
+        "created_posts": created_posts
+    }), 200

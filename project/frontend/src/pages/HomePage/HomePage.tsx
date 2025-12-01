@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Clock, Calendar, Users, CheckCircle, ArrowRight, Sparkles, Layout, Clock3 } from "lucide-react";
 import "./home-page.css";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
@@ -13,9 +14,17 @@ interface HomePageProps {
 export default function HomePage({ onNavigate }: HomePageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
-    setIsLoaded(true);
+    // 경로가 변경될 때마다 애니메이션 재생
+    setIsLoaded(false);
+    // 다음 프레임에서 애니메이션 시작 (리플로우 보장)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsLoaded(true);
+      });
+    });
     
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -23,7 +32,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [location.pathname]);
 
   return (
     <div className="home-page">

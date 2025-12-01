@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./signup-page.css";
 import { register } from "../../api/auth";
 import AlertDialog from "../Alert/AlertDialog";
@@ -13,6 +13,7 @@ interface SignUpPageProps {
 
 export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: SignUpPageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [formData, setFormData] = useState<{
     userType: 'student' | 'professor';
@@ -106,9 +107,9 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
 
   // 뒤로가기 핸들러
   const handleBack = () => {
-    // 로그인되지 않은 상태에서는 브라우저 히스토리 기반으로 이전 페이지로
+    // 로그인되지 않은 상태
     if (!user) {
-      // pendingCourseJoin이 있으면 강의 참여 페이지로, 없으면 히스토리 뒤로가기
+      // pendingCourseJoin이 있으면 강의 참여 페이지로
       const pendingJoin = localStorage.getItem('pendingCourseJoin');
       if (pendingJoin && returnToCourseJoin) {
         try {
@@ -116,10 +117,12 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
           navigate(`/course/${courseId}/${encodeURIComponent(courseName)}/${encodeURIComponent(courseCode)}`);
         } catch (e) {
           console.error("강의 정보 파싱 오류:", e);
-          navigate(-1); // 이전 페이지로
+          // 브라우저 히스토리 사용 (로그인에서 왔으면 로그인으로, 홈에서 왔으면 홈으로)
+          navigate(-1);
         }
       } else {
-        navigate(-1); // 이전 페이지로 (로그인 페이지 또는 홈)
+        // 브라우저 히스토리 사용 (로그인에서 왔으면 로그인으로, 홈에서 왔으면 홈으로)
+        navigate(-1);
       }
       return;
     }
@@ -151,7 +154,7 @@ export default function SignUpPage({ onNavigate, returnToCourseJoin = false }: S
       <button 
         className="signup-page__back-button"
         onClick={handleBack}
-        title={user && (hasPendingCourseJoin || returnToCourseJoin) ? "강의 참여로 돌아가기" : "홈으로 돌아가기"}
+        title={user && (hasPendingCourseJoin || returnToCourseJoin) ? "강의 참여로 돌아가기" : "이전 페이지로 돌아가기"}
       >
         <ArrowLeft size={20} />
       </button>
