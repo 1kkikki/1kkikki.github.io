@@ -174,10 +174,10 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
     fetchSchedules(); // 일정도 로드
     loadNotifications(); // 알림 로드
     
-    // 30초마다 알림 자동 새로고침 (성능 최적화)
+    // 10초마다 알림 자동 새로고침 (실시간 반영)
     const notificationInterval = setInterval(() => {
       loadNotifications();
-    }, 30000);
+    }, 10000);
     
     return () => clearInterval(notificationInterval);
   }, []); // loadEnrolledCourses 제거 (Context에서 자동 로드)

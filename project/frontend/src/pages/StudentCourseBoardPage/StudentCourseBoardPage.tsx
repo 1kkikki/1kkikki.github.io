@@ -4,7 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCourses } from "../../contexts/CourseContext";
 import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll, togglePinPost, checkPostExists, checkCommentExists} from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
-import { getTeamCommonAvailability, addAvailableTime } from "../../api/available";
+import { getTeamCommonAvailability, addAvailableTime, getMyAvailableTimes, deleteAvailableTime, submitTeamAvailability } from "../../api/available";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
 import {
   Home,
@@ -51,7 +51,7 @@ interface CourseBoardPageProps {
   };
   onBack: () => void;
   onNavigate: (page: string) => void;
-  availableTimes?: AvailableTime[];
+  availableTimes?: AvailableTime[]; // 현재 사용되지 않음 (팀 게시판에서 자체적으로 시간을 불러옴)
 }
 
 interface AvailableTime {
@@ -59,6 +59,8 @@ interface AvailableTime {
   day: string;
   startTime: string;
   endTime: string;
+  source?: 'dashboard' | 'team'; // 대시보드에서 온 시간인지 팀에서 추가한 시간인지 구분
+  teamTimeId?: number; // 팀 시간인 경우 서버 ID (삭제 시 사용)
 }
 
 interface TeamMemberTime {
@@ -173,7 +175,7 @@ interface Notification {
   created_at: string;
 }
 
-export default function CourseBoardPage({ course, onBack, onNavigate, availableTimes = [] }: CourseBoardPageProps) {
+export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBoardPageProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { courses } = useCourses();
@@ -220,7 +222,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const [isAvailableTimeModalOpen, setIsAvailableTimeModalOpen] = useState(false);
   const [myAvailableTimes, setMyAvailableTimes] = useState<AvailableTime[]>([]);
   const [isResultView, setIsResultView] = useState(false);
-  const [hasSubmittedOnce, setHasSubmittedOnce] = useState(false);
+  // 팀별 제출 여부를 추적 (teamId -> boolean)
+  const [teamSubmittedMap, setTeamSubmittedMap] = useState<Map<number, boolean>>(new Map());
   const SCHEDULE_START_HOUR = 9;
   const SCHEDULE_END_HOUR = 20;
   const SCHEDULE_ROW_COUNT = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR + 1;
@@ -371,7 +374,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       // 컴포넌트가 unmount되었으면 중단
       if (signal?.aborted) {
         console.log('[loadPosts] signal aborted, 중단');
-        return;
+        return [];
       }
 
       const mapped: Post[] = data.map((p: any) => ({
@@ -412,8 +415,12 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
           console.log(`게시글 ${idx + 1} (ID: ${post.id}) poll 데이터:`, post.poll);
         }
       });
+      
+      // 게시글 목록 반환 (제출 후 자동 추천 게시글 확인용)
+      return mapped;
     } catch (err) {
       console.error("게시글 불러오기 실패:", err);
+      return [];
     }
   }
 
@@ -550,8 +557,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   useEffect(() => {
     loadNotifications();
     
-    // 30초마다 알림 자동 새로고침 (성능 최적화)
-    const interval = setInterval(loadNotifications, 30000);
+    // 10초마다 알림 자동 새로고침 (실시간 반영)
+    const interval = setInterval(loadNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -564,6 +571,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
         setNotifications(prev => 
           prev.map(n => n.id === detail.notificationId ? { ...n, is_read: true } : n)
         );
+      } else if (detail.type === 'new') {
+        // 새 알림이 생성되면 알림 목록 새로고침
+        loadNotifications();
       }
     });
 
@@ -1780,6 +1790,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       );
       setNewComment("");
       setReplyTo(null);
+      
+      // 알림 새로고침 (댓글/답글 작성 시 알림이 생성됨)
+      notifyNotificationUpdated({ type: 'new' });
     } catch (err) {
       console.error("댓글 작성 실패:", err);
       setWarningMessage("댓글 작성 중 오류가 발생했습니다.");
@@ -1929,7 +1942,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
     });
   };
 
-  const handleAddTime = () => {
+  const handleAddTime = async () => {
+    if (!currentTeamBoard) return;
+    
     setTimeOverlapWarning("");
 
     const startTime = `${newTime.startHour}:${newTime.startMinute}`;
@@ -1949,116 +1964,159 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
       return;
     }
 
-    const time: AvailableTime = {
-      id: Date.now().toString(),
-      day: newTime.day,
-      startTime: startTime,
-      endTime: endTime
-    };
+    // 즉시 서버에 저장
+    try {
+      const result = await addAvailableTime(
+        newTime.day,
+        startTime,
+        endTime,
+        currentTeamBoard.id
+      );
 
-    setMyAvailableTimes([...myAvailableTimes, time]);
-    setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
-    
-    // 시간 추가 시 자동으로 결과 뷰로 전환하고 제출 상태 표시
-    if (!isResultView) {
-      setIsResultView(true);
-      setHasSubmittedOnce(true);
+      if (result.status === 201 || result.status === 200) {
+        
+        // 서버에 저장된 시간을 다시 불러와서 state에 추가 (정확한 ID를 얻기 위해)
+        try {
+          const teamTimes = await getMyAvailableTimes(currentTeamBoard.id);
+          const formattedTeamTimes: AvailableTime[] = teamTimes.map((time: any) => ({
+            id: `team-${time.id}`,
+            day: time.day_of_week,
+            startTime: time.start_time,
+            endTime: time.end_time,
+            source: 'team' as const,
+            teamTimeId: time.id
+          }));
+
+          // 기존 대시보드 시간은 유지하고, 새로 추가된 팀 시간만 업데이트
+          const dashboardTimes = myAvailableTimes.filter(t => t.source === 'dashboard');
+          setMyAvailableTimes([...dashboardTimes, ...formattedTeamTimes]);
+        } catch (error) {
+          console.error("추가된 시간 불러오기 실패:", error);
+          // 실패해도 임시로 추가
+          const time: AvailableTime = {
+            id: `team-${Date.now()}`,
+            day: newTime.day,
+            startTime: startTime,
+            endTime: endTime,
+            source: 'team' as const
+          };
+          setMyAvailableTimes([...myAvailableTimes, time]);
+        }
+
+        setNewTime({ day: "월요일", startHour: "09", startMinute: "00", endHour: "10", endMinute: "00" });
+      } else {
+        setTimeOverlapWarning(result.msg || "시간 추가 실패");
+      }
+    } catch (error) {
+      console.error("시간 추가 오류:", error);
+      setTimeOverlapWarning("시간 추가 중 오류가 발생했습니다.");
     }
   };
 
-  const handleRemoveTime = (id: string) => {
-    setMyAvailableTimes(myAvailableTimes.filter(t => t.id !== id));
+  const handleRemoveTime = async (id: string) => {
+    if (!currentTeamBoard) return;
+
+    const timeToRemove = myAvailableTimes.find(t => t.id === id);
     
-    // 시간 제거 시에도 결과 뷰 유지 (이미 결과 뷰인 경우)
-    // 결과가 자동으로 업데이트됨 (useMemo로 계산되므로)
+    if (!timeToRemove) return;
+
+    // 대시보드 시간인 경우: 모달에서만 제거 (서버에는 영향 없음)
+    if (timeToRemove.source === 'dashboard') {
+      setMyAvailableTimes(myAvailableTimes.filter(t => t.id !== id));
+      return;
+    }
+
+    // 팀 시간인 경우: 서버에서 삭제
+    if (timeToRemove.source === 'team' && timeToRemove.teamTimeId) {
+      try {
+        await deleteAvailableTime(timeToRemove.teamTimeId);
+        // 삭제 성공 시 모달에서도 제거
+        setMyAvailableTimes(myAvailableTimes.filter(t => t.id !== id));
+        // 팀 가능 시간 다시 불러오기
+        await loadTeamAvailability();
+      } catch (error) {
+        console.error("시간 삭제 실패:", error);
+        setWarningMessage("시간 삭제 중 오류가 발생했습니다.");
+        setShowWarning(true);
+      }
+    } else {
+      // source가 없는 경우 (예전 데이터) 모달에서만 제거
+      setMyAvailableTimes(myAvailableTimes.filter(t => t.id !== id));
+    }
   };
 
   const handleSubmitAvailableTime = async () => {
     if (!currentTeamBoard) return;
     
-    // 서버에 시간 제출
+    // 시간은 이미 handleAddTime에서 저장되었으므로, 
+    // 여기서는 제출 이력 기록 및 자동 추천 게시글 생성 확인만 수행
     try {
-      let createdPostsCount = 0;
-      const createdPostsInfo: string[] = [];
-      const processedTeams = new Set<number>();
+      // 제출 이력 기록 및 자동 추천 게시글 생성 확인
+      const result = await submitTeamAvailability(currentTeamBoard.id);
       
-      // 현재 입력된 시간들을 서버에 제출
-      // 이미 서버에 있는 시간은 중복 체크되어 무시됨
-      console.log(`[DEBUG] 제출할 시간 수: ${myAvailableTimes.length}`);
-      for (const time of myAvailableTimes) {
-        console.log(`[DEBUG] 시간 제출 중: ${time.day} ${time.startTime} ~ ${time.endTime}`);
-        const result = await addAvailableTime(
-          time.day,
-          time.startTime,
-          time.endTime,
-          currentTeamBoard.id
-        );
-        
-        console.log(`[DEBUG] 시간 제출 응답:`, result);
-        
-        // 응답에 created_posts가 있으면 자동 추천 게시글이 생성된 것
-        if (result.created_posts && Array.isArray(result.created_posts) && result.created_posts.length > 0) {
-          console.log(`[DEBUG] 자동 추천 게시글 생성됨:`, result.created_posts);
-          result.created_posts.forEach((postInfo: any) => {
-            if (postInfo.team_name && postInfo.team_id && !processedTeams.has(postInfo.team_id)) {
-              createdPostsInfo.push(postInfo.team_name);
-              createdPostsCount++;
-              processedTeams.add(postInfo.team_id);
-            }
-          });
-        } else {
-          console.log(`[DEBUG] 자동 추천 게시글 생성되지 않음 (created_posts 없음 또는 빈 배열)`);
-        }
-      }
+      // 팀 가능 시간 다시 불러오기 (최신 상태 반영)
+      await loadTeamAvailability();
       
       // 제출 완료 후 결과 보기 모드로 전환
-      setIsResultView(true);
-      setHasSubmittedOnce(true);
-      
-      // 자동 추천 게시글이 생성되었으면 알림 표시
-      if (createdPostsCount > 0) {
-        const teamNames = createdPostsInfo.map(name => `• ${name}`).join("\n");
-        setSuccessMessage(
-          `✅ 시간이 제출되었습니다!\n\n🤖 팀원 모두가 시간을 제출하여 자동 추천 게시글이 생성되었습니다:\n\n${teamNames}\n\n팀 게시판에서 확인해보세요!`
-        );
-        setShowSuccess(true);
-        
-        // 게시글 목록 새로고침
-        await loadPosts();
-      } else {
-        setSuccessMessage("시간이 제출되었습니다.");
-        setShowSuccess(true);
+      if (currentTeamBoard) {
+        setIsResultView(true);
+        setTeamSubmittedMap(prev => {
+          const newMap = new Map(prev);
+          newMap.set(currentTeamBoard.id, true);
+          return newMap;
+        });
       }
       
-      // 팀 가능 시간 다시 불러오기
-      await loadTeamAvailability();
+      // 게시글 목록 새로고침 (자동 추천 게시글이 생성되었을 수 있음)
+      await loadPosts();
+      
+      // 자동 추천 게시글이 생성되었는지 확인
+      if (result.created_posts && Array.isArray(result.created_posts) && result.created_posts.length > 0) {
+        setSuccessMessage(
+          `시간이 제출되었습니다!\n\n팀원 모두가 시간을 제출하여 팀 게시판에 자동 시간 추천 게시글이 생성되었습니다!`
+        );
+      } else {
+        setSuccessMessage("시간이 제출되었습니다.");
+      }
+      setShowSuccess(true);
     } catch (error) {
-      console.error("시간 제출 실패:", error);
+      console.error("[TEST] ❌ 시간 제출 실패:", error);
       setWarningMessage("시간 제출 중 오류가 발생했습니다.");
       setShowWarning(true);
     }
   };
 
-  const loadTeamAvailability = useCallback(async () => {
-    if (!currentTeamBoard) return;
+  const loadTeamAvailability = useCallback(async (teamId?: number) => {
+    // teamId가 명시적으로 전달되면 그것을 사용, 아니면 currentTeamBoard 사용
+    const targetTeamId = teamId ?? currentTeamBoard?.id;
+    if (!targetTeamId) return;
 
     setIsTeamSlotsLoading(true);
     setTeamSlotsError("");
 
     try {
-      const data = await getTeamCommonAvailability(currentTeamBoard.id);
+      const data = await getTeamCommonAvailability(targetTeamId);
       if ("error" in data) {
         throw data.error;
       }
 
       setTeamMemberAvailabilities(data.members || []);
       setTeamSize(data.team_size ?? data.members?.length ?? 0);
-      setTeamModalName(data.team_board_name ?? currentTeamBoard.team_board_name ?? null);
+      // teamId가 명시적으로 전달된 경우 해당 팀의 이름 사용
+      if (teamId && currentTeamBoard?.id === teamId) {
+        setTeamModalName(data.team_board_name ?? currentTeamBoard.team_board_name ?? null);
+      } else if (currentTeamBoard) {
+        setTeamModalName(data.team_board_name ?? currentTeamBoard.team_board_name ?? null);
+      } else {
+        setTeamModalName(data.team_board_name ?? null);
+      }
     } catch (err) {
       console.error("팀 가능 시간 조회 실패:", err);
       setTeamMemberAvailabilities([]);
       setTeamSize(0);
-      setTeamModalName(currentTeamBoard.team_board_name ?? null);
+      if (currentTeamBoard) {
+        setTeamModalName(currentTeamBoard.team_board_name ?? null);
+      }
       setTeamSlotsError("팀원의 가능한 시간을 불러오는 데 실패했습니다.");
     } finally {
       setIsTeamSlotsLoading(false);
@@ -2068,14 +2126,57 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
   const handleOpenAvailableTimeModal = async () => {
     if (!currentTeamBoard) return;
 
-    setMyAvailableTimes([...availableTimes]);
-    // 이전에 제출한 적이 있으면 결과 뷰로 시작, 없으면 입력 뷰로 시작
-    setIsResultView(hasSubmittedOnce);
+    // 대시보드 시간(연동) + 해당 팀에 추가한 시간을 합쳐서 불러오기
+    try {
+      // 1. 대시보드 시간 불러오기 (team_id 없이)
+      const dashboardTimes = await getMyAvailableTimes(null);
+      const formattedDashboardTimes: AvailableTime[] = dashboardTimes.map((time: any) => ({
+        id: `dashboard-${time.id}`, // 대시보드 시간임을 구분하기 위한 prefix
+        day: time.day_of_week,
+        startTime: time.start_time,
+        endTime: time.end_time,
+        source: 'dashboard' as const
+      }));
+
+      // 2. 해당 팀에 추가한 시간 불러오기
+      const teamTimes = await getMyAvailableTimes(currentTeamBoard.id);
+      const formattedTeamTimes: AvailableTime[] = teamTimes.map((time: any) => ({
+        id: `team-${time.id}`, // 팀 시간임을 구분하기 위한 prefix
+        day: time.day_of_week,
+        startTime: time.start_time,
+        endTime: time.end_time,
+        source: 'team' as const,
+        teamTimeId: time.id // 서버 ID 저장 (삭제 시 사용)
+      }));
+
+      // 3. 두 시간을 합치기
+      setMyAvailableTimes([...formattedDashboardTimes, ...formattedTeamTimes]);
+      
+      // 해당 팀에 제출한 시간이 있는지 확인 (팀 시간이 하나라도 있으면 제출한 것으로 간주)
+      const hasTeamTimes = formattedTeamTimes.length > 0;
+      setTeamSubmittedMap(prev => {
+        const newMap = new Map(prev);
+        newMap.set(currentTeamBoard.id, hasTeamTimes);
+        return newMap;
+      });
+      
+      // 이전에 제출한 적이 있으면 결과 뷰로 시작, 없으면 입력 뷰로 시작
+      // teamSubmittedMap에 저장된 값도 확인 (이전에 제출한 적이 있는지)
+      const hasSubmittedBefore = teamSubmittedMap.get(currentTeamBoard.id) || hasTeamTimes;
+      setIsResultView(hasSubmittedBefore);
+    } catch (error) {
+      console.error("시간 불러오기 실패:", error);
+      setMyAvailableTimes([]);
+      setIsResultView(false);
+    }
+    
     setTeamSlotsError("");
     setTeamModalName(currentTeamBoard.team_board_name ?? null);
+    
+    // 모달을 열기 전에 해당 팀의 데이터를 명시적으로 불러오기
+    await loadTeamAvailability(currentTeamBoard.id);
+    
     setIsAvailableTimeModalOpen(true);
-
-    await loadTeamAvailability();
   };
 
   const DAY_MAP: Record<string, number> = {
@@ -3831,7 +3932,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                     </div>
                     <div className="course-board__poll-options-list">
                       {(selectedPost.poll.options || []).map((option, index) => {
-                        const hasVoted = Boolean(selectedPost.poll?.user_vote !== null && selectedPost.poll?.user_vote !== undefined);
                         const isSelected = selectedPost.poll?.user_vote === option.id;
                         const percentage = selectedPost.poll?.total_votes && selectedPost.poll.total_votes > 0
                           ? ((option.votes || 0) / selectedPost.poll.total_votes * 100).toFixed(1)
@@ -3846,11 +3946,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                             key={option.id || index}
                             className={`course-board__poll-option ${isSelected ? 'course-board__poll-option--selected' : ''} ${showResults ? 'course-board__poll-option--voted' : ''}`}
                             onClick={() => {
-                              if (!hasVoted && !isExpired) {
+                              if (!isExpired) {
                                 handleVotePoll(selectedPost.id, option.id || index);
                               }
                             }}
-                            disabled={hasVoted || isExpired}
+                            disabled={isExpired}
                           >
                             <div className="course-board__poll-option-content">
                               <span className="course-board__poll-option-text">{option.text}</span>
@@ -4426,7 +4526,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 <Clock size={24} />
                 가능한 시간
               </h2>
-              <button onClick={() => setIsAvailableTimeModalOpen(false)}>
+              <button onClick={() => {
+                setIsAvailableTimeModalOpen(false);
+                // 모달을 닫을 때 상태 초기화 (다음에 다른 팀 모달을 열 때 이전 데이터가 나타나지 않도록)
+                // 단, isResultView는 유지하지 않음 (다음에 열 때 teamSubmittedMap을 기반으로 다시 설정됨)
+                setTeamMemberAvailabilities([]);
+                setTeamSize(0);
+                setTeamModalName(null);
+                setMyAvailableTimes([]);
+              }}>
                 <X size={20} />
               </button>
             </div>
@@ -4683,7 +4791,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                 <>
                   <button
                     className="course-board__modal-button course-board__modal-button--cancel"
-                    onClick={() => setIsAvailableTimeModalOpen(false)}
+                    onClick={() => {
+                      setIsAvailableTimeModalOpen(false);
+                      // 모달을 닫을 때 상태 초기화
+                      // 단, isResultView는 유지하지 않음 (다음에 열 때 teamSubmittedMap을 기반으로 다시 설정됨)
+                      setTeamMemberAvailabilities([]);
+                      setTeamSize(0);
+                      setTeamModalName(null);
+                      setMyAvailableTimes([]);
+                    }}
                   >
                     취소
                   </button>
@@ -4704,7 +4820,15 @@ export default function CourseBoardPage({ course, onBack, onNavigate, availableT
                   </button>
                   <button
                     className="course-board__modal-button course-board__modal-button--primary"
-                    onClick={() => setIsAvailableTimeModalOpen(false)}
+                    onClick={() => {
+                      setIsAvailableTimeModalOpen(false);
+                      // 모달을 닫을 때 상태 초기화
+                      // 단, isResultView는 유지하지 않음 (다음에 열 때 teamSubmittedMap을 기반으로 다시 설정됨)
+                      setTeamMemberAvailabilities([]);
+                      setTeamSize(0);
+                      setTeamModalName(null);
+                      setMyAvailableTimes([]);
+                    }}
                   >
                     확인
                   </button>

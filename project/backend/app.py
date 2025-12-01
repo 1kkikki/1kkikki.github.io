@@ -74,6 +74,8 @@ def create_app():
             Poll,
             PollOption,
             PollVote,
+            AvailableTime,
+            TeamAvailabilitySubmission,
         )
 
         db.create_all()
@@ -93,6 +95,18 @@ def create_app():
                 cursor.execute("ALTER TABLE course_board_posts ADD COLUMN is_pinned BOOLEAN DEFAULT 0")
                 conn.commit()
                 print("✅ is_pinned 컬럼이 추가되었습니다!")
+            
+            # available_times 테이블에 team_id 컬럼 추가 마이그레이션
+            cursor.execute("PRAGMA table_info(available_times)")
+            available_times_columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'team_id' not in available_times_columns:
+                print("🔄 available_times 테이블에 team_id 컬럼을 추가하는 중...")
+                cursor.execute("ALTER TABLE available_times ADD COLUMN team_id INTEGER")
+                # 외래 키 제약조건은 SQLite에서 ALTER TABLE로 직접 추가할 수 없으므로,
+                # 필요시 별도로 처리 (일단 컬럼만 추가)
+                conn.commit()
+                print("✅ team_id 컬럼이 추가되었습니다!")
             
             conn.close()
         except Exception as e:

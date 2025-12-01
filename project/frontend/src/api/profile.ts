@@ -87,9 +87,14 @@ export async function deleteAccount(identifier: string, password: string) {
     });
 
     const data = await res.json();
+    
+    if (!res.ok) {
+      return { error: data.error || "회원탈퇴 실패" };
+    }
+    
     return data;
   } catch (error) {
     console.error("회원탈퇴 오류:", error);
-    return { error };
+    return { error: "서버 오류가 발생했습니다." };
   }
 }

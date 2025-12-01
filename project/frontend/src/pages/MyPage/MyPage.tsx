@@ -5,6 +5,7 @@ import "./my-page.css";
 import { getProfile, updateProfile, changePassword, deleteAccount } from "../../api/profile";
 import { useAuth } from "../../contexts/AuthContext";
 import AlertDialog from "../Alert/AlertDialog";
+import SuccessAlert from "../Alert/SuccessAlert";
 import {
   writeProfileImageToStorage,
   readProfileImageFromStorage,
@@ -51,6 +52,8 @@ export default function MyPage({ onNavigate }: MyPageProps) {
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [showAlert, setShowAlert] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
@@ -284,18 +287,14 @@ export default function MyPage({ onNavigate }: MyPageProps) {
 
     try {
       const res = await deleteAccount(deleteIdentifier, deletePassword);
+      console.log("회원탈퇴 응답:", res);
       if (res.message) {
         // 회원탈퇴 진행 중 플래그 설정
         setIsDeletingAccount(true);
-        setAlertMessage(res.message);
-        setShowAlert(true);
         setShowDeleteModal(false);
-        // AuthContext의 logout 함수로 모든 세션 정리
-        logout();
-        // 홈페이지로 이동
-        setTimeout(() => {
-          navigate('/');
-        }, 1500);
+        // 성공 메시지 표시
+        setSuccessMessage(res.message || "회원 탈퇴가 완료되었습니다.");
+        setShowSuccess(true);
       } else {
         setAlertMessage(res.error || "회원탈퇴 실패");
         setShowAlert(true);
@@ -904,6 +903,19 @@ export default function MyPage({ onNavigate }: MyPageProps) {
           </div>
         </div>
       )}
+
+      {/* 성공 알림 */}
+      <SuccessAlert
+        message={successMessage}
+        show={showSuccess}
+        onClose={() => {
+          setShowSuccess(false);
+          // 메시지가 닫힌 후 로그아웃 및 홈페이지로 이동
+          logout();
+          navigate('/');
+        }}
+        autoCloseDelay={2000}
+      />
 
       {/* 안내창 */}
       <AlertDialog

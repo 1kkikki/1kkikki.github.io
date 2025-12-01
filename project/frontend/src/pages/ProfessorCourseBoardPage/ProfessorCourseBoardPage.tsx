@@ -1301,8 +1301,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   useEffect(() => {
     loadNotifications();
     
-    // 30초마다 알림 자동 새로고침 (성능 최적화)
-    const interval = setInterval(loadNotifications, 30000);
+    // 10초마다 알림 자동 새로고침 (실시간 반영)
+    const interval = setInterval(loadNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1315,6 +1315,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
         setNotifications(prev => 
           prev.map(n => n.id === detail.notificationId ? { ...n, is_read: true } : n)
         );
+      } else if (detail.type === 'new') {
+        // 새 알림이 생성되면 알림 목록 새로고침
+        loadNotifications();
       }
     });
 
@@ -1703,6 +1706,9 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
       setNewComment("");
       setReplyTo(null);
+      
+      // 알림 새로고침 (댓글/답글 작성 시 알림이 생성됨)
+      notifyNotificationUpdated({ type: 'new' });
     } catch (err) {
       console.error("댓글 작성 실패:", err);
       alert("댓글 작성 중 오류가 발생했습니다.");
@@ -3462,7 +3468,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                     </div>
                     <div className="course-board__poll-options-list">
                       {(selectedPost.poll.options || []).map((option, index) => {
-                        const hasVoted = Boolean(selectedPost.poll?.user_vote !== null && selectedPost.poll?.user_vote !== undefined);
                         const isSelected = selectedPost.poll?.user_vote === option.id;
                         const percentage = selectedPost.poll?.total_votes && selectedPost.poll.total_votes > 0
                           ? ((option.votes || 0) / selectedPost.poll.total_votes * 100).toFixed(1)
@@ -3477,11 +3482,11 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                             key={option.id || index}
                             className={`course-board__poll-option ${isSelected ? 'course-board__poll-option--selected' : ''} ${showResults ? 'course-board__poll-option--voted' : ''}`}
                             onClick={() => {
-                              if (!hasVoted && !isExpired) {
+                              if (!isExpired) {
                                 handleVotePoll(selectedPost.id, option.id || index);
                               }
                             }}
-                            disabled={hasVoted || isExpired}
+                            disabled={isExpired}
                           >
                             <div className="course-board__poll-option-content">
                               <span className="course-board__poll-option-text">{option.text}</span>
