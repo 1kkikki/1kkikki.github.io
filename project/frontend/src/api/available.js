@@ -1,7 +1,7 @@
-import { BASE_URL } from "./config";
+import { baseURL } from "./config";
 
 // /available prefix
-const AVAILABLE_URL = `${BASE_URL}/available`;
+const AVAILABLE_URL = `${baseURL}/available`;
 
 // 가능한 시간 추가
 // teamId 를 전달하면 "특정 팀 게시판에서의 제출"로 서버에서 인식한다.

@@ -1,5 +1,5 @@
-import { BASE_URL } from "./config.js";
-const COURSE_URL = `${BASE_URL}/course`;
+import { baseURL } from "./config.js";
+const COURSE_URL = `${baseURL}/course`;
 
 // 강의 추가
 export async function createCourse(title: string, code: string) {

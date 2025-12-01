@@ -1,7 +1,7 @@
 import axios from "axios";
-import { BASE_URL } from "./config"; 
+import { baseURL } from "./config"; 
 
-const API_URL = `${BASE_URL}/course`; 
+const API_URL = `${baseURL}/course`; 
 
 // 본인 강의 목록 조회 (교수)
 export async function getMyCourses() {

@@ -5,7 +5,7 @@ import { useCourses } from "../../contexts/CourseContext";
 import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getComments, createComment, deleteComment, toggleLike, toggleCommentLike, uploadFile, votePoll, togglePinPost, checkPostExists, checkCommentExists } from "../../api/board";
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
-import { BASE_URL } from "../../api/config";
+import { baseURL } from "../../api/config";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { 
   Home, 
@@ -2102,7 +2102,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     setEditPostContent(post.content);
     setEditPostFiles(post.files ? post.files.map(f => ({
       ...f,
-      preview: f.type === 'image' ? `${BASE_URL}${f.url}` : undefined
+      preview: f.type === 'image' ? `${baseURL}${f.url}` : undefined
     })) : []);
     setEditPostPoll(post.poll ? { ...post.poll } : null);
     setIsEditPostOpen(true);
@@ -3138,7 +3138,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                     <div key={index} className="course-board__file-preview-item">
                       {file.type === 'image' && (file.preview || file.url) && (
                         <img 
-                          src={file.preview || `${BASE_URL}${file.url}`} 
+                          src={file.preview || `${baseURL}${file.url}`} 
                           alt={file.original_name}
                           className="course-board__file-preview-image"
                         />
@@ -3411,13 +3411,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                         <div key={index} className="course-board__post-file-item">
                           {file.type === 'image' && (
                             <a 
-                              href={`${BASE_URL}${file.url}`} 
+                              href={`${baseURL}${file.url}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="course-board__post-file-link"
                             >
                               <img 
-                                src={`${BASE_URL}${file.url}`} 
+                                src={`${baseURL}${file.url}`} 
                                 alt={file.original_name}
                                 className="course-board__post-file-image"
                               />
@@ -3426,7 +3426,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                           {file.type === 'video' && (
                             <div className="course-board__post-file-video-wrapper">
                               <video 
-                                src={`${BASE_URL}${file.url}`}
+                                src={`${baseURL}${file.url}`}
                                 controls
                                 className="course-board__post-file-video"
                               />
@@ -3434,7 +3434,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                           )}
                           {file.type === 'file' && (
                             <a 
-                              href={`${BASE_URL}${file.url}`} 
+                              href={`${baseURL}${file.url}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="course-board__post-file-link"

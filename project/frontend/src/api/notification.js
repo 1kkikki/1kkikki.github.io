@@ -1,5 +1,5 @@
-import { BASE_URL } from "./config";
-const NOTIFICATION_URL = `${BASE_URL}/notification`;
+import { baseURL } from "./config";
+const NOTIFICATION_URL = `${baseURL}/notification`;
 
 export async function getNotifications(limit = 30) {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");

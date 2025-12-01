@@ -1,7 +1,7 @@
 import axios from "axios";
-import { BASE_URL } from "./config.js";
+import { baseURL } from "./config.js";
 
-const SCHEDULE_URL = `${BASE_URL}/schedule`;
+const SCHEDULE_URL = `${baseURL}/schedule`;
 
 // 토큰 가져오기
 const getAuthHeader = () => {

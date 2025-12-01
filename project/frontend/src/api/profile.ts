@@ -1,6 +1,6 @@
-import { BASE_URL } from "./config.js"; 
+import { baseURL } from "./config.js"; 
 
-const PROFILE_URL = `${BASE_URL}/profile`;        
+const PROFILE_URL = `${baseURL}/profile`;        
 
 // 프로필 불러오기
 export async function getProfile() {
