@@ -173,7 +173,7 @@ def toggle_join(recruitment_id):
                 notification = Notification(
                     user_id=member.user_id,
                     type="team_board_activated",
-                    content=f"[{course_title}] 모집 \"{recruitment.title[:20]}{'...' if len(recruitment.title) > 20 else ''}\"의 인원이 마감 되어 팀 게시판이 활성화되었습니다!",
+                    content=f"[{course_title}] 모집 \"{recruitment.title[:20]}{'...' if len(recruitment.title) > 20 else ''}\"의 인원이 마감되어 팀 게시판이 활성화되었습니다!",
                     related_id=recruitment_id,
                     course_id=recruitment.course_id
                 )

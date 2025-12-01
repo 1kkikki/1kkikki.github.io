@@ -323,6 +323,25 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
   };
 
   // 알림 클릭 핸들러
+  // 팀 게시판 이름 추출 헬퍼 함수
+  const extractTeamBoardName = (content: string): string | null => {
+    const patterns = [
+      /\] (.+?) 새 글이 작성되었습니다/,  // "] 팀이름 새 글이 작성되었습니다"
+      /팀 게시판 - (.+?)에 새 글/,       // "팀 게시판 - 팀이름에 새 글"
+      /팀 게시판 - (.+?)에/,             // "팀 게시판 - 팀이름에"
+      /팀게시판-([^\s]+)/,               // "팀게시판-팀이름"
+      /\] (.+?) 팀 게시판/,              // "] 팀이름 팀 게시판"
+    ];
+    
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  };
+
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
       // 낙관적 업데이트: UI를 먼저 업데이트
@@ -373,22 +392,22 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
             let category = "공지"; // 기본값
             let teamBoardName = null;
             
-            // 알림 내용에서 카테고리 추출
-            if (notification.type === 'team_post' || notification.content.includes('팀게시판')) {
+            // 알림 타입 기반으로 먼저 카테고리 추정
+            if (notification.type === 'notice') {
+              category = "공지";
+            } else if (notification.type === 'team_post') {
               category = "팀 게시판";
-              // 알림 내용에서 "팀게시판-{이름}" 패턴 추출
-              const match = notification.content.match(/팀게시판-([^\s]+)/);
-              if (match && match[1]) {
-                teamBoardName = match[1];
+              teamBoardName = extractTeamBoardName(notification.content);
+            } else if (notification.type === 'comment' || notification.type === 'reply') {
+              // 댓글/답글은 알림 내용에서 카테고리 추출
+              if (notification.content.includes('팀게시판') || notification.content.includes('팀 게시판')) {
+                category = "팀 게시판";
+                teamBoardName = extractTeamBoardName(notification.content);
+              } else if (notification.content.includes('공지')) {
+                category = "공지";
+              } else if (notification.content.includes('커뮤니티')) {
+                category = "커뮤니티";
               }
-            } else if (notification.content.includes('공지사항')) {
-              category = "공지"; // 탭 이름은 "공지"
-            } else if (notification.content.includes('자유게시판')) {
-              category = "커뮤니티"; // 탭 이름은 "커뮤니티"
-            } else if (notification.content.includes('질문게시판')) {
-              category = "커뮤니티"; // 탭 이름은 "커뮤니티"
-            } else if (notification.content.includes('커뮤니티')) {
-              category = "커뮤니티";
             }
             
             const targetData = {
