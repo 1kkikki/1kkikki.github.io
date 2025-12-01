@@ -121,7 +121,9 @@ def create_app():
 
     return app
 
+# gunicorn이 app 변수를 읽을 수 있도록 모듈 레벨에서 생성
+app = create_app()
+
 if __name__ == "__main__":
-    app = create_app()
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_ENV") == "development")
