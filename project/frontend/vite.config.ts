@@ -18,7 +18,7 @@ export default defineConfig({
     port: 3000,
     open: true,
     proxy: {
-      "/auth": "http://127.0.0.1:5000", // ✅ Flask 프록시 연결
+      "/auth": "https://allmeet-backend.onrender.com", // ✅ Flask 프록시 연결
     },
   },
 });
