@@ -1,6 +1,6 @@
-import { BASE_URL } from "./config";
+import { baseURL } from "./config";
 
-const RECRUIT_URL = `${BASE_URL}/recruit`;
+const RECRUIT_URL = `${baseURL}/recruit`;
 
 function getToken() {
   return localStorage.getItem("accessToken") || localStorage.getItem("token");

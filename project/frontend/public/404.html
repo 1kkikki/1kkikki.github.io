@@ -5,17 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>All Meet</title>
   <script>
-    // GitHub Pages SPA 라우팅: 모든 경로를 index.html로 리다이렉트
-    var path = window.location.pathname;
-    var search = window.location.search;
-    var hash = window.location.hash;
-    
-    // /allmeet 경로 유지
-    if (!path.startsWith('/allmeet')) {
-      path = '/allmeet' + (path === '/' ? '' : path);
-    }
-    
-    window.location.replace(path + search + hash);
+    // GitHub Pages SPA 라우팅: 404 오류 시 index.html로 리다이렉트
+    (function() {
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      
+      // 정적 파일이 아니고 index.html이 아닌 경우에만 리다이렉트
+      if (path !== '/index.html' && 
+          !path.startsWith('/assets/') && 
+          !path.startsWith('/favicon') &&
+          !path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+        // index.html로 리다이렉트 (경로 정보 유지)
+        var redirectPath = '/index.html';
+        if (search) {
+          redirectPath += search;
+        }
+        if (hash) {
+          redirectPath += hash;
+        }
+        // 경로 정보를 sessionStorage에 저장
+        sessionStorage.setItem('redirectPath', path);
+        window.location.replace(redirectPath);
+      }
+    })();
   </script>
 </head>
 <body>

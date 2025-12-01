@@ -1,6 +1,6 @@
 // 백엔드 주소 가져오기 (없으면 기본값 5000 사용)
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
-const API_URL = `${BASE_URL}/auth`;
+import { baseURL } from "./config";
+const API_URL = `${baseURL}/auth`;
 
 // ✅ 회원가입
 export async function register(userData) {

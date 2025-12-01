@@ -1,6 +1,6 @@
-import { BASE_URL } from "./config";
+import { baseURL } from "./config";
 
-const BOARD_URL = `${BASE_URL}/board`;
+const BOARD_URL = `${baseURL}/board`;
 
 // 게시물 존재 확인
 export async function checkPostExists(postId) {

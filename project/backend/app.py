@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request
+from flask import Flask
 from flask_cors import CORS
 from extensions import db, bcrypt, jwt
 from routes.auth import auth_bp
@@ -33,20 +33,21 @@ def create_app():
     bcrypt.init_app(app)
     jwt.init_app(app)
 
-    # CORS 설정 (개발 및 프로덕션 환경)
-    allowed_origins = {
-        "http://127.0.0.1:5173",
+    # CORS 설정
+    allowed_origins = [
         "http://localhost:5173",
-        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5173",
         "http://localhost:5175",
+        "http://127.0.0.1:5175",
+        "https://allmeet.site",
+        "https://www.allmeet.site",
         "https://1kkikki.github.io",
-        "https://allmeet.github.io",
-        os.getenv("FRONTEND_URL", ""),  # 환경 변수로 프론트엔드 URL 설정 가능
-    }
-    # 빈 문자열 제거
-    allowed_origins = {origin for origin in allowed_origins if origin}
-    
-    CORS(app, resources={r"/*": {"origins": list(allowed_origins)}}, supports_credentials=True)
+    ]
+
+    CORS(app, resources={r"/*": {
+        "origins": allowed_origins,
+        "supports_credentials": True
+    }})
 
     # 🔥 블루프린트 등록 (prefix는 각 파일에서 설정)
     app.register_blueprint(auth_bp)
@@ -117,25 +118,12 @@ def create_app():
     @app.route("/")
     def index():
         return {"message": "✅ Flask backend running!"}
-    
-    @app.before_request
-    def handle_options():
-        if request.method == "OPTIONS":
-            return '', 200
-        
-    @app.after_request
-    def add_cors_headers(response):
-        origin = request.headers.get("Origin")
-        if origin in allowed_origins:
-            response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        return response
 
     return app
 
+# gunicorn이 app 변수를 읽을 수 있도록 모듈 레벨에서 생성
+app = create_app()
+
 if __name__ == "__main__":
-    app = create_app()
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_ENV") == "development")

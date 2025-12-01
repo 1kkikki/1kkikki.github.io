@@ -6,6 +6,7 @@ import { getBoardPosts, createBoardPost, deleteBoardPost, updateBoardPost, getCo
 import { getRecruitments, createRecruitment, toggleRecruitmentJoin, deleteRecruitment, activateTeamBoard, getTeamBoards } from "../../api/recruit";
 import { getTeamCommonAvailability, addAvailableTime, getMyAvailableTimes, deleteAvailableTime, submitTeamAvailability } from "../../api/available";
 import { getNotifications, markAsRead, markAllAsRead } from "../../api/notification";
+import { baseURL } from "../../api/config";
 import {
   Home,
   Bell,
@@ -2586,7 +2587,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     setEditPostContent(post.content);
     setEditPostFiles(post.files ? post.files.map(f => ({
       ...f,
-      preview: f.type === 'image' ? `http://127.0.0.1:5000${f.url}` : undefined
+      preview: f.type === 'image' ? `${baseURL}${f.url}` : undefined
     })) : []);
     setEditPostPoll(post.poll ? { ...post.poll } : null);
     setIsEditPostOpen(true);
@@ -3607,7 +3608,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                     <div key={index} className="course-board__file-preview-item">
                       {file.type === 'image' && (file.preview || file.url) && (
                         <img 
-                          src={file.preview || `http://127.0.0.1:5000${file.url}`} 
+                          src={file.preview || `${baseURL}${file.url}`} 
                           alt={file.original_name}
                           className="course-board__file-preview-image"
                         />
@@ -3880,13 +3881,13 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                         <div key={index} className="course-board__post-file-item">
                           {file.type === 'image' && (
                             <a 
-                              href={`http://127.0.0.1:5000${file.url}`} 
+                              href={`${baseURL}${file.url}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="course-board__post-file-link"
                             >
                               <img 
-                                src={`http://127.0.0.1:5000${file.url}`} 
+                                src={`${baseURL}${file.url}`} 
                                 alt={file.original_name}
                                 className="course-board__post-file-image"
                               />
@@ -3895,7 +3896,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                           {file.type === 'video' && (
                             <div className="course-board__post-file-video-wrapper">
                               <video 
-                                src={`http://127.0.0.1:5000${file.url}`}
+                                src={`${baseURL}${file.url}`}
                                 controls
                                 className="course-board__post-file-video"
                               />
@@ -3903,7 +3904,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                           )}
                           {file.type === 'file' && (
                             <a 
-                              href={`http://127.0.0.1:5000${file.url}`} 
+                              href={`${baseURL}${file.url}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="course-board__post-file-link"

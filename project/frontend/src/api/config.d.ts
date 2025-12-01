@@ -1,2 +1,2 @@
-export const BASE_URL: string;
+export const baseURL: string;
 
