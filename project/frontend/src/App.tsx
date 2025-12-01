@@ -118,7 +118,14 @@ function AppContent() {
       // URL로 변환하여 리다이렉트
       navigate(`/course/${encodeURIComponent(courseId)}/${encodeURIComponent(courseName || '강의')}/${encodeURIComponent(courseCode || '')}`, { replace: true });
     }
-  }, [navigate]);
+    
+    // 404.html에서 저장한 리다이렉트 경로 처리
+    const redirectPath = sessionStorage.getItem('redirectPath');
+    if (redirectPath && redirectPath !== location.pathname) {
+      sessionStorage.removeItem('redirectPath');
+      navigate(redirectPath, { replace: true });
+    }
+  }, [navigate, location.pathname]);
 
   const handleNavigate = (page: string) => {
     // course-join-login인 경우 localStorage에서 강의 정보 확인
