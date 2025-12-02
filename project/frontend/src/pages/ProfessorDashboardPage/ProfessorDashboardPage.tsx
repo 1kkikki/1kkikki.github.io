@@ -694,8 +694,8 @@ export default function MainDashboardPage({ onNavigate }: MainDashboardPageProps
       setShowAlert(true);
     } catch (err: any) {
       console.error("강의 추가 실패:", err);
-      if (err.response?.data?.message) {
-        setAlertMessage(err.response.data.message);
+      if (err.message) {
+        setAlertMessage(err.message);
       } else {
         setAlertMessage("강의 추가 중 오류가 발생했습니다.");
       }

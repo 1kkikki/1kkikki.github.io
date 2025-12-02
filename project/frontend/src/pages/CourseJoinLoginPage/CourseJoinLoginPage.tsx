@@ -64,21 +64,20 @@ export default function CourseJoinLoginPage({
               onNavigate('student-dashboard', 'student');
             }, 1500);
           } catch (err: any) {
-            if (err.response?.data?.message) {
-              // 이미 수강 중인 경우
-              if (err.response.data.message.includes("이미 수강")) {
-                // 이미 수강 중인 경우에도 localStorage 정리
-                localStorage.removeItem('pendingCourseJoin');
-                setAlertMessage(`이미 수강 중인 강의입니다.`);
-                setShowAlert(true);
-                setTimeout(() => {
-                  onNavigate('student-dashboard', 'student');
-                }, 1500);
-              } else {
-                setError(err.response.data.message);
-              }
+            // fetch API를 사용하므로 err.message를 확인
+            const errorMessage = err.message || err.response?.data?.message || "강의 참여 중 오류가 발생했습니다.";
+            
+            // 이미 수강 중인 경우
+            if (errorMessage.includes("이미 수강")) {
+              // 이미 수강 중인 경우에도 localStorage 정리
+              localStorage.removeItem('pendingCourseJoin');
+              setAlertMessage(`이미 수강 중인 강의입니다.`);
+              setShowAlert(true);
+              setTimeout(() => {
+                onNavigate('student-dashboard', 'student');
+              }, 1500);
             } else {
-              setError("강의 참여 중 오류가 발생했습니다.");
+              setError(errorMessage);
             }
           }
         } else {
