@@ -240,6 +240,16 @@ def create_auto_recommend_post(team_id):
         AvailableTime.team_id.is_(None)  # team_id가 None인 것 (대시보드용)
     ).all()
     
+    print(f"[DEBUG] 팀 {team_id} 시간 데이터 수집:")
+    print(f"[DEBUG]   - 팀 제출 시간: {len(team_submitted_times)}개")
+    print(f"[DEBUG]   - 대시보드 시간: {len(dashboard_times)}개")
+    for member_id in member_ids:
+        member_team_times = [t for t in team_submitted_times if t.user_id == member_id]
+        member_dashboard_times = [t for t in dashboard_times if t.user_id == member_id]
+        user = User.query.get(member_id)
+        user_name = user.name if user else f"User{member_id}"
+        print(f"[DEBUG]   - {user_name} (ID: {member_id}): 팀 시간 {len(member_team_times)}개, 대시보드 시간 {len(member_dashboard_times)}개")
+    
     # 각 멤버별로 팀 제출 시간 또는 대시보드 시간 매핑
     team_user_times = defaultdict(list)
     dashboard_user_times = defaultdict(list)
@@ -251,6 +261,11 @@ def create_auto_recommend_post(team_id):
         dashboard_user_times[time_slot.user_id].append(time_slot)
     
     print(f"[DEBUG] 팀 멤버 수: {len(team_members)}, 팀 제출 시간 수: {len(team_submitted_times)}, 대시보드 시간 수: {len(dashboard_times)}")
+    print(f"[DEBUG] 제출한 멤버 수: {len(submitted_user_ids)}, 제출한 멤버 IDs: {submitted_user_ids}")
+    
+    # 모든 멤버가 제출했는지 확인
+    all_members_submitted = len(submitted_user_ids) == len(member_ids) and all(mid in submitted_user_ids for mid in member_ids)
+    print(f"[DEBUG] 모든 멤버 제출 여부: {all_members_submitted}")
     
     member_slot_sets = []
     for member in team_members:
@@ -258,20 +273,22 @@ def create_auto_recommend_post(team_id):
         if not user:
             continue
         
-        # 해당 팀에 제출했으면: 대시보드 연동 시간 + 팀에서 추가한 시간 모두 사용
-        # 제출하지 않았으면: 대시보드 시간만 사용
-        if member.user_id in submitted_user_ids:
-            # 제출한 경우: 대시보드 시간 + 팀 제출 시간 모두 합치기
+        # 모든 멤버가 제출했다면, 모든 멤버에 대해 대시보드 시간 + 팀 제출 시간 모두 사용
+        # 일부만 제출했다면, 제출한 멤버는 대시보드+팀 시간, 제출하지 않은 멤버는 대시보드 시간만 사용
+        if all_members_submitted or member.user_id in submitted_user_ids:
+            # 모든 멤버가 제출했거나, 이 멤버가 제출한 경우: 대시보드 시간 + 팀 제출 시간 모두 합치기
             dashboard_times_for_user = dashboard_user_times.get(user.id, [])
             team_times_for_user = team_user_times.get(user.id, [])
             times_for_user = dashboard_times_for_user + team_times_for_user
+            time_source = "dashboard+team"
         else:
             # 제출하지 않은 경우: 대시보드 시간만 사용
             times_for_user = dashboard_user_times.get(user.id, [])
+            time_source = "dashboard"
         
         slot_set = build_time_slots(times_for_user)
         member_slot_sets.append(slot_set)
-        print(f"[DEBUG] 멤버 {user.name} (ID: {user.id})의 시간 슬롯 수: {len(slot_set)} (제출 여부: {member.user_id in submitted_user_ids})")
+        print(f"[DEBUG] 멤버 {user.name} (ID: {user.id})의 시간 슬롯 수: {len(slot_set)}, 시간 소스: {time_source}, 제출 여부: {member.user_id in submitted_user_ids}, 대시보드 시간: {len(dashboard_user_times.get(user.id, []))}, 팀 시간: {len(team_user_times.get(user.id, []))}")
     
     if len(member_slot_sets) == 0:
         print(f"[DEBUG] 멤버 슬롯 세트가 없음: team_id={team_id}")
@@ -280,19 +297,27 @@ def create_auto_recommend_post(team_id):
     # 시간이 있는 멤버만 필터링 (시간이 없는 멤버는 제외하고 공통 시간 계산)
     member_slot_sets_with_time = [s for s in member_slot_sets if len(s) > 0]
     
+    print(f"[DEBUG] 전체 멤버 슬롯 세트 수: {len(member_slot_sets)}, 시간이 있는 멤버 슬롯 세트 수: {len(member_slot_sets_with_time)}")
+    
     if len(member_slot_sets_with_time) == 0:
         print(f"[DEBUG] 시간이 있는 멤버가 없음: team_id={team_id}")
         return None
     
+    if len(member_slot_sets_with_time) < len(member_slot_sets):
+        print(f"[DEBUG] ⚠️ 일부 멤버({len(member_slot_sets) - len(member_slot_sets_with_time)}명)에게 시간 데이터가 없음. 시간이 있는 멤버들만으로 공통 시간 계산 진행.")
+    
     # 공통 시간 계산 (시간이 있는 멤버들 간의 공통 시간)
     member_slot_sets_with_time.sort(key=len)
     base_slots = member_slot_sets_with_time[0]
+    print(f"[DEBUG] 기준 슬롯 세트 크기: {len(base_slots)}")
+    
     optimal_slots = {slot for slot in base_slots if all(slot in slots for slots in member_slot_sets_with_time)}
     
     print(f"[DEBUG] 공통 시간 슬롯 수: {len(optimal_slots)}")
     
     if len(optimal_slots) == 0:
         print(f"[DEBUG] 공통 시간이 없음: team_id={team_id}")
+        print(f"[DEBUG] 각 멤버의 슬롯 세트 크기: {[len(s) for s in member_slot_sets_with_time]}")
         return None
     
     daily_blocks = build_daily_blocks_from_slots(optimal_slots)
