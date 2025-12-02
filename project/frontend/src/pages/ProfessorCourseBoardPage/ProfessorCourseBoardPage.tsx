@@ -1182,6 +1182,27 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     }
   };
 
+  // UTC 시간을 한국 시간으로 변환하는 함수
+  const formatToKST = (dateString: string): string => {
+    try {
+      if (!dateString) return dateString;
+      
+      // ISO 형식 (UTC)을 한국 시간으로 변환
+      const date = new Date(dateString);
+      const year = date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric" });
+      const month = date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit" });
+      const day = date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", day: "2-digit" });
+      const hour = date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", hour12: false });
+      const minute = date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", minute: "2-digit" });
+      
+      return `${year}-${month}-${day} ${hour}:${minute}`;
+    } catch (error) {
+      console.error('시간 변환 오류:', error, dateString);
+      // 하위 호환: 기존 형식이면 그대로 반환
+      return dateString;
+    }
+  };
+
   // 상대 시간 계산 (몇분 전, 몇시간 전, 날짜)
   const getRelativeTime = (dateString: string): string => {
     try {
@@ -1189,10 +1210,10 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       let notifDate: Date;
       
       if (dateString.includes('T')) {
-        // ISO 형식
+        // ISO 형식 (UTC)
         notifDate = new Date(dateString);
       } else {
-        // "2025-11-24 12:27" 형식을 로컬 시간으로 정확히 파싱
+        // "2025-11-24 12:27" 형식 (하위 호환)
         const [datePart, timePart] = dateString.split(' ');
         const [year, month, day] = datePart.split('-');
         const [hour, minute] = timePart.split(':');
@@ -2635,7 +2656,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                           <span className="course-board__post-author-professor">교수</span>
                         )}
                       </div>
-                      <span className="course-board__post-timestamp">{post.timestamp}</span>
+                      <span className="course-board__post-timestamp">{formatToKST(post.timestamp)}</span>
                     </div>
                   </div>
                   {post.isPinned && (
@@ -3398,7 +3419,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
                         <span className="course-board__post-author-professor">교수</span>
                       )}
                     </div>
-                    <span className="course-board__post-timestamp">{selectedPost.timestamp}</span>
+                    <span className="course-board__post-timestamp">{formatToKST(selectedPost.timestamp)}</span>
                   </div>
                 </div>
               </div>

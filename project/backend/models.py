@@ -1,5 +1,46 @@
 from extensions import db
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Python 3.8 이하를 위한 fallback
+    from backports.zoneinfo import ZoneInfo
+
+# UTC로 현재 시간을 가져오는 함수
+def utcnow():
+    """UTC로 현재 시간 반환"""
+    return datetime.utcnow()
+
+# UTC 시간을 ISO 형식으로 반환하는 헬퍼 함수 (프론트엔드에서 변환)
+def to_iso_utc(dt):
+    """UTC 시간을 ISO 형식 문자열로 반환
+    프론트엔드에서 한국 시간으로 변환해서 표시합니다.
+    """
+    if dt is None:
+        return None
+    
+    try:
+        # naive datetime인 경우 UTC로 가정 (utcnow()로 저장했으므로)
+        if dt.tzinfo is None:
+            # UTC로 설정
+            dt_utc = dt.replace(tzinfo=ZoneInfo('UTC'))
+        else:
+            # 이미 timezone 정보가 있으면 그대로 사용
+            dt_utc = dt
+        
+        # ISO 형식으로 반환 (예: "2025-12-02T11:09:00+00:00")
+        return dt_utc.isoformat()
+    except Exception as e:
+        # 오류 발생 시 원본 시간 반환 (fallback)
+        print(f"시간 변환 오류: {e}, 원본 시간: {dt}")
+        if dt:
+            # UTC로 가정하고 ISO 형식 반환
+            try:
+                dt_utc = dt.replace(tzinfo=ZoneInfo('UTC'))
+                return dt_utc.isoformat()
+            except:
+                return dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+        return None
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -10,7 +51,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     user_type = db.Column(db.String(20), nullable=False, default='student')  # 'student' or 'professor'
     profile_image = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     def to_dict(self):
         return {
@@ -56,7 +97,7 @@ class Course(db.Model):
     title = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20), nullable=False, unique=True)
     professor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     professor = db.relationship("User", backref=db.backref("courses", lazy=True))
 
@@ -67,7 +108,7 @@ class Course(db.Model):
             "code": self.code,
             "professor_id": self.professor_id,
             "professor_name": self.professor.name if self.professor else None,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M")
+            "created_at": to_iso_utc(self.created_at)
         }
 
 # 수강 신청 (학생-강의 관계)
@@ -88,7 +129,7 @@ class Enrollment(db.Model):
             "student_id": self.student_id,
             "course_id": self.course_id,
             "course": self.course.to_dict() if self.course else None,
-            "enrolled_at": self.enrolled_at.strftime("%Y-%m-%d %H:%M")
+            "enrolled_at": to_iso_utc(self.enrolled_at)
         }
 
 # 게시판
@@ -104,7 +145,7 @@ class CourseBoardPost(db.Model):
     team_board_name = db.Column(db.String(100), nullable=True)  # 팀 게시판 이름 (team 카테고리인 경우)
     files = db.Column(db.Text, nullable=True)  # JSON 문자열로 파일 정보 저장
     is_pinned = db.Column(db.Boolean, default=False, nullable=False)  # 게시물 고정 여부
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     author = db.relationship("User")
 
@@ -230,7 +271,7 @@ class CourseBoardPost(db.Model):
             "team_board_name": self.team_board_name,
             "files": files_data,
             "poll": poll_data,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
+            "created_at": to_iso_utc(self.created_at),
             "likes": likes_count,
             "is_liked": is_liked,
             "comments_count": comments_count,
@@ -246,7 +287,7 @@ class CourseBoardComment(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     parent_comment_id = db.Column(db.Integer, db.ForeignKey("course_board_comments.id"), nullable=True)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     author = db.relationship("User")
     post = db.relationship("CourseBoardPost", backref=db.backref("board_comments", lazy=True))
@@ -287,7 +328,7 @@ class CourseBoardComment(db.Model):
             "content": self.content,
             "likes": likes_count,
             "is_liked": is_liked,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M")
+            "created_at": to_iso_utc(self.created_at)
         }
 
 # 게시판 좋아요
@@ -297,7 +338,7 @@ class CourseBoardLike(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey("course_board_posts.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship("User")
     post = db.relationship("CourseBoardPost", backref=db.backref("board_likes", lazy=True))
@@ -310,7 +351,7 @@ class CourseBoardCommentLike(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     comment_id = db.Column(db.Integer, db.ForeignKey("course_board_comments.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship("User")
     comment = db.relationship("CourseBoardComment", backref=db.backref("comment_likes", lazy=True))
@@ -329,7 +370,7 @@ class TeamRecruitment(db.Model):
     team_board_name = db.Column(db.String(100), nullable=True)
     max_members = db.Column(db.Integer, nullable=False, default=3)
     is_board_activated = db.Column(db.Boolean, default=False)  # 팀 게시판 활성화 여부
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     author = db.relationship("User")
 
@@ -409,7 +450,7 @@ class TeamRecruitment(db.Model):
             "members": members_data,
             "is_joined": is_joined,
             "is_board_activated": self.is_board_activated,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
+            "created_at": to_iso_utc(self.created_at),
         }
 
 
@@ -440,7 +481,7 @@ class Schedule(db.Model):
     year = db.Column(db.Integer, nullable=False)
     color = db.Column(db.String(20), nullable=False, default='#a8d5e2')
     category = db.Column(db.String(50), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship("User", backref=db.backref("schedules", lazy=True))
 
@@ -454,7 +495,7 @@ class Schedule(db.Model):
             "year": self.year,
             "color": self.color,
             "category": self.category,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M")
+            "created_at": to_iso_utc(self.created_at)
         }
 
 
@@ -470,7 +511,7 @@ class Notification(db.Model):
     comment_id = db.Column(db.Integer, nullable=True)  # 관련 댓글 ID (댓글/답글 알림인 경우)
     course_id = db.Column(db.String(20), nullable=True)  # 관련 강의 코드
     is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship("User", backref=db.backref("notifications", lazy=True))
 
@@ -483,7 +524,7 @@ class Notification(db.Model):
             "comment_id": self.comment_id,
             "course_id": self.course_id,
             "is_read": self.is_read,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
+            "created_at": to_iso_utc(self.created_at),
         }
 
 # 투표
@@ -494,7 +535,7 @@ class Poll(db.Model):
     post_id = db.Column(db.Integer, db.ForeignKey("course_board_posts.id"), nullable=False)
     question = db.Column(db.String(500), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     post = db.relationship("CourseBoardPost", backref=db.backref("poll_relation", lazy=True))
 
@@ -505,7 +546,7 @@ class PollOption(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     poll_id = db.Column(db.Integer, db.ForeignKey("polls.id"), nullable=False)
     text = db.Column(db.String(200), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     poll = db.relationship("Poll", backref=db.backref("options_relation", lazy=True, cascade="all, delete-orphan"))
 
@@ -517,7 +558,7 @@ class PollVote(db.Model):
     poll_id = db.Column(db.Integer, db.ForeignKey("polls.id"), nullable=False)
     option_id = db.Column(db.Integer, db.ForeignKey("poll_options.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     poll = db.relationship("Poll", backref=db.backref("votes_relation", lazy=True))
     option = db.relationship("PollOption", backref=db.backref("votes_relation", lazy=True))
@@ -537,6 +578,6 @@ class TeamAvailabilitySubmission(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     team_id = db.Column(db.Integer, db.ForeignKey("team_recruitments.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    submitted_at = db.Column(db.DateTime, default=datetime.now)
+    submitted_at = db.Column(db.DateTime, default=utcnow)
 
     __table_args__ = (db.UniqueConstraint("team_id", "user_id", name="uq_team_user_submission"),)
