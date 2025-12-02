@@ -616,9 +616,9 @@ def vote_poll(post_id):
     if not option:
         return jsonify({"message": "유효하지 않은 투표 옵션입니다."}), 400
     
-    # 마감 시간 확인
-    from datetime import datetime
-    if poll.expires_at and poll.expires_at < datetime.now():
+    # 마감 시간 확인 (UTC 기준)
+    from datetime import datetime, timezone
+    if poll.expires_at and poll.expires_at < datetime.now(timezone.utc):
         return jsonify({"message": "마감된 투표입니다."}), 400
     
     # 이미 투표했는지 확인

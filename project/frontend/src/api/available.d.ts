@@ -30,6 +30,7 @@ export interface TeamAvailabilityResponse {
   optimal_slots: string[];
   slot_counts: Record<string, number>;
   daily_blocks: Record<string, Array<{ start_time: string; end_time: string }>>;
+  current_user_submitted?: boolean; // 현재 사용자의 제출 여부
 }
 
 export function addAvailableTime(

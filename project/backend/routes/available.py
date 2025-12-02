@@ -598,6 +598,10 @@ def get_team_common_times(team_id):
 
     daily_blocks = build_daily_blocks_from_slots(optimal_slots)
 
+    # 현재 사용자의 제출 여부 확인
+    current_user_id = get_jwt_identity()
+    current_user_submitted = current_user_id in submitted_user_ids
+
     return jsonify({
         "team_id": team_id,
         "team_board_name": team_recruitment.team_board_name,
@@ -607,6 +611,7 @@ def get_team_common_times(team_id):
         "optimal_slots": sorted(optimal_slots),
         "slot_counts": slot_counts,
         "daily_blocks": daily_blocks,
+        "current_user_submitted": current_user_submitted,  # 현재 사용자의 제출 여부
     })
 
 # 1시간 연속 가능한 시간을 자동 추천하고 봇이 게시글 올리기

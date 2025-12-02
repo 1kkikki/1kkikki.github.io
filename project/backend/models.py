@@ -1,15 +1,10 @@
 from extensions import db
-from datetime import datetime
-try:
-    from zoneinfo import ZoneInfo
-except ImportError:
-    # Python 3.8 이하를 위한 fallback
-    from backports.zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 # UTC로 현재 시간을 가져오는 함수
 def utcnow():
-    """UTC로 현재 시간 반환"""
-    return datetime.utcnow()
+    """UTC로 현재 시간 반환 (timezone-aware)"""
+    return datetime.now(timezone.utc)
 
 # UTC 시간을 ISO 형식으로 반환하는 헬퍼 함수 (프론트엔드에서 변환)
 def to_iso_utc(dt):
@@ -22,8 +17,8 @@ def to_iso_utc(dt):
     try:
         # naive datetime인 경우 UTC로 가정 (utcnow()로 저장했으므로)
         if dt.tzinfo is None:
-            # UTC로 설정
-            dt_utc = dt.replace(tzinfo=ZoneInfo('UTC'))
+            # UTC로 설정 (timezone.utc 사용 - 표준 라이브러리, 항상 사용 가능)
+            dt_utc = dt.replace(tzinfo=timezone.utc)
         else:
             # 이미 timezone 정보가 있으면 그대로 사용
             dt_utc = dt
@@ -36,9 +31,10 @@ def to_iso_utc(dt):
         if dt:
             # UTC로 가정하고 ISO 형식 반환
             try:
-                dt_utc = dt.replace(tzinfo=ZoneInfo('UTC'))
+                dt_utc = dt.replace(tzinfo=timezone.utc)
                 return dt_utc.isoformat()
             except:
+                # 최후의 수단: naive datetime을 그대로 ISO 형식으로 반환
                 return dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
         return None
 
@@ -118,7 +114,7 @@ class Enrollment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
-    enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
+    enrolled_at = db.Column(db.DateTime, default=utcnow)
 
     student = db.relationship("User", backref=db.backref("enrollments", lazy=True))
     course = db.relationship("Course", backref=db.backref("enrollments", lazy=True))
@@ -461,7 +457,7 @@ class TeamRecruitmentMember(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     recruitment_id = db.Column(db.Integer, db.ForeignKey("team_recruitments.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    joined_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship("User")
     recruitment = db.relationship(

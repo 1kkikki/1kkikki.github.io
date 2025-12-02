@@ -11,6 +11,21 @@ export async function register(userData) {
       body: JSON.stringify(userData),
     });
 
+    // 응답이 없거나 실패한 경우
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText || "서버 오류가 발생했습니다." };
+      }
+      return {
+        status: res.status,
+        ...errorData,
+      };
+    }
+
     const data = await res.json();
     return {
       status: res.status,
@@ -18,6 +33,12 @@ export async function register(userData) {
     };
   } catch (error) {
     console.error("회원가입 API 오류:", error);
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      return { 
+        message: "서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.", 
+        status: 500 
+      };
+    }
     return { message: "서버 오류가 발생했습니다.", status: 500 };
   }
 }
@@ -31,6 +52,21 @@ export async function login(credentials) {
       body: JSON.stringify(credentials),
     });
 
+    // 응답이 없거나 실패한 경우
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText || "서버 오류가 발생했습니다." };
+      }
+      return {
+        status: res.status,
+        ...errorData,
+      };
+    }
+
     const data = await res.json();
 
     // localStorage 저장은 AuthContext의 login 함수에서 처리하므로 여기서는 제거
@@ -42,6 +78,13 @@ export async function login(credentials) {
     };
   } catch (error) {
     console.error("로그인 API 오류:", error);
+    // CORS 오류나 네트워크 오류인 경우
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      return { 
+        message: "서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.", 
+        status: 500 
+      };
+    }
     return { message: "서버 오류가 발생했습니다.", status: 500 };
   }
 }

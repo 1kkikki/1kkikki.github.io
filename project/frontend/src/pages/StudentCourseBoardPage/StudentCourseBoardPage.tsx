@@ -225,6 +225,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
   const [isResultView, setIsResultView] = useState(false);
   // 팀별 제출 여부를 추적 (teamId -> boolean)
   const [teamSubmittedMap, setTeamSubmittedMap] = useState<Map<number, boolean>>(new Map());
+  // 현재 사용자의 제출 여부 (서버에서 받아온 값)
+  const [currentUserSubmitted, setCurrentUserSubmitted] = useState(false);
   const SCHEDULE_START_HOUR = 9;
   const SCHEDULE_END_HOUR = 20;
   const SCHEDULE_ROW_COUNT = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR + 1;
@@ -2082,6 +2084,7 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       // 제출 완료 후 결과 보기 모드로 전환
       if (currentTeamBoard) {
         setIsResultView(true);
+        setCurrentUserSubmitted(true);
         setTeamSubmittedMap(prev => {
           const newMap = new Map(prev);
           newMap.set(currentTeamBoard.id, true);
@@ -2124,6 +2127,8 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
 
       setTeamMemberAvailabilities(data.members || []);
       setTeamSize(data.team_size ?? data.members?.length ?? 0);
+      // 현재 사용자의 제출 여부 저장
+      setCurrentUserSubmitted((data as any).current_user_submitted ?? false);
       // teamId가 명시적으로 전달된 경우 해당 팀의 이름 사용
       if (teamId && currentTeamBoard?.id === teamId) {
         setTeamModalName(data.team_board_name ?? currentTeamBoard.team_board_name ?? null);
@@ -2174,18 +2179,20 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
       // 3. 두 시간을 합치기
       setMyAvailableTimes([...formattedDashboardTimes, ...formattedTeamTimes]);
       
-      // 해당 팀에 제출한 시간이 있는지 확인 (팀 시간이 하나라도 있으면 제출한 것으로 간주)
-      const hasTeamTimes = formattedTeamTimes.length > 0;
+      // 모달을 열기 전에 해당 팀의 데이터를 명시적으로 불러오기 (제출 여부 확인을 위해)
+      await loadTeamAvailability(currentTeamBoard.id);
+      
+      // 서버에서 받아온 제출 여부를 사용하여 결과 뷰 설정
+      // currentUserSubmitted는 loadTeamAvailability에서 설정됨
+      // 제출한 적이 없으면 입력 뷰로 시작, 있으면 결과 뷰로 시작
+      setIsResultView(currentUserSubmitted);
+      
+      // teamSubmittedMap도 업데이트 (다음에 모달을 열 때 빠른 확인을 위해)
       setTeamSubmittedMap(prev => {
         const newMap = new Map(prev);
-        newMap.set(currentTeamBoard.id, hasTeamTimes);
+        newMap.set(currentTeamBoard.id, currentUserSubmitted);
         return newMap;
       });
-      
-      // 이전에 제출한 적이 있으면 결과 뷰로 시작, 없으면 입력 뷰로 시작
-      // teamSubmittedMap에 저장된 값도 확인 (이전에 제출한 적이 있는지)
-      const hasSubmittedBefore = teamSubmittedMap.get(currentTeamBoard.id) || hasTeamTimes;
-      setIsResultView(hasSubmittedBefore);
     } catch (error) {
       console.error("시간 불러오기 실패:", error);
       setMyAvailableTimes([]);
@@ -2194,9 +2201,6 @@ export default function CourseBoardPage({ course, onBack, onNavigate }: CourseBo
     
     setTeamSlotsError("");
     setTeamModalName(currentTeamBoard.team_board_name ?? null);
-    
-    // 모달을 열기 전에 해당 팀의 데이터를 명시적으로 불러오기
-    await loadTeamAvailability(currentTeamBoard.id);
     
     setIsAvailableTimeModalOpen(true);
   };
